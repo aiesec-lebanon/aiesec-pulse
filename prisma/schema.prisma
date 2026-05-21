@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  MCP
+  MEMBER
+}
+
+enum PostStatus {
+  PUBLISHED
+  PENDING
+  REJECTED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  aiesecUserId  String   @unique
+  fullName      String
+  role          UserRole
+  committeeId   String?
+  committeeName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  posts       Post[]
+  comments    Comment[]
+  likes       Like[]
+  oauthTokens OauthToken?
+
+  @@index([role])
+}
+
+model OauthToken {
+  userId       String   @id
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  actions AdminAction[]
+}
+
+model Post {
+  id              String     @id @default(cuid())
+  authorId        String
+  title           String
+  content         String     @db.Text
+  mediaUrl        String?
+  linkUrl         String?
+  status          PostStatus @default(PUBLISHED)
+  weekIso         String
+  rejectionReason String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  author   User      @relation(fields: [authorId], references: [id])
+  comments Comment[]
+  likes    Like[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([authorId, weekIso])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  postId    String
+  userId    String
+  content   String    @db.Text
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([postId, createdAt])
+}
+
+model Like {
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([postId, userId])
+  @@index([postId])
+}
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id])
+
+  @@index([createdAt(sort: Desc)])
+  @@index([adminId, createdAt(sort: Desc)])
+}
