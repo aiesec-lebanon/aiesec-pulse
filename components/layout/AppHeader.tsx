@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/app/context/auth-context";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -42,7 +42,8 @@ export function AppHeader() {
             AIESEC Pulse
           </span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
           {user ? (
             <>
               <div className="text-right">

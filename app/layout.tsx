@@ -3,6 +3,7 @@ import { Lato } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./context/auth-context";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { Providers } from "@/components/providers";
 
 const lato = Lato({
   variable: "--font-lato",
@@ -22,12 +23,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${lato.variable} h-full antialiased`}>
+    <html lang="en" className={`${lato.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
-        <AuthProvider>
-          <AppHeader />
-          {children}
-        </AuthProvider>
+        <Providers>
+          <AuthProvider>
+            <AppHeader />
+            {children}
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );
