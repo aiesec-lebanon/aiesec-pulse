@@ -1,19 +1,34 @@
-// Idempotent admin bootstrap. Run via: npm run seed
-// Reads ADMIN_EMAIL and ADMIN_PASSWORD from env, bcrypts the password,
-// and upserts an Admin row. Safe to re-run.
-// TODO: implement seeding logic once lib/db.ts Prisma client is wired up.
+import "dotenv/config";
+import { PrismaClient } from "../app/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import bcryptjs from "bcryptjs";
 
 async function main() {
   const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
 
   if (!email || !password) {
-    throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD must be set in environment");
+    console.error("Error: ADMIN_EMAIL and ADMIN_PASSWORD must be set in environment");
+    process.exit(1);
   }
 
-  console.log(`Seeding admin: ${email}`);
-  // TODO: import db from lib/db, import bcryptjs, hash password, db.admin.upsert
-  console.log("Seed complete (implementation pending).");
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL is not set");
+
+  const adapter = new PrismaPg(connectionString);
+  const db = new PrismaClient({ adapter });
+
+  const passwordHash = await bcryptjs.hash(password, 10);
+
+  await db.admin.upsert({
+    where: { email },
+    update: {},
+    create: { email, passwordHash },
+  });
+
+  await db.$disconnect();
+
+  console.log(`Admin seeded: ${email}`);
 }
 
 main().catch((e) => {

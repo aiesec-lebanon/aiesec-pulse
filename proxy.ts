@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { jwtVerify } from "jose";
 
 /**
  * The middleware runs **before every matched request** and
@@ -10,8 +11,43 @@ import { NextRequest, NextResponse } from "next/server";
  * 4. If a valid token exists → allow request to proceed
  */
 
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
+    const { pathname } = req.nextUrl;
 
+    // ── Admin routes ──────────────────────────────────────────────────────────
+    // Runs independently of AIESEC user logic — admins have no AIESEC cookies.
+    if (pathname.startsWith("/admin")) {
+        // Login page is always reachable; the RSC itself handles already-logged-in redirect.
+        if (pathname === "/admin/login") {
+            return NextResponse.next();
+        }
+
+        const adminToken = req.cookies.get("admin_session")?.value;
+        if (!adminToken) {
+            return NextResponse.redirect(new URL("/admin/login", req.url));
+        }
+
+        const rawSecret = process.env.ADMIN_SESSION_SECRET;
+        if (!rawSecret || rawSecret.length < 32) {
+            return NextResponse.redirect(new URL("/admin/login", req.url));
+        }
+
+        try {
+            const { payload } = await jwtVerify(
+                adminToken,
+                new TextEncoder().encode(rawSecret),
+            );
+            if (payload.kind !== "admin") {
+                return NextResponse.redirect(new URL("/admin/login", req.url));
+            }
+        } catch {
+            return NextResponse.redirect(new URL("/admin/login", req.url));
+        }
+
+        return NextResponse.next();
+    }
+
+    // ── AIESEC user routes ────────────────────────────────────────────────────
     const aiesecToken = req.cookies.get("aiesec_token")?.value;
     const refreshToken = req.cookies.get("refresh_token")?.value;
     const tokenExpiresAt = req.cookies.get("token_expires_at")?.value;
@@ -54,5 +90,6 @@ export const config = {
      * - static files        → public assets
      */
     "/((?!login|api/auth|unauthorized|_next/static|_next/image|aiesec_man.png).*)",
+    "/admin/:path*",
   ],
 };

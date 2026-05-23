@@ -1,8 +1,8 @@
 // Returns the ISO week string for a given date, e.g. "2026-W21".
 // Fixed ISO calendar week: Monday 00:00 UTC → Sunday 23:59 UTC.
 // Used to key the weekly post-count limit for MCPs.
-export function currentIsoWeek(date: Date): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+export function currentIsoWeek(date: Date = new Date()): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = d.getUTCDay() || 7; // make Sunday = 7
   d.setUTCDate(d.getUTCDate() + 4 - day); // shift to Thursday of the ISO week
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));

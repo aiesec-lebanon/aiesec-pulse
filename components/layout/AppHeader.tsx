@@ -5,11 +5,14 @@ import { useAuth } from "@/app/context/auth-context";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export function AppHeader() {
+  const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+
+  if (pathname.startsWith("/admin")) return null;
   const [isSwitching, setIsSwitching] = useState(false);
 
   const redirectToLogin = () => {
