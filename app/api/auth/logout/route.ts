@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-export async function POST() {
-  const response = NextResponse.json({ ok: true });
+export async function POST(request: Request) {
+  const loginUrl = new URL("/login", request.url);
+  const response = NextResponse.redirect(loginUrl, { status: 302 });
 
   response.cookies.delete("aiesec_token");
   response.cookies.delete("refresh_token");

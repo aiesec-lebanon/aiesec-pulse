@@ -6,6 +6,7 @@ import axios from "axios";
 const USER_QUERY = `
 {
   currentPerson {
+    id
     full_name
     profile_photo
     current_positions {
