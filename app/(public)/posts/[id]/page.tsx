@@ -9,6 +9,7 @@ import { relativeTime } from "@/lib/relative-time";
 import { PostAvatar } from "@/components/posts/_shared";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
 import { CommentsSection } from "@/components/post-detail/CommentsSection";
+import { toCommentDto } from "@/types/comment";
 
 function extractDomain(url: string): string {
   try {
@@ -23,7 +24,7 @@ const commentSelect = {
   content: true,
   deletedAt: true,
   createdAt: true,
-  user: { select: { id: true, fullName: true } },
+  user: { select: { fullName: true, committeeName: true } },
 } as const;
 
 export default async function PostDetailPage({
@@ -45,7 +46,7 @@ export default async function PostDetailPage({
     }),
     db.comment.findMany({
       where: { postId: id },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: 20,
       select: commentSelect,
     }),
@@ -164,8 +165,7 @@ export default async function PostDetailPage({
       <CommentsSection
         postId={post.id}
         totalCount={post._count.comments}
-        initialComments={initialComments}
-        currentUserId={user.id}
+        initialComments={initialComments.map(toCommentDto)}
         currentUserName={user.fullName}
       />
     </main>

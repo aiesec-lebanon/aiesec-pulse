@@ -1,52 +1,74 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
+import { type CommentDto, toCommentDto } from "@/types/comment";
 
-const contentSchema = z.string().min(1).max(2000);
+const createCommentSchema = z.object({ content: z.string().min(1).max(2000) });
 
-export type CommentWithUser = {
-  id: string;
-  content: string;
-  deletedAt: Date | null;
-  createdAt: Date;
-  user: { id: string; fullName: string };
-};
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX = 10;
+const buckets = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const bucket = buckets.get(userId);
+  if (!bucket || bucket.resetAt <= now) {
+    buckets.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  if (bucket.count >= RATE_MAX) return false;
+  bucket.count++;
+  return true;
+}
 
 const commentSelect = {
   id: true,
   content: true,
   deletedAt: true,
   createdAt: true,
-  user: { select: { id: true, fullName: true } },
+  user: { select: { fullName: true, committeeName: true } },
 } as const;
 
 export async function addComment(
   postId: string,
   content: string,
-): Promise<CommentWithUser> {
+): Promise<{ ok: true; comment: CommentDto } | { ok: false; error: string }> {
   const user = await requireUser();
-  const safeContent = contentSchema.parse(content);
 
-  return db.comment.create({
-    data: { postId, userId: user.id, content: safeContent },
+  const parsed = createCommentSchema.safeParse({ content });
+  if (!parsed.success) {
+    return { ok: false, error: "Comment must be between 1 and 2000 characters." };
+  }
+
+  if (!checkRateLimit(user.id)) {
+    return { ok: false, error: "You're posting too fast. Please wait a moment." };
+  }
+
+  const comment = await db.comment.create({
+    data: { postId, userId: user.id, content: parsed.data.content },
     select: commentSelect,
   });
+
+  revalidatePath(`/posts/${postId}`);
+
+  return { ok: true, comment: toCommentDto(comment) };
 }
 
 export async function loadMoreComments(
   postId: string,
-  cursor: string,
-): Promise<CommentWithUser[]> {
+  cursorCreatedAt: string,
+): Promise<CommentDto[]> {
   await requireUser();
 
-  return db.comment.findMany({
-    where: { postId },
-    orderBy: { createdAt: "asc" },
+  const rows = await db.comment.findMany({
+    where: { postId, createdAt: { lt: new Date(cursorCreatedAt) } },
+    orderBy: { createdAt: "desc" },
     take: 20,
-    skip: 1,
-    cursor: { id: cursor },
     select: commentSelect,
   });
+
+  return rows.map(toCommentDto);
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Heart, MessageCircle, Share2, Check } from "lucide-react";
-import { toggleLike } from "@/app/actions/likes";
+import { useState } from "react";
+import { MessageCircle, Share2, Check } from "lucide-react";
+import { LikeButton } from "@/components/engagement/LikeButton";
 
 type Props = {
   postId: string;
@@ -17,29 +17,7 @@ export function EngagementBar({
   initialLikeCount,
   commentCount,
 }: Props) {
-  const [liked, setLiked] = useState(initialLiked);
-  const [likeCount, setLikeCount] = useState(initialLikeCount);
-  const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
-
-  function handleLike() {
-    const nextLiked = !liked;
-    // Optimistic update
-    setLiked(nextLiked);
-    setLikeCount((prev) => (nextLiked ? prev + 1 : prev - 1));
-
-    startTransition(async () => {
-      try {
-        const result = await toggleLike(postId);
-        setLiked(result.liked);
-        setLikeCount(result.count);
-      } catch {
-        // Revert on error
-        setLiked(liked);
-        setLikeCount(likeCount);
-      }
-    });
-  }
 
   function handleShare() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -48,31 +26,28 @@ export function EngagementBar({
     });
   }
 
-  // Rendered in both the desktop inline bar and the mobile sticky bar.
-  // Both share the same state from this component's closure.
-  const barContent = (
-    <>
-      <button
-        type="button"
-        onClick={handleLike}
-        disabled={isPending}
-        aria-label={liked ? "Unlike this post" : "Like this post"}
-        aria-pressed={liked}
-        className={[
-          "flex items-center gap-1.5 text-[15px] font-bold transition-colors disabled:opacity-60",
-          liked
-            ? "text-[var(--destructive)]"
-            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-        ].join(" ")}
-      >
-        <Heart
-          size={18}
-          strokeWidth={2}
-          className={liked ? "fill-[var(--destructive)]" : ""}
-          aria-hidden
-        />
-        <span>{likeCount}</span>
-      </button>
+  // Single DOM element: `fixed bottom-0` on mobile, `static` (in-flow) on desktop.
+  // This avoids rendering the bar twice and ensures LikeButton has exactly one
+  // instance — so its optimistic state stays consistent regardless of which bar
+  // the user interacts with.
+  return (
+    <div
+      className={[
+        // Mobile: fixed strip pinned to bottom of viewport
+        "fixed bottom-0 left-0 right-0 z-30",
+        "border-t border-[var(--border)] bg-[var(--card)] px-6 py-3",
+        "flex items-center justify-around gap-4",
+        // Desktop: back into document flow, above #comments
+        "md:static md:my-8",
+        "md:border-y md:bg-transparent md:px-0 md:py-4",
+        "md:justify-start md:gap-8",
+      ].join(" ")}
+    >
+      <LikeButton
+        postId={postId}
+        initialLiked={initialLiked}
+        initialCount={initialLikeCount}
+      />
 
       <a
         href="#comments"
@@ -86,7 +61,7 @@ export function EngagementBar({
         type="button"
         onClick={handleShare}
         aria-label="Copy link to this post"
-        className="flex items-center gap-1.5 text-[15px] font-bold transition-colors text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+        className="flex items-center gap-1.5 text-[15px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
       >
         {copied ? (
           <>
@@ -105,20 +80,6 @@ export function EngagementBar({
           </>
         )}
       </button>
-    </>
-  );
-
-  return (
-    <>
-      {/* Desktop: inline above comments */}
-      <div className="hidden md:flex items-center gap-8 border-y border-[var(--border)] py-4 my-8">
-        {barContent}
-      </div>
-
-      {/* Mobile: sticky bottom strip — CSS display:none on desktop keeps it out of a11y tree */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around gap-4 border-t border-[var(--border)] bg-[var(--card)] px-6 py-3 md:hidden">
-        {barContent}
-      </div>
-    </>
+    </div>
   );
 }
