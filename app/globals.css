@@ -195,6 +195,18 @@ a {
   border-color: rgba(3, 126, 243, 0.18);
 }
 
+/* Subtle float for feed illustration states (empty, error) */
+@keyframes float-drift {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+.animate-float-drift {
+  animation: float-drift 5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-drift { animation: none; }
+}
+
 /* Staggered entrance animation */
 @keyframes insight-enter {
   from {

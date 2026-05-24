@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth/guards";
-import { PostStatus } from "@/app/generated/prisma/enums";
+import { PostStatus, UserRole } from "@/app/generated/prisma/enums";
 import { HeroPost } from "@/components/feed/HeroPost";
 import { SidebarPostItem } from "@/components/feed/SidebarPostItem";
 import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
 import { TrendingAuthorCard } from "@/components/feed/TrendingAuthorCard";
+import { FeedEmptyState } from "@/components/feed/FeedEmptyState";
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ async function getTrendingAuthors() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function FeedPage() {
-  await requireUser();
+  const user = await requireUser();
 
   const [posts, trendingAuthors] = await Promise.all([
     getFeedPosts(),
@@ -62,15 +63,12 @@ export default async function FeedPage() {
   const sidebar = rest.slice(0, 3);
   const secondaryRow = rest.slice(3, 6);
 
-  // Empty-state: no posts published yet
+  // ── DEV STUB: uncomment one line below to preview a state, remove before ship ──
+  // if (true) return <FeedEmptyState isMCP={user.role === UserRole.MCP} />;
+  // if (true) throw new Error("Force error for testing");
+
   if (!hero) {
-    return (
-      <main className="flex-1 mx-auto w-full max-w-[1200px] px-6 py-24">
-        <p className="text-center text-[18px] text-[var(--muted-foreground)]">
-          No stories yet — check back soon.
-        </p>
-      </main>
-    );
+    return <FeedEmptyState isMCP={user.role === UserRole.MCP} />;
   }
 
   return (
