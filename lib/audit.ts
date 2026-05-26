@@ -1,5 +1,24 @@
-// TODO: implement logAdminAction helper and withAudit wrapper.
-// All admin mutations must go through withAudit so audit logging is structural,
-// not opt-in. See architecture.md §8.4.
+import { db } from "@/lib/db";
+import { Prisma } from "@/app/generated/prisma/client";
+import type { AdminSessionPayload } from "@/lib/auth/admin-session";
 
-export {};
+export async function withAudit<T>(
+  admin: AdminSessionPayload,
+  action: string,
+  targetType: "post" | "comment",
+  targetId: string,
+  metadata: Record<string, unknown> | null,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const result = await fn();
+  await db.adminAction.create({
+    data: {
+      adminId: admin.sub,
+      action,
+      targetType,
+      targetId,
+      metadata: (metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+    },
+  });
+  return result;
+}

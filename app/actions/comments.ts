@@ -2,8 +2,9 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth/guards";
+import { requireUser, requireAdmin } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
+import { withAudit } from "@/lib/audit";
 import { type CommentDto, toCommentDto } from "@/types/comment";
 
 const createCommentSchema = z.object({ content: z.string().min(1).max(2000) });
@@ -71,4 +72,17 @@ export async function loadMoreComments(
   });
 
   return rows.map(toCommentDto);
+}
+
+export async function deleteComment(commentId: string) {
+  const admin = await requireAdmin();
+  return withAudit(admin, "delete_comment", "comment", commentId, null, async () => {
+    const comment = await db.comment.update({
+      where: { id: commentId },
+      data: { deletedAt: new Date() },
+      select: { postId: true },
+    });
+    revalidatePath(`/posts/${comment.postId}`);
+    revalidatePath("/admin/comments");
+  });
 }

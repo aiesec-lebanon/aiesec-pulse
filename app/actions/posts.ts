@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireMCP } from "@/lib/auth/guards";
+import { requireMCP, requireAdmin } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
+import { withAudit } from "@/lib/audit";
 import { currentIsoWeek } from "@/lib/week";
-import { createPostSchema, type CreatePostInput } from "@/lib/zod-schemas";
+import { createPostSchema, rejectPostSchema, type CreatePostInput } from "@/lib/zod-schemas";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { checkPostRateLimit } from "@/lib/auth/rate-limit";
 
@@ -67,14 +68,41 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   return { ok: true, postId: post.id, status };
 }
 
-export async function deletePost(_postId: string) {
-  throw new Error("deletePost not yet implemented");
+export async function approvePost(postId: string): Promise<{ ok: true }> {
+  const admin = await requireAdmin();
+  return withAudit(admin, "approve_post", "post", postId, null, async () => {
+    await db.post.update({ where: { id: postId }, data: { status: PostStatus.PUBLISHED } });
+    revalidatePath("/admin/queue");
+    revalidatePath("/feed");
+    return { ok: true as const };
+  });
 }
 
-export async function approvePost(_postId: string) {
-  throw new Error("approvePost not yet implemented");
+export async function rejectPost(
+  postId: string,
+  reason: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = await requireAdmin();
+  const parsed = rejectPostSchema.safeParse({ reason });
+  if (!parsed.success) return { ok: false, error: "Reason must be 5-500 characters." };
+  return withAudit(admin, "reject_post", "post", postId, { reason: parsed.data.reason }, async () => {
+    await db.post.update({
+      where: { id: postId },
+      data: { status: PostStatus.REJECTED, rejectionReason: parsed.data.reason },
+    });
+    revalidatePath("/admin/queue");
+    revalidatePath("/feed");
+    return { ok: true as const };
+  });
 }
 
-export async function rejectPost(_postId: string, _reason: string) {
-  throw new Error("rejectPost not yet implemented");
+export async function deletePost(postId: string) {
+  const admin = await requireAdmin();
+  const target = await db.post.findUnique({ where: { id: postId }, select: { title: true } });
+  return withAudit(admin, "delete_post", "post", postId, { title: target?.title }, async () => {
+    await db.post.delete({ where: { id: postId } });
+    revalidatePath("/feed");
+    revalidatePath("/admin/posts");
+    revalidatePath("/admin/queue");
+  });
 }
