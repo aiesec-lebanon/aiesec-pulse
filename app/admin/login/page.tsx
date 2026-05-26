@@ -11,7 +11,7 @@ export default async function AdminLoginPage() {
     <main className="min-h-screen flex items-center justify-center bg-muted px-6 py-12">
       <div className="aiesec-card w-full max-w-[420px] p-8">
         <h1 className="text-[28px] font-black text-foreground leading-tight mb-2">
-          AIESEC News — Moderator Sign In
+          AIESEC Pulse — Moderator Sign In
         </h1>
         <p className="text-[14px] text-muted-foreground mb-8 leading-relaxed">
           This portal is for moderators only. Members and MCPs sign in via

@@ -112,7 +112,7 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
               href="/feed"
               className="absolute left-1/2 -translate-x-1/2 select-none whitespace-nowrap text-[20px] font-black uppercase tracking-[0.04em] text-[var(--foreground)]"
             >
-              AIESEC NEWS
+              AIESEC Pulse
             </Link>
 
             {/* Right cluster */}
@@ -251,7 +251,7 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
         {/* Drawer header */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--border)] px-6">
           <span className="select-none text-[16px] font-black uppercase tracking-[0.04em] text-[var(--foreground)]">
-            AIESEC NEWS
+            AIESEC Pulse
           </span>
           <button
             type="button"
