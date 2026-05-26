@@ -1,54 +1,101 @@
 import Link from "next/link";
 import { requireMCP } from "@/lib/auth/guards";
 
-export default async function QueuedPage() {
+export default async function PostQueuedPage() {
   await requireMCP();
 
   return (
-    <main className="mx-auto w-full max-w-[720px] px-6 py-20 text-center">
-      {/* Icon */}
-      <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--muted)]">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-[var(--muted-foreground)]"
-          aria-hidden
-        >
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
-        </svg>
-      </div>
+    <main className="flex-1 mx-auto w-full max-w-[1200px] px-6 py-24">
+      <div className="mx-auto flex max-w-[480px] flex-col items-center gap-8 text-center">
 
-      <h1 className="text-[28px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-        Post submitted for review
-      </h1>
-
-      <p className="mx-auto mt-4 max-w-[420px] text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-        You&apos;ve used your 2 posts this week. Your update has been added to the
-        approval queue and will appear in the feed once an admin approves it.
-      </p>
-
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href="/feed"
-          className="rounded-[var(--radius-sm)] bg-[var(--primary)] px-6 py-3 text-[16px] font-bold text-[var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90"
+        {/* Envelope illustration — muted tones, matches FeedIllustration visual family */}
+        <div
+          className="text-[var(--muted-foreground)] opacity-60 animate-float-drift"
+          aria-hidden="true"
         >
-          Back to feed
-        </Link>
-        <Link
-          href="/posts/new"
-          className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
-        >
-          New post
-        </Link>
+          <EnvelopeIllustration className="h-auto w-32" />
+        </div>
+
+        {/* Message */}
+        <div className="flex flex-col gap-4">
+          <h1 className="text-[32px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
+            Your update is in review.
+          </h1>
+          <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
+            Because this is your 3rd post this week, a moderator will take a
+            look before it appears in the global feed. We aim to review within
+            24 hours.
+          </p>
+        </div>
+
+        {/* CTAs */}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link href="/feed" className="aiesec-btn-primary">
+            Back to feed
+          </Link>
+          <Link href="/profile" className="aiesec-btn-secondary">
+            View my posts
+          </Link>
+        </div>
+
       </div>
     </main>
+  );
+}
+
+function EnvelopeIllustration({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 100 64"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className={className}
+    >
+      {/* Envelope body */}
+      <rect
+        x="8"
+        y="14"
+        width="84"
+        height="46"
+        rx="3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        fill="currentColor"
+        fillOpacity="0.04"
+      />
+      {/* Closed flap — V pointing down toward center */}
+      <path
+        d="M 8 14 L 50 42 L 92 14"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        fill="currentColor"
+        fillOpacity="0.06"
+      />
+      {/* Bottom-left fold crease */}
+      <line
+        x1="8"
+        y1="60"
+        x2="44"
+        y2="38"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+        opacity="0.3"
+      />
+      {/* Bottom-right fold crease */}
+      <line
+        x1="92"
+        y1="60"
+        x2="56"
+        y2="38"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+        opacity="0.3"
+      />
+    </svg>
   );
 }
