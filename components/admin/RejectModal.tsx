@@ -99,8 +99,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
         </div>
 
         <p className="text-[14px] text-[var(--muted-foreground)] leading-[1.6]">
-          This post will be discarded. The MCP will not be notified directly in
-          MVP — please follow up offline if needed.
+          This post will be discarded. The MCP will not be notified. Please follow up offline if needed.
         </p>
 
         <div className="flex items-center justify-end gap-3">

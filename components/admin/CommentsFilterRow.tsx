@@ -5,21 +5,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export type FilterMode = "recent" | "post";
+type DeletedMode = "" | "active" | "removed";
 
 interface CommentsFilterRowProps {
   mode: FilterMode;
   postId: string;
+  deleted: DeletedMode;
+  limit: number;
 }
 
 function parsePostRef(raw: string): string {
   const trimmed = raw.trim();
-  // Extract from URLs containing /posts/<id>
   const match = trimmed.match(/\/posts\/([^/?#\s]+)/);
   if (match) return match[1];
   return trimmed;
 }
 
-export function CommentsFilterRow({ mode, postId }: CommentsFilterRowProps) {
+export function CommentsFilterRow({ mode, postId, deleted, limit }: CommentsFilterRowProps) {
   const router = useRouter();
   const [inputValue, setInputValue] = useState(postId);
 
@@ -27,8 +29,21 @@ export function CommentsFilterRow({ mode, postId }: CommentsFilterRowProps) {
     e.preventDefault();
     const id = parsePostRef(inputValue);
     if (!id) return;
-    router.push(`/admin/comments?filter=post&postId=${encodeURIComponent(id)}`);
+    const params = new URLSearchParams();
+    params.set("filter", "post");
+    params.set("postId", id);
+    if (deleted) params.set("deleted", deleted);
+    if (limit !== 25) params.set("limit", String(limit));
+    router.push(`/admin/comments?${params.toString()}`);
   }
+
+  const recentHref = (() => {
+    const params = new URLSearchParams();
+    if (deleted) params.set("deleted", deleted);
+    if (limit !== 25) params.set("limit", String(limit));
+    const qs = params.toString();
+    return `/admin/comments${qs ? `?${qs}` : ""}`;
+  })();
 
   const chipBase =
     "px-3 py-1.5 rounded-[var(--radius-md)] border text-[14px] font-medium transition-colors";
@@ -39,20 +54,18 @@ export function CommentsFilterRow({ mode, postId }: CommentsFilterRowProps) {
 
   return (
     <div
-      className="flex flex-wrap items-center gap-3 mb-6"
+      className="flex flex-wrap items-center gap-3"
       role="group"
       aria-label="Filter comments"
     >
-      {/* Recent chip — Link for instant navigation */}
       <Link
-        href="/admin/comments"
+        href={recentHref}
         className={`${chipBase} ${mode === "recent" ? chipActive : chipInactive}`}
         aria-current={mode === "recent" ? "page" : undefined}
       >
         Recent across all posts
       </Link>
 
-      {/* By post section */}
       <span
         className={`${chipBase} ${mode === "post" ? chipActive : chipInactive} cursor-default`}
         aria-hidden="true"

@@ -47,7 +47,7 @@ export function CommentsTable({ rows }: CommentsTableProps) {
                 {row.authorEntity && <> · {row.authorEntity}</>}
                 {" · "}
                 <Link
-                  href={`/posts/${row.postId}`}
+                  href={`/admin/posts/${row.postId}`}
                   className="hover:text-[var(--primary)] transition-colors"
                 >
                   {row.postTitle}

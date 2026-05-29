@@ -2,7 +2,7 @@
 
 import { FeedIllustration } from "@/components/feed/FeedIllustration";
 
-export default function FeedError({
+export default function GlobalError({
   error,
   reset,
 }: {
@@ -10,13 +10,13 @@ export default function FeedError({
   reset: () => void;
 }) {
   return (
-    <main className="flex-1 mx-auto w-full max-w-[1200px] px-6 py-24">
-      <div className="flex flex-col items-center text-center gap-6">
+    <main className="flex-1 flex flex-col items-center justify-center px-6 py-24">
+      <div className="flex flex-col items-center text-center gap-6 max-w-sm">
         <div className="text-[var(--muted-foreground)] opacity-60" aria-hidden="true">
           <FeedIllustration variant="error" className="w-36 h-auto" />
         </div>
 
-        <div className="flex flex-col gap-3 max-w-sm">
+        <div className="flex flex-col gap-3">
           <h2 className="text-[20px] font-bold text-[var(--foreground)]">
             Something&apos;s not right.
           </h2>

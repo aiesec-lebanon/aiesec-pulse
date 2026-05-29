@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser, requireAdmin } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
-import { withAudit } from "@/lib/audit";
+import { withAudit, logUserAction } from "@/lib/audit";
 import { type CommentDto, toCommentDto } from "@/types/comment";
 
 const createCommentSchema = z.object({ content: z.string().min(1).max(2000) });
@@ -52,6 +52,8 @@ export async function addComment(
     data: { postId, userId: user.id, content: parsed.data.content },
     select: commentSelect,
   });
+
+  await logUserAction(user.id, "add_comment", "comment", comment.id, { postId });
 
   revalidatePath(`/posts/${postId}`);
 

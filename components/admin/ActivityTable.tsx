@@ -27,6 +27,8 @@ interface ActivityTableProps {
   rows: ActivityRow[];
   sort: SortKey;
   dir: SortDir;
+  q?: string;
+  limit?: number;
 }
 
 const COLS: { key: SortKey; label: string; numeric?: boolean }[] = [
@@ -39,10 +41,15 @@ const COLS: { key: SortKey; label: string; numeric?: boolean }[] = [
   { key: "lastPost", label: "Last post" },
 ];
 
-export function ActivityTable({ rows, sort, dir }: ActivityTableProps) {
+export function ActivityTable({ rows, sort, dir, q, limit }: ActivityTableProps) {
   function colHref(key: SortKey): string {
     const nextDir = sort === key && dir === "desc" ? "asc" : "desc";
-    return `/admin/activity?sort=${key}&dir=${nextDir}`;
+    const params = new URLSearchParams();
+    params.set("sort", key);
+    params.set("dir", nextDir);
+    if (q) params.set("q", q);
+    if (limit && limit !== 25) params.set("limit", String(limit));
+    return `/admin/activity?${params.toString()}`;
   }
 
   function sortIndicator(key: SortKey) {

@@ -147,8 +147,13 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
                       className="absolute right-0 top-full mt-2 w-56 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] py-1"
                       style={{ boxShadow: "var(--shadow-card)" }}
                     >
-                      {/* Identity block */}
-                      <div className="px-4 py-3">
+                      {/* Identity block — links to profile */}
+                      <Link
+                        href="/profile"
+                        role="menuitem"
+                        onClick={() => setDropdownOpen(false)}
+                        className="block px-4 py-3 transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-none"
+                      >
                         <p className="text-[14px] font-medium leading-tight text-[var(--foreground)]">
                           {user.full_name}
                         </p>
@@ -157,7 +162,7 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
                             {committeeName}
                           </p>
                         )}
-                      </div>
+                      </Link>
 
                       <div
                         role="separator"

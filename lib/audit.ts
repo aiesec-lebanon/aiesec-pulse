@@ -22,3 +22,21 @@ export async function withAudit<T>(
   });
   return result;
 }
+
+export async function logUserAction(
+  userId: string,
+  action: string,
+  targetType: "post" | "comment",
+  targetId: string,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  await db.userAction.create({
+    data: {
+      userId,
+      action,
+      targetType,
+      targetId,
+      metadata: (metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+    },
+  });
+}

@@ -24,8 +24,26 @@ export function lastNIsoWeeks(n: number, from: Date = new Date()): string[] {
   return result;
 }
 
-// Extracts the short label from an ISO week string: "2026-W21" → "W21".
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Returns a human-readable label for an ISO week string: "2026-W21" → "May W4".
+// The week number within the month is based on the Monday of that ISO week.
 export function isoWeekShortLabel(week: string): string {
-  const parts = week.split("-");
-  return parts[1] ?? week;
+  const match = week.match(/^(\d{4})-W(\d{2})$/);
+  if (!match) return week;
+  const year = parseInt(match[1], 10);
+  const weekNum = parseInt(match[2], 10);
+
+  // Jan 4 is always in ISO week 1; find the Monday of week 1.
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Weekday = jan4.getUTCDay() || 7;
+  const week1Monday = new Date(Date.UTC(year, 0, 4 - (jan4Weekday - 1)));
+
+  // Advance to the Monday of the target week.
+  const monday = new Date(week1Monday);
+  monday.setUTCDate(monday.getUTCDate() + (weekNum - 1) * 7);
+
+  const monthName = MONTH_SHORT[monday.getUTCMonth()];
+  const weekInMonth = Math.ceil(monday.getUTCDate() / 7);
+  return `${monthName} W${weekInMonth}`;
 }

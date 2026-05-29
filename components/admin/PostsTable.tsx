@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { DeletePostModal } from "./DeletePostModal";
 
@@ -57,9 +58,12 @@ export function PostsTable({ rows }: PostsTableProps) {
 
               {/* Title + meta — grows to fill space */}
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-bold text-[var(--foreground)] truncate leading-tight">
+                <Link
+                  href={`/admin/posts/${row.id}`}
+                  className="text-[15px] font-bold text-[var(--foreground)] hover:text-[var(--primary)] truncate leading-tight block transition-colors"
+                >
                   {row.title}
-                </p>
+                </Link>
                 <p className="text-[13px] text-[var(--muted-foreground)] mt-0.5 truncate">
                   {row.authorName}
                   {row.authorEntity && <> · {row.authorEntity}</>}

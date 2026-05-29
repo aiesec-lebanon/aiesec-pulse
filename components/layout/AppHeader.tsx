@@ -19,6 +19,10 @@ export function AppHeader() {
     router.push("/login");
   };
 
+  const redirectToProfile = () => {
+    router.push("/profile");
+  };
+
   const handleRoleSwitch = async (positionId: string) => {
     try {
       setIsSwitching(true);
@@ -54,13 +58,10 @@ export function AppHeader() {
                   {user.full_name}
                 </div>
                 <div className="text-xs text-[var(--muted)]">
-                  {user.current_positions &&
-                  user.current_positions.length > 1 ? (
+                  {user.current_positions && user.current_positions.length > 1 ? (
                     <select
                       disabled={isSwitching}
-                      value={
-                        user.activePositionId || user.current_positions[0].id
-                      }
+                      value={user.activePositionId || user.current_positions[0].id}
                       onChange={(e) => handleRoleSwitch(e.target.value)}
                       className="max-w-[200px] cursor-pointer border-none bg-transparent text-xs outline-none"
                     >

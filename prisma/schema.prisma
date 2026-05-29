@@ -32,6 +32,7 @@ model User {
   comments    Comment[]
   likes       Like[]
   oauthTokens OauthToken?
+  userActions UserAction[]
 
   @@index([role])
 }
@@ -114,4 +115,19 @@ model AdminAction {
 
   @@index([createdAt(sort: Desc)])
   @@index([adminId, createdAt(sort: Desc)])
+}
+
+model UserAction {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   // "create_post" | "add_comment"
+  targetType String   // "post" | "comment"
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
 }
