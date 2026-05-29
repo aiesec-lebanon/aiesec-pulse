@@ -9,10 +9,23 @@ export type AiesecUser = {
   id: string;
   full_name: string;
   current_positions: Array<{
-    office?: { id: string; name: string; tag?: string };
+    office?: { id?: string; name: string; tag?: string };
     role?: { id?: string; name: string };
   }>;
 };
+
+/**
+ * Derives DB role from GIS positions.
+ * Any position with role.name === "MCP" → MCP; everything else → MEMBER.
+ * Pure function — safe to call in layouts without a DB hit.
+ */
+export function deriveRole(
+  positions: AiesecUser["current_positions"],
+): UserRole {
+  return positions.some((p) => p.role?.name === "MCP")
+    ? UserRole.MCP
+    : UserRole.MEMBER;
+}
 
 export async function getCurrentAiesecUser(): Promise<AiesecUser | null> {
   const store = await cookies();
@@ -27,17 +40,19 @@ export async function getCurrentAiesecUser(): Promise<AiesecUser | null> {
 
 export async function syncUserRow(aiesecUser: AiesecUser): Promise<User> {
   const firstOffice = aiesecUser.current_positions?.[0]?.office ?? null;
+  const role = deriveRole(aiesecUser.current_positions ?? []);
   return db.user.upsert({
     where: { aiesecUserId: aiesecUser.id },
     update: {
       fullName: aiesecUser.full_name,
+      role,
       committeeId: firstOffice?.id ?? null,
       committeeName: firstOffice?.name ?? null,
     },
     create: {
       aiesecUserId: aiesecUser.id,
       fullName: aiesecUser.full_name,
-      role: UserRole.MCP,
+      role,
       committeeId: firstOffice?.id ?? null,
       committeeName: firstOffice?.name ?? null,
     },

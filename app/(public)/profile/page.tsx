@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Heart, MessageCircle, ExternalLink } from "lucide-react";
-import { requireUser } from "@/lib/auth/guards";
+import { requireMCP } from "@/lib/auth/guards";
 import { db } from "@/lib/db";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { relativeTime } from "@/lib/relative-time";
@@ -62,7 +62,7 @@ async function getUserPosts(userId: string) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function ProfilePage() {
-  const user = await requireUser();
+  const user = await requireMCP();
   const posts = await getUserPosts(user.id);
 
   const published = posts.filter((p) => p.status === PostStatus.PUBLISHED);

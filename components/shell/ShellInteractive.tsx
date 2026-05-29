@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export type ShellUser = {
   full_name: string;
   profile_photo?: string;
+  isMcp?: boolean;
   current_positions?: Array<{
     office?: { id?: string; name: string; tag?: string };
     role?: { id?: string; name: string };
@@ -169,14 +170,16 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
                         className="my-1 border-t border-[var(--border)]"
                       />
 
-                      <Link
-                        href="/posts/new"
-                        role="menuitem"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex w-full items-center px-4 py-2 text-[14px] text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-none"
-                      >
-                        New post
-                      </Link>
+                      {user.isMcp && (
+                        <Link
+                          href="/posts/new"
+                          role="menuitem"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex w-full items-center px-4 py-2 text-[14px] text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-none"
+                        >
+                          New post
+                        </Link>
+                      )}
 
                       {/* Native form POST so the 302 redirect lands correctly without JS */}
                       <form action="/api/auth/logout" method="post">
