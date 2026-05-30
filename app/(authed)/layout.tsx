@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { AppShell } from "@/components/shell/AppShell";
 import type { ShellUser } from "@/components/shell/ShellInteractive";
-import { deriveRole } from "@/lib/auth/current-user";
+import { getOrSyncUser } from "@/lib/auth/current-user";
 import { UserRole } from "@/app/generated/prisma/enums";
 
 export default async function AuthedLayout({
@@ -9,16 +8,14 @@ export default async function AuthedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const store = await cookies();
-  const raw = store.get("user")?.value;
-  let user: ShellUser | null = null;
-  if (raw) {
-    const parsed = JSON.parse(raw) as ShellUser;
-    user = {
-      ...parsed,
-      isMcp: deriveRole(parsed.current_positions ?? []) === UserRole.MCP,
-    };
-  }
+  const dbUser = await getOrSyncUser();
+  const user: ShellUser | null = dbUser
+    ? {
+        full_name: dbUser.fullName,
+        committeeName: dbUser.committeeName ?? undefined,
+        isMcp: dbUser.role === UserRole.MCP,
+      }
+    : null;
 
   return <AppShell user={user}>{children}</AppShell>;
 }

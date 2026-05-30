@@ -7,12 +7,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 export type ShellUser = {
   full_name: string;
-  profile_photo?: string;
+  committeeName?: string;
   isMcp?: boolean;
-  current_positions?: Array<{
-    office?: { id?: string; name: string; tag?: string };
-    role?: { id?: string; name: string };
-  }>;
 };
 
 const TABS = [
@@ -29,7 +25,7 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const committeeName = user?.current_positions?.[0]?.office?.name;
+  const committeeName = user?.committeeName;
   const initials = user?.full_name
     ? user.full_name
         .trim()

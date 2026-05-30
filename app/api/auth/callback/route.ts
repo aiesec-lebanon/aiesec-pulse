@@ -18,7 +18,7 @@ import validateUser from "@/server-utils/user-validation";
  * 5. Redirect the user to the application dashboard.
  */
 export async function GET(req: NextRequest) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/$/, "");
 
   // Step 1: Extract authorization code returned by the OAuth provider
   const code = req.nextUrl.searchParams.get("code");

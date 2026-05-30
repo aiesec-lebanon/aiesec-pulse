@@ -7,18 +7,27 @@ import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
 import { TrendingAuthorCard } from "@/components/feed/TrendingAuthorCard";
 import { FeedEmptyState } from "@/components/feed/FeedEmptyState";
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const POSTS_PER_PAGE = 7; // 1 hero + 3 sidebar + 3 secondary
+
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
-async function getFeedPosts() {
-  return db.post.findMany({
+async function getFeedPosts(page: number) {
+  const skip = (page - 1) * POSTS_PER_PAGE;
+  // Fetch one extra to detect whether a next page exists.
+  const rows = await db.post.findMany({
     where: { status: PostStatus.PUBLISHED },
     orderBy: { createdAt: "desc" },
-    take: 7,
+    skip,
+    take: POSTS_PER_PAGE + 1,
     include: {
       author: true,
       _count: { select: { likes: true, comments: true } },
     },
   });
+  const hasNext = rows.length > POSTS_PER_PAGE;
+  return { posts: rows.slice(0, POSTS_PER_PAGE), hasNext };
 }
 
 async function getTrendingAuthors() {
@@ -51,12 +60,18 @@ async function getTrendingAuthors() {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function FeedPage() {
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const user = await requireUser();
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const [posts, trendingAuthors] = await Promise.all([
-    getFeedPosts(),
-    getTrendingAuthors(),
+  const [{ posts, hasNext }, trendingAuthors] = await Promise.all([
+    getFeedPosts(page),
+    page === 1 ? getTrendingAuthors() : Promise.resolve([]),
   ]);
 
   const [hero, ...rest] = posts;
@@ -111,7 +126,7 @@ export default async function FeedPage() {
         </section>
       )}
 
-      {/* ── TRENDING AUTHORS — horizontal scroll strip, 48px below ────────── */}
+      {/* ── TRENDING AUTHORS — page 1 only ──────────────────────────────── */}
       {trendingAuthors.length > 0 && (
         <section aria-label="Trending authors this month" className="mt-12">
           <h2 className="mb-4 text-[16px] font-bold text-[var(--foreground)]">
@@ -131,18 +146,31 @@ export default async function FeedPage() {
         </section>
       )}
 
-      {/* ── LOAD MORE — disabled for MVP ─────────────────────────────────── */}
-      <div className="mt-12 flex justify-center">
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          title="More coming soon."
-          className="cursor-not-allowed rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-2.5 text-[16px] font-bold text-[var(--muted-foreground)] opacity-50 select-none"
-        >
-          Load more
-        </button>
-      </div>
+      {/* ── PAGINATION ───────────────────────────────────────────────────── */}
+      <nav
+        aria-label="Feed pagination"
+        className="mt-12 flex items-center justify-center gap-4"
+      >
+        {page > 1 && (
+          <a
+            href={page === 2 ? "/feed" : `/feed?page=${page - 1}`}
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+          >
+            ← Newer
+          </a>
+        )}
+        <span className="text-[14px] text-[var(--muted-foreground)] tabular-nums select-none">
+          Page {page}
+        </span>
+        {hasNext && (
+          <a
+            href={`/feed?page=${page + 1}`}
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)]"
+          >
+            Older →
+          </a>
+        )}
+      </nav>
     </main>
   );
 }
