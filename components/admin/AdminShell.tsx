@@ -2,48 +2,60 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
-import { adminLogout } from "@/app/actions/admin";
+import { useEffect, useState } from "react";
 
-const NAV_ITEMS = [
-  { href: "/admin/queue", label: "Queue", queueBadge: true },
-  { href: "/admin/posts", label: "All posts" },
-  { href: "/admin/comments", label: "Comments" },
-  { href: "/admin/activity", label: "MCP activity" },
-  { href: "/admin/audit", label: "Audit log" },
-] as const;
+export type AdminSections = {
+  queue: boolean;
+  posts: boolean;
+  comments: boolean;
+  activity: boolean;
+  audit: boolean;
+  roles: boolean;
+  privacy: boolean;
+};
+
+const NAV_ITEMS: ReadonlyArray<{
+  href: string;
+  label: string;
+  section: keyof AdminSections;
+  queueBadge?: boolean;
+}> = [
+  { href: "/admin/queue", label: "Approval queue", section: "queue", queueBadge: true },
+  { href: "/admin/posts", label: "All posts", section: "posts" },
+  { href: "/admin/comments", label: "Comments", section: "comments" },
+  { href: "/admin/activity", label: "Publishing activity", section: "activity" },
+  { href: "/admin/audit", label: "Audit log", section: "audit" },
+  { href: "/admin/roles", label: "Roles & grants", section: "roles" },
+  { href: "/admin/privacy", label: "Data requests", section: "privacy" },
+];
 
 interface AdminShellProps {
-  adminEmail: string;
-  pendingCount: number;
+  userName: string;
+  queuedCount: number;
+  sections: AdminSections;
   children: React.ReactNode;
 }
 
-export function AdminShell({ adminEmail, pendingCount, children }: AdminShellProps) {
+export function AdminShell({ userName, queuedCount, sections, children }: AdminShellProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Close sidebar on route change
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [pathname]);
-
-  // Prevent body scroll when sidebar is open
   useEffect(() => {
     if (sidebarOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [sidebarOpen]);
 
-  const items = NAV_ITEMS.map((item) => ({
+  const items = NAV_ITEMS.filter((item) => sections[item.section]).map((item) => ({
     href: item.href,
     label: item.label,
-    badge: "queueBadge" in item && pendingCount > 0 ? pendingCount : undefined,
-    isActive:
-      pathname === item.href || pathname.startsWith(item.href + "/"),
+    badge: item.queueBadge && queuedCount > 0 ? queuedCount : undefined,
+    isActive: pathname === item.href || pathname.startsWith(item.href + "/"),
   }));
 
   return (
@@ -80,22 +92,20 @@ export function AdminShell({ adminEmail, pendingCount, children }: AdminShellPro
           </button>
 
           <span className="text-[14px] sm:text-[16px] font-bold text-foreground whitespace-nowrap">
-            AIESEC Pulse · Moderator
+            AIESEC Pulse · Moderation
           </span>
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
           <span className="hidden sm:block text-[14px] text-muted-foreground truncate max-w-[200px]">
-            {adminEmail}
+            {userName}
           </span>
-          <form action={adminLogout}>
-            <button
-              type="submit"
-              className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            >
-              Log out
-            </button>
-          </form>
+          <Link
+            href="/feed"
+            className="text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Back to feed
+          </Link>
         </div>
       </header>
 
@@ -120,13 +130,14 @@ export function AdminShell({ adminEmail, pendingCount, children }: AdminShellPro
         >
           <div className="px-4 pb-3 mb-1 border-b border-[var(--border)]">
             <p className="text-[12px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide truncate">
-              {adminEmail}
+              {userName}
             </p>
           </div>
           {items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setSidebarOpen(false)}
               className={[
                 "flex items-center justify-between px-4 py-3 text-[15px] transition-colors border-l-2",
                 item.isActive
@@ -136,7 +147,7 @@ export function AdminShell({ adminEmail, pendingCount, children }: AdminShellPro
             >
               <span>{item.label}</span>
               {item.badge != null && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary text-primary-foreground text-[12px] font-bold px-1.5 tabular-nums">
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-[var(--primary-fill)] text-[var(--primary-foreground)] text-[12px] font-bold px-1.5 tabular-nums">
                   {item.badge > 99 ? "99+" : item.badge}
                 </span>
               )}
@@ -162,7 +173,7 @@ export function AdminShell({ adminEmail, pendingCount, children }: AdminShellPro
             >
               <span>{item.label}</span>
               {item.badge != null && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary text-primary-foreground text-[12px] font-bold px-1.5 tabular-nums">
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-[var(--primary-fill)] text-[var(--primary-foreground)] text-[12px] font-bold px-1.5 tabular-nums">
                   {item.badge > 99 ? "99+" : item.badge}
                 </span>
               )}
@@ -171,9 +182,7 @@ export function AdminShell({ adminEmail, pendingCount, children }: AdminShellPro
         </nav>
 
         {/* Page content */}
-        <div className="flex-1 min-w-0 overflow-auto">
-          {children}
-        </div>
+        <div className="flex-1 min-w-0 overflow-auto">{children}</div>
       </div>
     </div>
   );

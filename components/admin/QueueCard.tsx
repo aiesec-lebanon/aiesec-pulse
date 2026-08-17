@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+
 import { approvePost } from "@/app/actions/posts";
+
 import { RejectModal } from "./RejectModal";
 
 const EXCERPT_LIMIT = 300;
@@ -14,6 +16,7 @@ interface QueueCardProps {
   title: string;
   content: string;
   mediaUrl: string | null;
+  mediaAlt: string | null;
   linkUrl: string | null;
 }
 
@@ -25,6 +28,7 @@ export function QueueCard({
   title,
   content,
   mediaUrl,
+  mediaAlt,
   linkUrl,
 }: QueueCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -32,8 +36,7 @@ export function QueueCard({
   const [isPending, startTransition] = useTransition();
 
   const isLong = content.length > EXCERPT_LIMIT;
-  const displayContent =
-    !isLong || expanded ? content : content.slice(0, EXCERPT_LIMIT) + "…";
+  const displayContent = !isLong || expanded ? content : content.slice(0, EXCERPT_LIMIT) + "…";
 
   const handleApprove = () => {
     startTransition(async () => {
@@ -68,9 +71,7 @@ export function QueueCard({
         </div>
 
         {/* Title */}
-        <h2 className="text-[20px] font-bold leading-tight text-[var(--foreground)]">
-          {title}
-        </h2>
+        <h2 className="text-[20px] font-bold leading-tight text-[var(--foreground)]">{title}</h2>
 
         {/* Content excerpt */}
         <div className="text-[16px] leading-[1.6] text-[var(--foreground)]">
@@ -78,7 +79,7 @@ export function QueueCard({
           {isLong && (
             <button
               type="button"
-              className="mt-1.5 text-[var(--primary)] text-[14px] font-medium hover:underline cursor-pointer"
+              className="mt-1.5 text-[var(--primary-text)] text-[14px] font-medium hover:underline cursor-pointer"
               onClick={() => setExpanded((e) => !e)}
             >
               {expanded ? "Show less" : "Show full"}
@@ -92,7 +93,7 @@ export function QueueCard({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mediaUrl}
-              alt=""
+              alt={mediaAlt ?? ""}
               width={240}
               height={160}
               className="object-cover w-full h-full"
@@ -106,7 +107,7 @@ export function QueueCard({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`https://www.google.com/s2/favicons?domain=${linkDomain}&sz=16`}
-              alt=""
+              alt={mediaAlt ?? ""}
               width={16}
               height={16}
               className="flex-shrink-0"
@@ -121,7 +122,7 @@ export function QueueCard({
             type="button"
             onClick={handleApprove}
             disabled={isPending}
-            className="bg-[var(--primary)] text-[var(--primary-foreground)] rounded-[var(--radius-sm)] px-6 py-[9px] text-[16px] font-bold disabled:opacity-50 transition-opacity cursor-pointer"
+            className="bg-[var(--primary-fill)] text-[var(--primary-foreground)] rounded-[var(--radius-sm)] px-6 py-[9px] text-[16px] font-bold disabled:opacity-50 transition-opacity cursor-pointer"
           >
             {isPending ? "Approving…" : "Approve"}
           </button>
@@ -129,7 +130,7 @@ export function QueueCard({
             type="button"
             onClick={() => setModalOpen(true)}
             disabled={isPending}
-            className="border border-[var(--border)] text-[var(--foreground)] rounded-[var(--radius-sm)] px-6 py-[9px] text-[16px] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-50 transition-colors cursor-pointer"
+            className="border border-[var(--border)] text-[var(--foreground)] rounded-[var(--radius-sm)] px-6 py-[9px] text-[16px] font-medium hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:opacity-50 transition-colors cursor-pointer"
           >
             Reject
           </button>
@@ -137,6 +138,7 @@ export function QueueCard({
       </article>
 
       <RejectModal
+        key={modalOpen ? "open" : "closed"}
         postId={postId}
         open={modalOpen}
         onClose={() => setModalOpen(false)}

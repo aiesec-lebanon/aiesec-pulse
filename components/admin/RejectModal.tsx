@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+
 import { rejectPost } from "@/app/actions/posts";
 
 interface RejectModalProps {
@@ -14,13 +15,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (open) {
-      setReason("");
-      setError("");
-    }
-  }, [open]);
-
+  // Keyed on `open`, so each opening is a fresh mount with empty state.
   if (!open) return null;
 
   const trimmed = reason.trim();
@@ -50,11 +45,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
 
       {/* Panel */}
       <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] w-full max-w-md p-6 flex flex-col gap-5 shadow-lg">
@@ -71,9 +62,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
             className="text-[14px] font-medium text-[var(--muted-foreground)]"
           >
             Reason{" "}
-            <span className="font-normal">
-              (visible to other moderators in the audit log)
-            </span>
+            <span className="font-normal">(visible to other moderators in the audit log)</span>
           </label>
           <textarea
             id="reject-reason"
@@ -89,7 +78,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
             className="w-full border border-[var(--border)] rounded-[var(--radius-md)] bg-[var(--background)] text-[var(--foreground)] text-[16px] leading-[1.6] p-3 resize-none focus:outline-none focus:border-[var(--primary)] disabled:opacity-50 transition-colors"
           />
           <div className="flex justify-between items-start text-[12px]">
-            <span className="text-[var(--destructive)]" role="alert" aria-live="polite">
+            <span className="text-[var(--destructive-text)]" role="alert" aria-live="polite">
               {error}
             </span>
             <span className="text-[var(--muted-foreground)] tabular-nums flex-shrink-0 pl-2">
@@ -99,7 +88,8 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
         </div>
 
         <p className="text-[14px] text-[var(--muted-foreground)] leading-[1.6]">
-          This post will be discarded. The MCP will not be notified. Please follow up offline if needed.
+          This post will be discarded. The MCP will not be notified. Please follow up offline if
+          needed.
         </p>
 
         <div className="flex items-center justify-end gap-3">
@@ -107,7 +97,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="border border-[var(--border)] text-[var(--foreground)] rounded-[var(--radius-sm)] px-5 py-[9px] text-[16px] font-medium hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-50 transition-colors cursor-pointer"
+            className="border border-[var(--border)] text-[var(--foreground)] rounded-[var(--radius-sm)] px-5 py-[9px] text-[16px] font-medium hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:opacity-50 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -115,7 +105,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
             type="button"
             onClick={handleSubmit}
             disabled={isPending || !canSubmit}
-            className="bg-[var(--destructive)] text-white rounded-[var(--radius-sm)] px-5 py-[9px] text-[16px] font-bold disabled:opacity-50 transition-opacity cursor-pointer"
+            className="bg-[var(--destructive-text)] text-white rounded-[var(--radius-sm)] px-5 py-[9px] text-[16px] font-bold disabled:opacity-50 transition-opacity cursor-pointer"
           >
             {isPending ? "Rejecting…" : "Reject post"}
           </button>

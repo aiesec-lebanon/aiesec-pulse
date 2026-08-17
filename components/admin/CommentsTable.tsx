@@ -1,26 +1,26 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { DeleteCommentModal } from "./DeleteCommentModal";
+import { useState } from "react";
+
+import { hideComment, restoreComment } from "@/app/actions/comments";
+
+import { HideContentModal } from "./HideContentModal";
 
 export type CommentRow = {
   id: string;
-  content: string;
-  tombstone: boolean;
+  body: string;
+  status: "VISIBLE" | "HIDDEN" | "DELETED";
+  hiddenReason: string | null;
   createdAt: string;
   authorName: string;
   authorEntity: string | null;
-  postId: string;
+  postSlug: string;
   postTitle: string;
 };
 
-interface CommentsTableProps {
-  rows: CommentRow[];
-}
-
-export function CommentsTable({ rows }: CommentsTableProps) {
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+export function CommentsTable({ rows }: { rows: CommentRow[] }) {
+  const [hideTarget, setHideTarget] = useState<{ id: string; excerpt: string } | null>(null);
 
   return (
     <>
@@ -29,63 +29,79 @@ export function CommentsTable({ rows }: CommentsTableProps) {
           <article
             key={row.id}
             role="listitem"
-            className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] px-5 py-3.5 flex items-start gap-4"
+            className="aiesec-card flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between"
           >
-            {/* Tombstone badge */}
-            {row.tombstone && (
-              <span className="mt-0.5 flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-[4px] text-[12px] font-medium bg-[var(--muted)] text-[var(--muted-foreground)]">
-                Removed
-              </span>
-            )}
-
-            {/* Main content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] text-[var(--muted-foreground)] mb-1 truncate">
-                <span className="font-medium text-[var(--foreground)]">
-                  {row.authorName}
-                </span>
-                {row.authorEntity && <> · {row.authorEntity}</>}
-                {" · "}
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] text-[var(--muted-foreground)]">
+                {row.authorName}
+                {row.authorEntity ? ` · ${row.authorEntity}` : ""} ·{" "}
+                <time dateTime={row.createdAt}>
+                  {new Date(row.createdAt).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </time>{" "}
+                · on{" "}
                 <Link
-                  href={`/admin/posts/${row.postId}`}
-                  className="hover:text-[var(--primary)] transition-colors"
+                  href={`/posts/${row.postSlug}`}
+                  className="text-[var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                 >
                   {row.postTitle}
                 </Link>
-                {" · "}
-                {row.createdAt}
               </p>
-              <p
-                className={[
-                  "text-[15px] leading-[1.5] line-clamp-2",
-                  row.tombstone
-                    ? "italic text-[var(--muted-foreground)]"
-                    : "text-[var(--foreground)]",
-                ].join(" ")}
-              >
-                {row.content}
-              </p>
+
+              {row.status === "DELETED" ? (
+                <p className="mt-1.5 text-[15px] italic text-[var(--muted-foreground)]">
+                  Deleted by its author.
+                </p>
+              ) : (
+                <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-[1.5] text-[var(--foreground)]">
+                  {row.body}
+                </p>
+              )}
+
+              {row.status === "HIDDEN" && (
+                <p className="mt-1.5 text-[13px] text-[var(--destructive-text)]">
+                  Hidden{row.hiddenReason ? `: ${row.hiddenReason}` : ""}
+                </p>
+              )}
             </div>
 
-            {/* Remove action — only for live comments */}
-            {!row.tombstone && (
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(row.id)}
-                className="flex-shrink-0 mt-0.5 px-3 py-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] text-[13px] font-medium text-[var(--muted-foreground)] hover:border-[var(--destructive)] hover:text-[var(--destructive)] transition-colors cursor-pointer"
-                aria-label={`Remove comment by ${row.authorName}`}
-              >
-                Remove
-              </button>
+            {row.status !== "DELETED" && (
+              <div className="shrink-0">
+                {row.status === "HIDDEN" ? (
+                  <form action={async () => restoreComment(row.id).then(() => undefined)}>
+                    <button
+                      type="submit"
+                      className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:border-[var(--success)] hover:text-[var(--success-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                    >
+                      Restore
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setHideTarget({ id: row.id, excerpt: row.body.slice(0, 80) })}
+                    className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:border-[var(--destructive)] hover:text-[var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  >
+                    Hide
+                  </button>
+                )}
+              </div>
             )}
           </article>
         ))}
       </div>
 
-      <DeleteCommentModal
-        commentId={deleteTarget ?? ""}
-        open={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
+      <HideContentModal
+        key={hideTarget?.id ?? "closed"}
+        open={hideTarget !== null}
+        title="Hide this comment?"
+        description="It becomes a tombstone in the thread so replies keep their place. The author is shown your reason and can appeal."
+        targetLabel={hideTarget?.excerpt ?? ""}
+        onClose={() => setHideTarget(null)}
+        onConfirm={async (reason) => hideComment(hideTarget!.id, reason)}
       />
     </>
   );
