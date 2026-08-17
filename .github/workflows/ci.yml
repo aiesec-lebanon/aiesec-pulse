@@ -170,9 +170,14 @@ jobs:
         run: npm audit --omit=dev --audit-level=critical
 
       - name: Secret scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # gitleaks/gitleaks-action@v2 gates org repos behind a paid license
+        # (GITLEAKS_LICENSE). The gitleaks scanner itself is MIT-licensed and
+        # free — only that Action wrapper enforces the check — so we run the
+        # official image directly instead.
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            zricethezav/gitleaks:latest detect \
+            --source /repo --log-opts="--all" --redact -v
 
   build:
     name: Production build
