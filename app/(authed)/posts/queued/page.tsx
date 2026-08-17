@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { requireMCP } from "@/lib/auth/guards";
+
+import { requirePermission } from "@/lib/rbac/guards";
 
 export default async function PostQueuedPage() {
-  await requireMCP();
+  await requirePermission("post.draft");
 
   return (
     <main className="flex-1 mx-auto w-full max-w-[1200px] px-6 py-24">
       <div className="mx-auto flex max-w-[480px] flex-col items-center gap-8 text-center">
-
         {/* Envelope illustration — muted tones, matches FeedIllustration visual family */}
         <div
           className="text-[var(--muted-foreground)] opacity-60 animate-float-drift"
@@ -22,9 +22,8 @@ export default async function PostQueuedPage() {
             Your update is in review.
           </h1>
           <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-            Because this is your 3rd post this week, a moderator will take a
-            look before it appears in the global feed. We aim to review within
-            24 hours.
+            You&apos;ve used this week&apos;s allowance, so an editor in your entity will review
+            this post before it appears in the global feed. We aim to review within 24 hours.
           </p>
         </div>
 
@@ -37,7 +36,6 @@ export default async function PostQueuedPage() {
             View my posts
           </Link>
         </div>
-
       </div>
     </main>
   );

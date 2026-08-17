@@ -1,23 +1,36 @@
 import Link from "next/link";
 
-export default function unauthorizedPage() {
+export const metadata = { title: "Access not allowed · AIESEC Pulse" };
+
+export default function UnauthorizedPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center px-2">
-      <h1 className="text-3xl md:text-4xl font-semibold mb-4">
-        Access not allowed
+    <main className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col items-center justify-center gap-6 px-6 text-center">
+      <h1 className="text-[28px] font-black leading-tight text-[var(--foreground)]">
+        You don&apos;t have access to that
       </h1>
 
-      <p className="text-gray-500 max-w-md mb-6">
-        You don’t have the required permissions to access this website. If you
-        believe this is a mistake, please contact an administrator.
+      <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
+        Your AIESEC account is signed in, but it doesn&apos;t hold the permission this page needs —
+        or it holds it for a different entity.
       </p>
 
-      <Link
-        href="/login"
-        className="bg-blue-600 text-white px-5 py-2.5 rounded-md hover:bg-blue-700 transition"
-      >
-        Go to login
-      </Link>
-    </div>
+      <p className="text-[15px] leading-[1.6] text-[var(--muted-foreground)]">
+        Publishing and moderation rights come from your current positions in EXPA and are re-checked
+        every time you sign in. If your position changed recently, sign out and back in to refresh
+        them. If it still looks wrong, ask your MC&apos;s IM lead — they can see and grant platform
+        roles.
+      </p>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Link href="/feed" className="aiesec-btn-primary">
+          Back to the feed
+        </Link>
+        <form action="/api/auth/logout" method="post">
+          <button type="submit" className="aiesec-btn-secondary">
+            Sign out and back in
+          </button>
+        </form>
+      </div>
+    </main>
   );
 }

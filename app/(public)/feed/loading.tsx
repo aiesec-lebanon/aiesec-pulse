@@ -1,6 +1,3 @@
-// Skeleton shown by Next.js RSC streaming while feed/page.tsx resolves.
-// Mirrors the bento layout exactly: hero + 3 sidebar + 3 secondary + authors strip.
-
 function Bone({ className }: { className: string }) {
   return <div className={`rounded bg-[var(--border)] ${className}`} />;
 }
@@ -14,7 +11,6 @@ export default function FeedLoading() {
     >
       {/* ── PRIMARY ROW ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 animate-pulse">
-
         {/* HERO SKELETON — 8 cols */}
         <div className="lg:col-span-8 space-y-0">
           {/* Image */}

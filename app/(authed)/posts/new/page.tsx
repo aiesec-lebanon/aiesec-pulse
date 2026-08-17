@@ -1,28 +1,30 @@
-import { requireMCP } from "@/lib/auth/guards";
-import { db } from "@/lib/db";
-import { currentIsoWeek } from "@/lib/week";
-import { PostStatus } from "@/app/generated/prisma/enums";
 import { PostComposer } from "@/components/PostComposer";
+import { db } from "@/lib/db";
+import { quotaStateFor } from "@/lib/quota";
+import { requirePermission } from "@/lib/rbac/guards";
 
-async function getWeekPostCount(userId: string): Promise<number> {
-  return db.post.count({
+async function publishingRoleKey(userId: string): Promise<string> {
+  const grants = await db.roleGrant.findMany({
     where: {
-      authorId: userId,
-      weekIso: currentIsoWeek(),
-      status: { in: [PostStatus.PUBLISHED, PostStatus.PENDING] },
+      userId,
+      revokedAt: null,
+      OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
     },
+    select: { role: { select: { key: true } } },
   });
+  for (const key of ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"]) {
+    if (grants.some((g) => g.role.key === key)) return key;
+  }
+  return "entity_publisher";
 }
 
 export default async function NewPostPage() {
-  const user = await requireMCP();
-  const weekCount = await getWeekPostCount(user.id);
-  const atLimit = weekCount >= 2;
+  const user = await requirePermission("post.draft");
+  const roleKey = await publishingRoleKey(user.id);
+  const quota = await quotaStateFor(user.id, user.primaryEntityId, roleKey);
 
   return (
     <main className="mx-auto w-full max-w-[720px] px-6 py-10">
-
-      {/* ── Header ── */}
       <h1 className="text-[36px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
         Share an update
       </h1>
@@ -30,27 +32,25 @@ export default async function NewPostPage() {
         Your post will reach AIESEC members worldwide.
       </p>
 
-      {/* ── Week-usage banner ── */}
       <div className="mt-5 mb-8">
-        {atLimit ? (
+        {quota.atLimit ? (
           <span
             role="status"
-            className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--destructive)]/10 px-3 py-1.5 text-[13px] font-medium text-[var(--destructive)]"
+            className="inline-flex items-center rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-3 py-1.5 text-[13px] font-medium text-[var(--destructive-text)]"
           >
-            You&apos;ve used your 2 posts this week. The next post will go to the
-            approval queue.
+            You&apos;ve used your {quota.max} {quota.max === 1 ? "post" : "posts"} for this week.
+            The next one goes to the approval queue.
           </span>
         ) : (
           <span
             role="status"
             className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1.5 text-[13px] font-medium text-[var(--muted-foreground)]"
           >
-            Posts this week: {weekCount} of 2
+            Posts this week: {quota.used} of {quota.max}
           </span>
         )}
       </div>
 
-      {/* ── Composer ── */}
       <PostComposer />
     </main>
   );
