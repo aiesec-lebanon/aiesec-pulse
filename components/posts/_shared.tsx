@@ -1,10 +1,5 @@
 import Image from "next/image";
 
-// ── Avatar ─────────────────────────────────────────────────────────────────────
-
-// Five muted-tone backgrounds built by blending design-system tokens with the
-// card surface via color-mix(). The result adapts to both light and dark themes
-// without hard-coded hex values.
 const AVATAR_PALETTE = [
   "color-mix(in srgb, var(--primary) 18%, var(--card))",
   "color-mix(in srgb, var(--success) 18%, var(--card))",
@@ -47,9 +42,7 @@ export function PostAvatar({ fullName, avatarUrl, size = "md" }: PostAvatarProps
 
   if (avatarUrl) {
     return (
-      <span
-        className={`relative shrink-0 overflow-hidden rounded-full ${sizeClass}`}
-      >
+      <span className={`relative shrink-0 overflow-hidden rounded-full ${sizeClass}`}>
         <Image src={avatarUrl} alt="" fill className="object-cover" sizes="48px" />
       </span>
     );
@@ -66,11 +59,6 @@ export function PostAvatar({ fullName, avatarUrl, size = "md" }: PostAvatarProps
   );
 }
 
-// ── Image Fallback ─────────────────────────────────────────────────────────────
-
-// Fills its parent container (which must be `position: relative` + sized).
-// A single SVG bezier curve provides a subtle abstract mark — aria-hidden so
-// screen readers skip this purely decorative element.
 export function ImageFallback() {
   return (
     <div aria-hidden className="relative h-full w-full bg-[var(--muted)]">
