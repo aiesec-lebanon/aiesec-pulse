@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ChevronDown, ExternalLink, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
 import { resubmitPost } from "@/app/actions/posts";
 import { createPostSchema } from "@/lib/zod-schemas";
 
@@ -13,6 +14,7 @@ type Props = {
     content: string;
     linkUrl: string | null;
     mediaUrl: string | null;
+    mediaAlt: string | null;
     rejectionReason: string | null;
   };
 };
@@ -53,6 +55,7 @@ export function RejectedPostPanel({ post }: Props) {
       content,
       linkUrl: linkUrl || "",
       mediaUrl: post.mediaUrl ?? "",
+      mediaAlt: post.mediaAlt ?? undefined,
     });
     if (!validated.success) {
       const errors: FieldErrors = {};
@@ -75,12 +78,13 @@ export function RejectedPostPanel({ post }: Props) {
         content,
         linkUrl: linkUrl || "",
         mediaUrl: post.mediaUrl ?? "",
+        mediaAlt: post.mediaAlt ?? undefined,
       });
       if (result.ok) {
         setSuccessMsg(
           result.status === "PUBLISHED"
             ? "Your post is live in the feed."
-            : "Your post has been resubmitted for review.",
+            : "Your post has been resubmitted for review."
         );
         router.refresh();
         return;
@@ -97,7 +101,7 @@ export function RejectedPostPanel({ post }: Props) {
       if (formError) setServerError(formError);
     } catch (err) {
       setServerError(
-        err instanceof Error ? err.message : "Something went wrong. Please try again.",
+        err instanceof Error ? err.message : "Something went wrong. Please try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -112,7 +116,7 @@ export function RejectedPostPanel({ post }: Props) {
 
   if (successMsg) {
     return (
-      <div className="mt-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--success)_10%,var(--card))] border border-[var(--success)]/30 px-4 py-3 text-[14px] text-[var(--success)]">
+      <div className="mt-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--success)_10%,var(--card))] border border-[var(--success)]/30 px-4 py-3 text-[14px] text-[var(--success-text)]">
         {successMsg}
       </div>
     );
@@ -123,7 +127,7 @@ export function RejectedPostPanel({ post }: Props) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--destructive)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--destructive-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         aria-expanded={open}
       >
         <ChevronDown
@@ -140,8 +144,8 @@ export function RejectedPostPanel({ post }: Props) {
           {/* Rejection reason */}
           {post.rejectionReason && (
             <div className="mb-5 rounded-[var(--radius-md)] border border-[var(--destructive)]/30 bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))] px-4 py-3">
-              <p className="text-[12px] font-medium uppercase tracking-wide text-[var(--destructive)] opacity-80">
-                Admin's reason
+              <p className="text-[12px] font-medium uppercase tracking-wide text-[var(--destructive-text)] opacity-80">
+                Moderator&apos;s reason
               </p>
               <p className="mt-1 text-[14px] leading-[1.5] text-[var(--foreground)]">
                 {post.rejectionReason}
@@ -156,7 +160,10 @@ export function RejectedPostPanel({ post }: Props) {
                 htmlFor={`edit-title-${post.id}`}
                 className="mb-1 block text-[13px] font-medium text-[var(--foreground)]"
               >
-                Title <span aria-hidden className="text-[var(--destructive)]">*</span>
+                Title{" "}
+                <span aria-hidden className="text-[var(--destructive-text)]">
+                  *
+                </span>
               </label>
               <input
                 id={`edit-title-${post.id}`}
@@ -171,7 +178,7 @@ export function RejectedPostPanel({ post }: Props) {
                 ].join(" ")}
               />
               {fieldErrors.title && (
-                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive)]">
+                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive-text)]">
                   {fieldErrors.title}
                 </p>
               )}
@@ -183,7 +190,10 @@ export function RejectedPostPanel({ post }: Props) {
                 htmlFor={`edit-content-${post.id}`}
                 className="mb-1 block text-[13px] font-medium text-[var(--foreground)]"
               >
-                Content <span aria-hidden className="text-[var(--destructive)]">*</span>
+                Content{" "}
+                <span aria-hidden className="text-[var(--destructive-text)]">
+                  *
+                </span>
               </label>
               <textarea
                 id={`edit-content-${post.id}`}
@@ -199,7 +209,7 @@ export function RejectedPostPanel({ post }: Props) {
                 ].join(" ")}
               />
               {fieldErrors.content && (
-                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive)]">
+                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive-text)]">
                   {fieldErrors.content}
                 </p>
               )}
@@ -226,7 +236,7 @@ export function RejectedPostPanel({ post }: Props) {
                 ].join(" ")}
               />
               {linkIsInvalid && (
-                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive)]">
+                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive-text)]">
                   Please enter a valid URL including https://.
                 </p>
               )}
@@ -241,7 +251,7 @@ export function RejectedPostPanel({ post }: Props) {
             {serverError && (
               <div
                 role="alert"
-                className="rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-4 py-3 text-[13px] text-[var(--destructive)]"
+                className="rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-4 py-3 text-[13px] text-[var(--destructive-text)]"
               >
                 {serverError}
               </div>
@@ -262,7 +272,7 @@ export function RejectedPostPanel({ post }: Props) {
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={isSubmitting}
-                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2 text-[14px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2 text-[14px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
