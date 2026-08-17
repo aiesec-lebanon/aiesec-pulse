@@ -298,8 +298,7 @@ a {
   font-weight: 500;
   color: var(--muted-foreground);
 }
-/* Deliberately conspicuous: an unresolved policy question should not read like
-   settled text (see the members-under-18 section of the privacy notice). */
+
 .legal-prose p.open-question {
   border-inline-start: 2px solid var(--destructive);
   padding-inline-start: 16px;

@@ -5,7 +5,7 @@ export const metadata = {
   description: "What AIESEC Pulse collects, why, and what you can do about it.",
 };
 
-const LAST_UPDATED = "14 August 2026";
+const LAST_UPDATED = "17 August 2026";
 
 export default function PrivacyNoticePage() {
   return (
@@ -177,11 +177,9 @@ export default function PrivacyNoticePage() {
       </p>
 
       <h2>Members under 18</h2>
-      <p className="open-question">
-        <strong>Open.</strong> We are confirming with AIESEC International whether members under 18
-        use Pulse in any entity, and will publish the position — including any additional safeguards
-        — before that is settled. If you are under 18 and using Pulse, tell your Member
-        Committee&apos;s IM lead so we can account for it.
+      <p>
+        AIESEC has no members under 18, in any entity. Pulse therefore applies no age-gating,
+        parental-consent basis, or other under-18 safeguards to any account.
       </p>
 
       <h2>If something goes wrong</h2>

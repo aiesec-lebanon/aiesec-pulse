@@ -18,9 +18,9 @@ export function FeedEmptyState({ canPublish = false }: FeedEmptyStateProps) {
         </div>
 
         <div className="flex flex-col gap-3 max-w-sm">
-          <h2 className="text-[20px] font-bold text-[var(--foreground)]">
+          <h1 className="text-[20px] font-bold text-[var(--foreground)]">
             The feed is quiet — for now.
-          </h2>
+          </h1>
           <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
             When entities share updates, they&apos;ll appear here. Check back soon.
           </p>
