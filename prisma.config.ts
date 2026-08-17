@@ -1,18 +1,26 @@
 import dotenv from "dotenv";
-// Next.js reads .env.local over .env; mirror that for Prisma CLI.
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config(); // .env as fallback
 
 import { defineConfig } from "prisma/config";
 
-// DIRECT_URL (non-pooled) is used by Prisma CLI (prisma migrate / db push).
-// DATABASE_URL (PgBouncer pooler) is used by PrismaClient at runtime (lib/db.ts).
+// An unset variable in .env loads as "", so `??` does not fall back and Prisma
+// reports a confusing P1013 "invalid database string" for a merely blank one.
+const optional = (name: string): string | undefined => {
+  const value = process.env[name];
+  return value && value.trim() !== "" ? value : undefined;
+};
+
+// The CLI needs the non-pooled connection; the runtime client uses the pooler.
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
+    url: optional("DIRECT_URL") ?? optional("DATABASE_URL"),
+    // Replays the migration chain into a throwaway database for the CI drift
+    // gate. Absent locally, and must stay absent rather than blank.
+    shadowDatabaseUrl: optional("SHADOW_DATABASE_URL"),
   },
 });

@@ -1,0 +1,16 @@
+-- Rollback for M17 is NOT possible by DDL.
+--
+-- M17 drops the last copy of `User.aiesecUserId`, `User.role`,
+-- `User.committeeId`, `User.committeeName`, `Post.content`, `Post.mediaUrl`,
+-- `Post.weekIso`, `Comment.content`, and the `Admin`, `Like`, `AdminAction` and
+-- `UserAction` tables. Recreating the columns would restore the shape, not the
+-- data, which is worse than no rollback because it looks like one.
+--
+-- The recovery path is point-in-time restore to immediately before the cutover:
+-- restore from backup. The cutover procedure requires a verified
+-- backup and a completed staging rehearsal before M17 is allowed to run, and the
+-- guard block in migration.sql aborts the transaction if any copy is incomplete.
+--
+-- Deliberately left as a no-op so that an automated "rewind" cannot silently
+-- destroy the audit trail.
+SELECT 1;
