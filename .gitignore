@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+/.idea
 
 # debug
 npm-debug.log*
@@ -41,3 +42,21 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# playwright
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+
+# code-quality skill working ledger
+CODE_QUALITY_FINDINGS.md
+
+# internal planning and agent-instruction documents — not part of the public repo
+AGENTS.md
+CLAUDE.md
+AIESEC-Design-System-Guidelines.md
+architecture.md
+context.md
+literature-review.md
+/docs/
