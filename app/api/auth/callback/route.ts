@@ -1,123 +1,178 @@
-"use server";
+import { type NextRequest, NextResponse } from "next/server";
 
-import axios from "axios";
-import { NextResponse, NextRequest } from "next/server";
-import TokenResponse from "@/types/auth-types";
-import validateUser from "@/server-utils/user-validation";
+import { recordAudit, systemActor, userActor } from "@/lib/audit";
+import { isWithinStalenessCeiling, syncIdentityFromGis } from "@/lib/auth/identity";
+import { completeHandshake } from "@/lib/auth/oauth";
+import {
+  createSession,
+  LEGACY_COOKIES,
+  SESSION_COOKIE,
+  sessionCookieAttributes,
+  verifySessionToken,
+} from "@/lib/auth/session";
+import { exchangeCode, storeTokens } from "@/lib/auth/token-store";
+import { db } from "@/lib/db";
+import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
+import { clientIp, userAgent } from "@/lib/request";
+import { fetchCurrentPerson, GisUnavailableError, isPersonAllowed } from "@/server-utils/gis";
 
-/**
- * This route handles the redirect from the OAuth provider after the user
- * successfully authenticates. The provider sends an authorization `code`
- * which must be exchanged for an access token.
- *
- * Flow:
- * 1. Extract the authorization code from the request query.
- * 2. Exchange the code for an access token + refresh token.
- * 3. Validate the user using the received access token.
- * 4. If authorized, store authentication cookies.
- * 5. Redirect the user to the application dashboard.
- */
-export async function GET(req: NextRequest) {
-  const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/$/, "");
+const REDIRECT_ERRORS = {
+  missing_code: "We didn't receive an authorisation code from AIESEC. Please try again.",
+  state_mismatch: "That sign-in link could not be verified. Please start again.",
+  exchange_failed: "AIESEC could not complete the sign-in. Please try again.",
+  not_permitted: "Your AIESEC account is not permitted to use Pulse.",
+  gis_unavailable:
+    "AIESEC's member directory is unavailable and we have no recent record of your account.",
+} as const;
 
-  // Step 1: Extract authorization code returned by the OAuth provider
-  const code = req.nextUrl.searchParams.get("code");
+type ErrorCode = keyof typeof REDIRECT_ERRORS;
 
-  // If the code is missing, redirect user back to login
-  if (!code) {
-    return NextResponse.redirect(new URL("/login", baseUrl));
+export const AUTH_ERROR_CODES = Object.keys(REDIRECT_ERRORS) as ErrorCode[];
+
+function failure(baseUrl: string, code: ErrorCode): NextResponse {
+  const url = new URL("/login", baseUrl);
+  url.searchParams.set("error", code);
+  return NextResponse.redirect(url);
+}
+
+type CachedIdentity = { id: string; fullName: string; lastSyncedAt: Date | null; status: string };
+
+async function resolveCachedIdentity(token: string | undefined): Promise<CachedIdentity | null> {
+  if (!token) return null;
+
+  const claims = await verifySessionToken(token);
+  if (!claims) return null;
+
+  const session = await db.session.findUnique({
+    where: { id: claims.jti },
+    select: {
+      userId: true,
+      revokedAt: true,
+      expiresAt: true,
+      user: { select: { id: true, fullName: true, lastSyncedAt: true, status: true } },
+    },
+  });
+
+  if (!session || session.revokedAt || session.expiresAt <= new Date()) return null;
+  if (session.userId !== claims.sub) return null;
+
+  return session.user;
+}
+
+export async function GET(request: NextRequest) {
+  const baseUrl = env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "");
+  const params = request.nextUrl.searchParams;
+
+  const providerError = params.get("error");
+  if (providerError) {
+    logger.info("AIESEC returned an OAuth error", { providerError });
+    return failure(baseUrl, "exchange_failed");
   }
+
+  // `state` first, always — before the code is spent on anything.
+  const handshake = await completeHandshake(params.get("state"));
+  if (!handshake.ok) {
+    logger.warn("OAuth callback rejected", {
+      reason: handshake.reason,
+      note: "Possible login-CSRF attempt, or a stale/expired sign-in tab.",
+    });
+    return failure(baseUrl, "state_mismatch");
+  }
+
+  const code = params.get("code");
+  if (!code) return failure(baseUrl, "missing_code");
+
+  let tokens;
+  try {
+    tokens = await exchangeCode(code, handshake.codeVerifier ?? undefined);
+  } catch (error) {
+    logger.error("Authorization code exchange failed", { error });
+    return failure(baseUrl, "exchange_failed");
+  }
+
+  let userId: string;
+  let userLabel: string;
 
   try {
-    /**
-     * Step 2: Exchange the authorization code for tokens
-     *
-     * The OAuth provider returns:
-     * - access_token (used for authenticated requests)
-     * - refresh_token (used to renew the access token)
-     * - expires_in (token validity duration)
-     * - created_at (token creation timestamp)
-     */
-    const tokenResponse = await axios.post(
-      `${process.env.NEXT_PUBLIC_AUTH_URL}/token`,
-      {
-        client_id: process.env.NEXT_PUBLIC_CLIENT_ID,
-        grant_type: "authorization_code",
-        code: code,
-        redirect_uri: `${baseUrl}/api/auth/callback`,
-        client_secret: process.env.CLIENT_SECRET,
-      },
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      },
-    );
+    const person = await fetchCurrentPerson(tokens.accessToken);
 
-    const tokenData: TokenResponse = tokenResponse.data;
-    console.log("Received token data:", tokenData);
-
-    /**
-     * Step 3: Validate the authenticated user
-     *
-     * This function verifies the access token and retrieves
-     * user information from the authentication provider.
-     */
-    const { isValid, user } = await validateUser(tokenData.access_token);
-
-    // If the user is not authorized to use this platform
-    if (!isValid) {
-      return NextResponse.redirect(new URL("/unauthorized", baseUrl));
+    if (!isPersonAllowed(person)) {
+      logger.info("Sign-in refused by the access policy", { aiesecPersonId: person.id });
+      return failure(baseUrl, "not_permitted");
     }
 
-    /**
-     * Step 4: Calculate token expiration timestamp
-     */
-    const expiresAt = tokenData.created_at + tokenData.expires_in;
+    const { user, grantsAdded, grantsExpired, unmatchedTitles } = await syncIdentityFromGis(person);
 
-    /**
-     * Step 5: Create response and redirect to the application home page
-     */
-    const response = NextResponse.redirect(new URL("/", baseUrl));
+    if (user.status === "ERASED" || user.status === "SUSPENDED") {
+      return failure(baseUrl, "not_permitted");
+    }
 
-    /**
-     * Store authentication cookies
-     *
-     * access_token → used for API requests
-     * refresh_token → used to refresh expired access tokens
-     * token_expires_at → helps determine when token refresh is needed
-     * user → cached user information for UI usage
-     */
+    userId = user.id;
+    userLabel = user.fullName;
+    await storeTokens(user.id, tokens);
 
-    response.cookies.set("aiesec_token", tokenData.access_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      expires: new Date(expiresAt * 1000),
+    logger.info("Identity reconciled from GIS", {
+      userId: user.id,
+      grantsAdded,
+      grantsExpired,
+      unmatchedTitleCount: unmatchedTitles.length,
     });
-
-    response.cookies.set("refresh_token", tokenData.refresh_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-    });
-
-    response.cookies.set("token_expires_at", expiresAt.toString(), {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-    });
-
-    response.cookies.set("user", JSON.stringify(user), {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      expires: new Date(expiresAt * 1000),
-    });
-
-    return response;
   } catch (error) {
-    console.error("Error fetching tokens:", error);
-    return NextResponse.redirect(new URL("/unauthorized", baseUrl));
+    if (!(error instanceof GisUnavailableError)) {
+      logger.error("Sign-in failed while reconciling identity", { error });
+      return failure(baseUrl, "exchange_failed");
+    }
+
+    // GIS outage: fall back to a cached identity within the staleness ceiling.
+    // The account is taken from the signed token and a live session row, never
+    // from the raw cookie — otherwise an outage becomes a way to sign in as
+    // whoever logged in most recently.
+    const fallback = await resolveCachedIdentity(request.cookies.get(SESSION_COOKIE)?.value);
+
+    if (
+      !fallback ||
+      fallback.status !== "ACTIVE" ||
+      !isWithinStalenessCeiling(fallback.lastSyncedAt)
+    ) {
+      logger.error("GIS unavailable and no identity within the staleness ceiling", { error });
+      return failure(baseUrl, "gis_unavailable");
+    }
+
+    userId = fallback.id;
+    userLabel = fallback.fullName;
+    await storeTokens(fallback.id, tokens);
+    logger.warn("Signed in on cached identity during a GIS outage", {
+      userId: fallback.id,
+      lastSyncedAt: fallback.lastSyncedAt?.toISOString(),
+    });
+    await recordAudit(
+      systemActor("auth"),
+      "auth.sign_in_degraded",
+      { type: "user", id: fallback.id },
+      {
+        reason: "GIS unavailable; served from cached identity within the 72h ceiling",
+      }
+    );
   }
+
+  const session = await createSession(userId, {
+    userAgent: userAgent(request.headers),
+    ip: clientIp(request.headers),
+  });
+
+  await recordAudit(userActor({ id: userId, fullName: userLabel }), "auth.sign_in", {
+    type: "session",
+    id: session.sessionId,
+  });
+
+  const response = NextResponse.redirect(new URL(handshake.returnTo, baseUrl));
+  response.cookies.set(SESSION_COOKIE, session.token, sessionCookieAttributes(session.expiresAt));
+
+  for (const name of LEGACY_COOKIES) {
+    if (name === SESSION_COOKIE) continue;
+    response.cookies.set(name, "", { path: "/", maxAge: 0 });
+  }
+
+  return response;
 }
