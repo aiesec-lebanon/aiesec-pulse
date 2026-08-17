@@ -2,7 +2,7 @@ type TrendingAuthorCardProps = {
   author: {
     id: string;
     fullName: string;
-    committeeName: string | null;
+    entityName: string | null;
     postCount: number;
   };
 };
@@ -34,9 +34,9 @@ export function TrendingAuthorCard({ author }: TrendingAuthorCardProps) {
           <p className="truncate text-[15px] font-bold text-[var(--foreground)]">
             {author.fullName}
           </p>
-          {author.committeeName && (
+          {author.entityName && (
             <p className="truncate text-[13px] text-[var(--muted-foreground)]">
-              {author.committeeName}
+              {author.entityName}
             </p>
           )}
         </div>
@@ -44,8 +44,7 @@ export function TrendingAuthorCard({ author }: TrendingAuthorCardProps) {
 
       {/* Post-count pill */}
       <span className="inline-flex w-fit items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1 text-[12px] font-medium text-[var(--muted-foreground)]">
-        {author.postCount}{" "}
-        {author.postCount === 1 ? "post" : "posts"} this month
+        {author.postCount} {author.postCount === 1 ? "post" : "posts"} this month
       </span>
     </div>
   );

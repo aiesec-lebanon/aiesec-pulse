@@ -55,15 +55,7 @@ export function FeedIllustration({ variant = "default", className = "" }: Props)
       />
 
       {/* Center crease */}
-      <line
-        x1="14"
-        y1="32"
-        x2="56"
-        y2="42"
-        stroke="currentColor"
-        strokeWidth="1"
-        opacity="0.45"
-      />
+      <line x1="14" y1="32" x2="56" y2="42" stroke="currentColor" strokeWidth="1" opacity="0.45" />
     </svg>
   );
 }

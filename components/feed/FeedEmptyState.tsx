@@ -1,11 +1,12 @@
 import Link from "next/link";
+
 import { FeedIllustration } from "@/components/feed/FeedIllustration";
 
 interface FeedEmptyStateProps {
-  isMCP?: boolean;
+  canPublish?: boolean;
 }
 
-export function FeedEmptyState({ isMCP = false }: FeedEmptyStateProps) {
+export function FeedEmptyState({ canPublish = false }: FeedEmptyStateProps) {
   return (
     <main className="flex-1 mx-auto w-full max-w-[1200px] px-6 py-24">
       <div className="flex flex-col items-center text-center gap-6">
@@ -17,15 +18,15 @@ export function FeedEmptyState({ isMCP = false }: FeedEmptyStateProps) {
         </div>
 
         <div className="flex flex-col gap-3 max-w-sm">
-          <h2 className="text-[20px] font-bold text-[var(--foreground)]">
+          <h1 className="text-[20px] font-bold text-[var(--foreground)]">
             The feed is quiet — for now.
-          </h2>
+          </h1>
           <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-            When MCPs share updates, they&apos;ll appear here. Check back soon.
+            When entities share updates, they&apos;ll appear here. Check back soon.
           </p>
         </div>
 
-        {isMCP && (
+        {canPublish && (
           <Link href="/posts/new" className="aiesec-btn-primary">
             Be the first to post
           </Link>

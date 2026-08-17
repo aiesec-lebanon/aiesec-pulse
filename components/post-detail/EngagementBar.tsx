@@ -1,77 +1,70 @@
 "use client";
 
+import { Check, MessageCircle, Share2 } from "lucide-react";
 import { useState } from "react";
-import { MessageCircle, Share2, Check } from "lucide-react";
-import { LikeButton } from "@/components/engagement/LikeButton";
+
+import { ReactionButton } from "@/components/engagement/ReactionButton";
 
 type Props = {
   postId: string;
-  initialLiked: boolean;
-  initialLikeCount: number;
+  initialReacted: boolean;
+  initialReactionCount: number;
   commentCount: number;
 };
 
+// One element repositioned per breakpoint. Rendering it twice would give
+// ReactionButton two instances whose optimistic state could diverge.
 export function EngagementBar({
   postId,
-  initialLiked,
-  initialLikeCount,
+  initialReacted,
+  initialReactionCount,
   commentCount,
 }: Props) {
   const [copied, setCopied] = useState(false);
 
-  function handleShare() {
-    navigator.clipboard.writeText(window.location.href).then(() => {
+  async function handleShare() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch {}
   }
 
-  // Single DOM element: `fixed bottom-0` on mobile, `static` (in-flow) on desktop.
-  // This avoids rendering the bar twice and ensures LikeButton has exactly one
-  // instance — so its optimistic state stays consistent regardless of which bar
-  // the user interacts with.
   return (
     <div
       className={[
-        // Mobile: fixed strip pinned to bottom of viewport
         "fixed bottom-0 left-0 right-0 z-30",
         "border-t border-[var(--border)] bg-[var(--card)] px-6 py-3",
         "flex items-center justify-around gap-4",
-        // Desktop: back into document flow, above #comments
         "md:static md:my-8",
         "md:border-y md:bg-transparent md:px-0 md:py-4",
         "md:justify-start md:gap-8",
       ].join(" ")}
     >
-      <LikeButton
+      <ReactionButton
         postId={postId}
-        initialLiked={initialLiked}
-        initialCount={initialLikeCount}
+        initialReacted={initialReacted}
+        initialCount={initialReactionCount}
       />
 
       <a
         href="#comments"
-        className="flex items-center gap-1.5 text-[15px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+        className="flex min-h-[36px] items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-[15px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
         <MessageCircle size={18} strokeWidth={2} aria-hidden />
         <span>{commentCount}</span>
+        <span className="sr-only"> comments — jump to the discussion</span>
       </a>
 
       <button
         type="button"
         onClick={handleShare}
-        aria-label="Copy link to this post"
-        className="flex items-center gap-1.5 text-[15px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+        className="flex min-h-[36px] items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-[15px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
         {copied ? (
           <>
-            <Check
-              size={18}
-              strokeWidth={2}
-              className="text-[var(--success)]"
-              aria-hidden
-            />
-            <span className="text-[var(--success)]">Copied!</span>
+            <Check size={18} strokeWidth={2} className="text-[var(--success-text)]" aria-hidden />
+            <span className="text-[var(--success-text)]">Copied</span>
           </>
         ) : (
           <>
@@ -80,6 +73,10 @@ export function EngagementBar({
           </>
         )}
       </button>
+
+      <span aria-live="polite" className="sr-only">
+        {copied ? "Link copied to clipboard" : ""}
+      </span>
     </div>
   );
 }

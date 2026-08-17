@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export interface ChartPoint {
   week: string;
@@ -26,7 +19,11 @@ export function ActivityChart({ data }: { data: ChartPoint[] }) {
             dataKey="week"
             axisLine={{ stroke: "var(--border)", strokeWidth: 1 }}
             tickLine={false}
-            tick={{ fill: "var(--muted-foreground)", fontSize: 12, fontFamily: "Lato, Arial, sans-serif" }}
+            tick={{
+              fill: "var(--muted-foreground)",
+              fontSize: 12,
+              fontFamily: "Lato, Arial, sans-serif",
+            }}
           />
           <YAxis hide />
           <Tooltip

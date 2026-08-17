@@ -1,9 +1,9 @@
-import { PrismaClient } from "@/app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-// CLIENT_GENERATION_ID is replaced at build time by the prisma generate step.
-// Changing this value forces the dev-mode global singleton to be recreated,
-// which is necessary after schema migrations add new models.
+import { PrismaClient } from "@/app/generated/prisma/client";
+
+// Bumped by `prisma generate`. Changing it forces the dev-mode singleton to be
+// recreated, which is necessary after a migration adds models.
 const CLIENT_ID = "20260527200507";
 
 function createPrismaClient() {
@@ -16,12 +16,7 @@ function createPrismaClient() {
 type PrismaGlobal = { prisma?: PrismaClient; prismaClientId?: string };
 const globalForPrisma = globalThis as unknown as PrismaGlobal;
 
-// In dev, invalidate the cached client whenever the generated client changes
-// (identified by CLIENT_ID stamped at generate time).
-if (
-  process.env.NODE_ENV !== "production" &&
-  globalForPrisma.prismaClientId !== CLIENT_ID
-) {
+if (process.env.NODE_ENV !== "production" && globalForPrisma.prismaClientId !== CLIENT_ID) {
   globalForPrisma.prisma = undefined;
   globalForPrisma.prismaClientId = CLIENT_ID;
 }
@@ -29,3 +24,55 @@ if (
 export const db = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+
+// Serializable is what stops two submissions racing at `used = max - 1` from
+// both publishing. The retry is what makes it usable: Postgres does not block
+// conflicting transactions, it aborts one at commit, so without it the loser
+// surfaces as a 500 to a blameless publisher.
+const SERIALIZATION_FAILURE = "40001";
+const DEADLOCK_DETECTED = "40P01";
+const MAX_ATTEMPTS = 5;
+
+function isRetryableTransactionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const candidate = error as { code?: string; meta?: { code?: unknown }; message?: string };
+  if (candidate.code === "P2034") return true;
+  if (
+    candidate.meta?.code === SERIALIZATION_FAILURE ||
+    candidate.meta?.code === DEADLOCK_DETECTED
+  ) {
+    return true;
+  }
+
+  const message = candidate.message ?? "";
+  return (
+    message.includes("TransactionWriteConflict") ||
+    message.includes("write conflict") ||
+    message.includes("deadlock")
+  );
+}
+
+export async function serializableTransaction<T>(
+  fn: (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => Promise<T>
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await db.$transaction(fn, { isolationLevel: "Serializable" });
+    } catch (error) {
+      if (!isRetryableTransactionError(error)) throw error;
+      lastError = error;
+
+      if (attempt < MAX_ATTEMPTS) {
+        const backoff = 20 * 2 ** (attempt - 1);
+        await new Promise((resolve) =>
+          setTimeout(resolve, backoff + Math.random() * backoff * 0.5)
+        );
+      }
+    }
+  }
+
+  throw lastError;
+}

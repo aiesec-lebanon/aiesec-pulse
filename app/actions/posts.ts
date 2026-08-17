@@ -1,128 +1,187 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { requireMCP, requireAdmin } from "@/lib/auth/guards";
-import { db } from "@/lib/db";
-import { withAudit, logUserAction } from "@/lib/audit";
-import { currentIsoWeek } from "@/lib/week";
-import { createPostSchema, rejectPostSchema, type CreatePostInput } from "@/lib/zod-schemas";
+import { revalidatePath, revalidateTag } from "next/cache";
+
+import type { Prisma } from "@/app/generated/prisma/client";
 import { PostStatus } from "@/app/generated/prisma/enums";
-import { checkPostRateLimit } from "@/lib/auth/rate-limit";
+import { userActor, withAudit } from "@/lib/audit";
+import { documentFromPlainText, excerptFrom, readingMinutes } from "@/lib/content/document";
+import { uniqueSlug } from "@/lib/content/slug";
+import { db, serializableTransaction } from "@/lib/db";
+import { defaultAudience, resolveAudienceSize } from "@/lib/org/scope";
+import { resolveQuotaPolicy, usedInPeriod } from "@/lib/quota";
+import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
+import { can } from "@/lib/rbac/can";
+import { checkPermission, requireSession } from "@/lib/rbac/guards";
+import { currentTermLabel } from "@/lib/term";
+import {
+  type CreatePostInput,
+  createPostSchema,
+  fieldErrors,
+  rejectPostSchema,
+} from "@/lib/zod-schemas";
 
 export type CreatePostResult =
-  | { ok: true; postId: string; status: "PUBLISHED" | "PENDING" }
+  | { ok: true; postId: string; slug: string; status: "PUBLISHED" | "IN_REVIEW" }
   | { ok: false; errors: Record<string, string> };
 
-export async function createPost(input: CreatePostInput): Promise<CreatePostResult> {
-  const user = await requireMCP();
+async function publishingRoleFor(user: { id: string }, entityId: string): Promise<string | null> {
+  if (await can(user, "post.publish", { type: "ENTITY", entityId })) {
+    const grants = await db.roleGrant.findMany({
+      where: {
+        userId: user.id,
+        revokedAt: null,
+        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+        role: {
+          key: { in: ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"] },
+        },
+      },
+      select: { role: { select: { key: true } } },
+    });
+    // Most permissive first: an editor who also publishes gets the wider allowance.
+    for (const key of ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"]) {
+      if (grants.some((g) => g.role.key === key)) return key;
+    }
+  }
+  return null;
+}
 
-  if (!checkPostRateLimit(user.id)) {
-    return { ok: false, errors: { _form: "Too many submissions. Please wait a moment and try again." } };
+export async function createPost(input: CreatePostInput): Promise<CreatePostResult> {
+  const user = await requireSession();
+
+  const entityId = user.primaryEntityId;
+  if (!entityId) {
+    return {
+      ok: false,
+      errors: { _form: "Your AIESEC entity is not on record yet. Sign out and back in." },
+    };
+  }
+
+  const authorised = await checkPermission("post.publish", { type: "ENTITY", entityId });
+  if (!authorised.ok) return { ok: false, errors: { _form: authorised.error } };
+
+  const limit = await checkRateLimit("postSubmit", user.id);
+  if (!limit.allowed) return { ok: false, errors: { _form: retryMessage(limit) } };
+
+  // A posting restriction outranks the permission.
+  const restricted = await db.userRestriction.findFirst({
+    where: {
+      userId: user.id,
+      kind: "posting",
+      startsAt: { lte: new Date() },
+      OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+    },
+    select: { reason: true },
+  });
+  if (restricted) {
+    return {
+      ok: false,
+      errors: { _form: `Posting is currently restricted: ${restricted.reason}` },
+    };
   }
 
   const parsed = createPostSchema.safeParse(input);
-  if (!parsed.success) {
-    const errors: Record<string, string> = {};
-    for (const [field, messages] of Object.entries(parsed.error.flatten().fieldErrors)) {
-      const msg = (messages as string[] | undefined)?.[0];
-      if (msg) errors[field] = msg;
-    }
-    return { ok: false, errors };
+  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+
+  const { title, content, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
+
+  const roleKey = (await publishingRoleFor(user, entityId)) ?? "entity_publisher";
+  const policy = await resolveQuotaPolicy(entityId, roleKey);
+  if (!policy) {
+    return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
   }
 
-  const { title, content, mediaUrl, linkUrl } = parsed.data;
-  const weekIso = currentIsoWeek();
+  const bodyJson = documentFromPlainText(content);
+  const slug = await uniqueSlug(title);
+  const audiences = defaultAudience();
+  const audienceSize = await resolveAudienceSize(audiences);
 
-  // Serializable isolation prevents two simultaneous submissions at count=1
-  // from both observing count<2 and both publishing.
-  const { post, status } = await db.$transaction(
-    async (tx) => {
-      const count = await tx.post.count({
-        where: {
-          authorId: user.id,
-          weekIso,
-          status: { in: [PostStatus.PUBLISHED, PostStatus.PENDING] },
+  let coverMediaId: string | null = null;
+  if (mediaUrl) {
+    const media = await db.media.create({
+      data: {
+        ownerId: user.id,
+        bucket: "post-media",
+        path: mediaUrl.replace(/^.*\/post-media\//, ""),
+        mimeType: guessMimeType(mediaUrl),
+        bytes: 0,
+        altText: mediaAlt ?? null,
+      },
+      select: { id: true },
+    });
+    coverMediaId = media.id;
+  }
+
+  const { post, status } = await serializableTransaction(async (tx) => {
+    const used = await usedInPeriod(tx, user.id, policy.periodLabel);
+    const status = used < policy.maxPosts ? PostStatus.PUBLISHED : PostStatus.IN_REVIEW;
+
+    const post = await tx.post.create({
+      data: {
+        slug,
+        authorId: user.id,
+        publisherEntityId: entityId,
+        termLabel: currentTermLabel(),
+        title,
+        summary: summary?.trim() || excerptFrom(content),
+        bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
+        bodyText: content,
+        readingMinutes: readingMinutes(content),
+        coverMediaId,
+        linkUrl: linkUrl || null,
+        status,
+        quotaPeriod: policy.periodLabel,
+        publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
+        audienceSize,
+        audiences: { create: audiences },
+        versions: {
+          create: {
+            version: 1,
+            title,
+            summary: summary?.trim() || excerptFrom(content),
+            bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
+            editedById: user.id,
+          },
         },
-      });
-      const status = count < 2 ? PostStatus.PUBLISHED : PostStatus.PENDING;
-      const post = await tx.post.create({
-        data: {
-          authorId: user.id,
-          title,
-          content,
-          mediaUrl: mediaUrl || null,
-          linkUrl: linkUrl || null,
-          status,
-          weekIso,
-        },
-      });
-      return { post, status };
-    },
-    { isolationLevel: "Serializable" },
+        ...(coverMediaId ? { media: { create: { mediaId: coverMediaId, position: 0 } } } : {}),
+      },
+      select: { id: true, slug: true },
+    });
+
+    return { post, status };
+  });
+
+  await withAudit(
+    userActor(user),
+    status === PostStatus.PUBLISHED ? "post.published" : "post.queued",
+    { type: "post", id: post.id, entityId },
+    { title, quotaPeriod: policy.periodLabel, quotaMax: policy.maxPosts },
+    async () => undefined
   );
 
-  await logUserAction(user.id, "create_post", "post", post.id, { title, status });
-
+  revalidateTag("feed", "max");
   revalidatePath("/feed");
-  revalidatePath("/posts/new");
-  if (status === PostStatus.PENDING) revalidatePath("/admin/queue");
+  revalidatePath("/profile");
+  if (status === PostStatus.IN_REVIEW) revalidatePath("/admin/queue");
 
-  return { ok: true, postId: post.id, status };
-}
-
-export async function approvePost(postId: string): Promise<{ ok: true }> {
-  const admin = await requireAdmin();
-  return withAudit(admin, "approve_post", "post", postId, null, async () => {
-    await db.post.update({ where: { id: postId }, data: { status: PostStatus.PUBLISHED } });
-    revalidatePath("/admin/queue");
-    revalidatePath("/feed");
-    return { ok: true as const };
-  });
-}
-
-export async function rejectPost(
-  postId: string,
-  reason: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const admin = await requireAdmin();
-  const parsed = rejectPostSchema.safeParse({ reason });
-  if (!parsed.success) return { ok: false, error: "Reason must be 5-500 characters." };
-  return withAudit(admin, "reject_post", "post", postId, { reason: parsed.data.reason }, async () => {
-    await db.post.update({
-      where: { id: postId },
-      data: { status: PostStatus.REJECTED, rejectionReason: parsed.data.reason },
-    });
-    revalidatePath("/admin/queue");
-    revalidatePath("/feed");
-    return { ok: true as const };
-  });
+  return { ok: true, postId: post.id, slug: post.slug, status };
 }
 
 export type ResubmitPostResult =
-  | { ok: true; status: "PUBLISHED" | "PENDING" }
+  | { ok: true; status: "PUBLISHED" | "IN_REVIEW" }
   | { ok: false; errors: Record<string, string> };
 
+/** Re-enters the quota check rather than bypassing it. */
 export async function resubmitPost(
   postId: string,
-  input: CreatePostInput,
+  input: CreatePostInput
 ): Promise<ResubmitPostResult> {
-  const user = await requireMCP();
-
-  const parsed = createPostSchema.safeParse(input);
-  if (!parsed.success) {
-    const errors: Record<string, string> = {};
-    for (const [field, messages] of Object.entries(parsed.error.flatten().fieldErrors)) {
-      const msg = (messages as string[] | undefined)?.[0];
-      if (msg) errors[field] = msg;
-    }
-    return { ok: false, errors };
-  }
+  const user = await requireSession();
 
   const post = await db.post.findUnique({
     where: { id: postId },
-    select: { authorId: true, status: true },
+    select: { authorId: true, status: true, publisherEntityId: true, title: true },
   });
-
   if (!post || post.authorId !== user.id) {
     return { ok: false, errors: { _form: "Post not found." } };
   }
@@ -130,50 +189,235 @@ export async function resubmitPost(
     return { ok: false, errors: { _form: "Only rejected posts can be resubmitted." } };
   }
 
-  const { title, content, mediaUrl, linkUrl } = parsed.data;
-  const weekIso = currentIsoWeek();
+  const authorised = await checkPermission("post.publish", {
+    type: "ENTITY",
+    entityId: post.publisherEntityId,
+  });
+  if (!authorised.ok) return { ok: false, errors: { _form: authorised.error } };
 
-  const { status } = await db.$transaction(
-    async (tx) => {
-      const count = await tx.post.count({
-        where: {
-          authorId: user.id,
-          weekIso,
-          status: { in: [PostStatus.PUBLISHED, PostStatus.PENDING] },
+  const limit = await checkRateLimit("postSubmit", user.id);
+  if (!limit.allowed) return { ok: false, errors: { _form: retryMessage(limit) } };
+
+  const parsed = createPostSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+
+  const { title, content, summary, linkUrl } = parsed.data;
+  const roleKey = (await publishingRoleFor(user, post.publisherEntityId)) ?? "entity_publisher";
+  const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey);
+  if (!policy)
+    return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
+
+  const bodyJson = documentFromPlainText(content);
+
+  const { status } = await serializableTransaction(async (tx) => {
+    const used = await usedInPeriod(tx, user.id, policy.periodLabel);
+    const status = used < policy.maxPosts ? PostStatus.PUBLISHED : PostStatus.IN_REVIEW;
+
+    const latest = await tx.postVersion.findFirst({
+      where: { postId },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+
+    await tx.post.update({
+      where: { id: postId },
+      data: {
+        title,
+        summary: summary?.trim() || excerptFrom(content),
+        bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
+        bodyText: content,
+        readingMinutes: readingMinutes(content),
+        linkUrl: linkUrl || null,
+        status,
+        rejectionReason: null,
+        quotaPeriod: policy.periodLabel,
+        publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
+        versions: {
+          create: {
+            version: (latest?.version ?? 0) + 1,
+            title,
+            summary: summary?.trim() || excerptFrom(content),
+            bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
+            editedById: user.id,
+            changeNote: "Resubmitted after rejection",
+          },
         },
-      });
-      const status = count < 2 ? PostStatus.PUBLISHED : PostStatus.PENDING;
-      await tx.post.update({
-        where: { id: postId },
-        data: {
-          title,
-          content,
-          mediaUrl: mediaUrl || null,
-          linkUrl: linkUrl || null,
-          status,
-          rejectionReason: null,
-          weekIso,
-        },
-      });
-      return { status };
-    },
-    { isolationLevel: "Serializable" },
+      },
+    });
+
+    return { status };
+  });
+
+  await withAudit(
+    userActor(user),
+    "post.resubmitted",
+    { type: "post", id: postId, entityId: post.publisherEntityId },
+    { status },
+    async () => undefined
   );
 
+  revalidateTag("feed", "max");
   revalidatePath("/profile");
   revalidatePath("/feed");
-  if (status === PostStatus.PENDING) revalidatePath("/admin/queue");
+  if (status === PostStatus.IN_REVIEW) revalidatePath("/admin/queue");
 
   return { ok: true, status };
 }
 
-export async function deletePost(postId: string) {
-  const admin = await requireAdmin();
-  const target = await db.post.findUnique({ where: { id: postId }, select: { title: true } });
-  return withAudit(admin, "delete_post", "post", postId, { title: target?.title }, async () => {
-    await db.post.delete({ where: { id: postId } });
-    revalidatePath("/feed");
-    revalidatePath("/admin/posts");
-    revalidatePath("/admin/queue");
+export async function approvePost(
+  postId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const post = await db.post.findUnique({
+    where: { id: postId },
+    select: { publisherEntityId: true, title: true, status: true },
   });
+  if (!post) return { ok: false, error: "Post not found." };
+
+  const authorised = await checkPermission("post.approve", {
+    type: "ENTITY",
+    entityId: post.publisherEntityId,
+  });
+  if (!authorised.ok) return { ok: false, error: authorised.error };
+
+  if (post.status !== PostStatus.IN_REVIEW) {
+    return { ok: false, error: "Only queued posts can be approved." };
+  }
+
+  return withAudit(
+    userActor(authorised.user),
+    "post.approved",
+    { type: "post", id: postId, entityId: post.publisherEntityId },
+    { title: post.title },
+    async () => {
+      await db.post.update({
+        where: { id: postId },
+        data: { status: PostStatus.PUBLISHED, publishedAt: new Date() },
+      });
+      revalidateTag("feed", "max");
+      revalidatePath("/admin/queue");
+      revalidatePath("/feed");
+      return { ok: true as const };
+    }
+  );
+}
+
+export async function rejectPost(
+  postId: string,
+  reason: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const post = await db.post.findUnique({
+    where: { id: postId },
+    select: { publisherEntityId: true, title: true },
+  });
+  if (!post) return { ok: false, error: "Post not found." };
+
+  const authorised = await checkPermission("post.approve", {
+    type: "ENTITY",
+    entityId: post.publisherEntityId,
+  });
+  if (!authorised.ok) return { ok: false, error: authorised.error };
+
+  const parsed = rejectPostSchema.safeParse({ reason });
+  if (!parsed.success) return { ok: false, error: "Reason must be 5–500 characters." };
+
+  return withAudit(
+    userActor(authorised.user),
+    "post.rejected",
+    { type: "post", id: postId, entityId: post.publisherEntityId },
+    { reason: parsed.data.reason, title: post.title },
+    async () => {
+      await db.post.update({
+        where: { id: postId },
+        data: { status: PostStatus.REJECTED, rejectionReason: parsed.data.reason },
+      });
+      revalidateTag("feed", "max");
+      revalidatePath("/admin/queue");
+      revalidatePath("/feed");
+      return { ok: true as const };
+    }
+  );
+}
+
+/** Reversible: a deleted post cannot be restored when an appeal is upheld. */
+export async function hidePost(
+  postId: string,
+  reason: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const post = await db.post.findUnique({
+    where: { id: postId },
+    select: { publisherEntityId: true, title: true },
+  });
+  if (!post) return { ok: false, error: "Post not found." };
+
+  const authorised = await checkPermission("moderation.hide", {
+    type: "ENTITY",
+    entityId: post.publisherEntityId,
+  });
+  if (!authorised.ok) return { ok: false, error: authorised.error };
+
+  const parsed = rejectPostSchema.safeParse({ reason });
+  if (!parsed.success) return { ok: false, error: "Reason must be 5–500 characters." };
+
+  return withAudit(
+    userActor(authorised.user),
+    "post.hidden",
+    { type: "post", id: postId, entityId: post.publisherEntityId },
+    { reason: parsed.data.reason, title: post.title },
+    async () => {
+      await db.post.update({
+        where: { id: postId },
+        data: { status: PostStatus.HIDDEN, hiddenAt: new Date(), hiddenReason: parsed.data.reason },
+      });
+      revalidateTag("feed", "max");
+      revalidatePath("/feed");
+      revalidatePath("/admin/posts");
+      return { ok: true as const };
+    }
+  );
+}
+
+export async function restorePost(
+  postId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const post = await db.post.findUnique({
+    where: { id: postId },
+    select: { publisherEntityId: true, title: true, publishedAt: true },
+  });
+  if (!post) return { ok: false, error: "Post not found." };
+
+  const authorised = await checkPermission("moderation.restore", {
+    type: "ENTITY",
+    entityId: post.publisherEntityId,
+  });
+  if (!authorised.ok) return { ok: false, error: authorised.error };
+
+  return withAudit(
+    userActor(authorised.user),
+    "post.restored",
+    { type: "post", id: postId, entityId: post.publisherEntityId },
+    { title: post.title },
+    async () => {
+      await db.post.update({
+        where: { id: postId },
+        data: {
+          status: PostStatus.PUBLISHED,
+          hiddenAt: null,
+          hiddenReason: null,
+          publishedAt: post.publishedAt ?? new Date(),
+        },
+      });
+      revalidateTag("feed", "max");
+      revalidatePath("/feed");
+      revalidatePath("/admin/posts");
+      return { ok: true as const };
+    }
+  );
+}
+
+function guessMimeType(url: string): string {
+  const lower = url.toLowerCase();
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".avif")) return "image/avif";
+  return "image/jpeg";
 }

@@ -1,0 +1,23 @@
+# A weekly cadence keeps the diff small enough that a volunteer maintainer can
+# actually read it, which is what makes it survive a handover.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the patch noise, individual PRs for anything that can break.
+      patch-updates:
+        update-types: ["patch"]
+      types:
+        patterns: ["@types/*"]
+    labels: ["dependencies"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    labels: ["dependencies", "ci"]

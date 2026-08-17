@@ -3,94 +3,106 @@ import Link from "next/link";
 export type AuditRow = {
   id: string;
   actorLabel: string;
-  actorType: "admin" | "mcp" | "member";
-  actionLabel: string;
-  actionGroup: "approval" | "rejection" | "deletion" | "creation";
-  targetType: "post" | "comment";
+  actorType: "USER" | "SYSTEM" | "BREAK_GLASS";
+  action: string;
+  targetType: string;
   targetHref: string | null;
   targetLabel: string | null;
+  entityName: string | null;
   timestampAbs: string;
   timestampIso: string;
 };
 
-const ACTION_PILL: Record<AuditRow["actionGroup"], string> = {
-  approval:
-    "bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[var(--success)]",
-  rejection:
-    "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[var(--destructive)]",
-  deletion: "bg-[var(--muted)] text-[var(--muted-foreground)]",
-  creation:
-    "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]",
-};
-
 const ACTOR_BADGE: Record<AuditRow["actorType"], { label: string; className: string }> = {
-  admin: {
-    label: "Admin",
+  USER: {
+    label: "Member",
+    className: "bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] text-[var(--primary-text)]",
+  },
+  SYSTEM: {
+    label: "System",
     className: "bg-[var(--muted)] text-[var(--muted-foreground)]",
   },
-  mcp: {
-    label: "MCP",
+  BREAK_GLASS: {
+    label: "Break-glass",
     className:
-      "bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] text-[var(--primary)]",
-  },
-  member: {
-    label: "Member",
-    className:
-      "bg-[color-mix(in_srgb,var(--success)_8%,transparent)] text-[var(--success)]",
+      "bg-[color-mix(in_srgb,var(--destructive)_16%,transparent)] text-[var(--destructive-text)] font-bold",
   },
 };
+
+function actionClass(action: string): string {
+  if (action.includes("approve") || action.includes("restore")) {
+    return "bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[var(--success-text)]";
+  }
+  if (action.includes("reject") || action.includes("hidden") || action.includes("restrict")) {
+    return "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[var(--destructive-text)]";
+  }
+  if (action.includes("erase") || action.includes("break_glass")) {
+    return "bg-[color-mix(in_srgb,var(--destructive)_18%,transparent)] text-[var(--destructive-text)]";
+  }
+  return "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary-text)]";
+}
+
+function humanise(action: string): string {
+  const words = action.replace(/[._]/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 export function AuditTable({ rows }: { rows: AuditRow[] }) {
   return (
     <div className="flex flex-col gap-2" role="list" aria-label="Audit log entries">
       {rows.map((row) => {
-        const badge = ACTOR_BADGE[row.actorType];
+        const actor = ACTOR_BADGE[row.actorType];
         return (
           <article
             key={row.id}
             role="listitem"
-            className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] px-5 py-3.5 flex flex-wrap items-center gap-x-4 gap-y-1.5"
+            className="aiesec-card flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:gap-4"
           >
-            {/* Timestamp */}
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className={`rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium ${actor.className}`}
+              >
+                {actor.label}
+              </span>
+              <span
+                className={`rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium ${actionClass(row.action)}`}
+              >
+                {humanise(row.action)}
+              </span>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] text-[var(--foreground)]">
+                <span className="font-medium">{row.actorLabel}</span>
+                {row.targetLabel && (
+                  <>
+                    {" · "}
+                    {row.targetHref ? (
+                      <Link
+                        href={row.targetHref}
+                        className="text-[var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                      >
+                        {row.targetLabel}
+                      </Link>
+                    ) : (
+                      <span className="text-[var(--muted-foreground)]">{row.targetLabel}</span>
+                    )}
+                  </>
+                )}
+              </p>
+              {row.entityName && (
+                <p className="truncate text-[12px] text-[var(--muted-foreground)]">
+                  {row.entityName}
+                </p>
+              )}
+            </div>
+
             <time
               dateTime={row.timestampIso}
-              className="text-[12px] font-medium text-[var(--muted-foreground)] tabular-nums flex-shrink-0"
+              className="shrink-0 text-[13px] tabular-nums text-[var(--muted-foreground)]"
             >
               {row.timestampAbs}
             </time>
-
-            {/* Role badge */}
-            <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium flex-shrink-0 ${badge.className}`}
-            >
-              {badge.label}
-            </span>
-
-            {/* Actor label */}
-            <span className="text-[13px] font-bold text-[var(--foreground)] flex-shrink-0">
-              {row.actorLabel}
-            </span>
-
-            {/* Action pill */}
-            <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[12px] font-medium flex-shrink-0 ${ACTION_PILL[row.actionGroup]}`}
-            >
-              {row.actionLabel}
-            </span>
-
-            {/* Target */}
-            <span className="text-[13px] text-[var(--muted-foreground)] min-w-0 truncate">
-              {row.targetHref !== null ? (
-                <Link
-                  href={row.targetHref}
-                  className="text-[var(--primary)] hover:underline underline-offset-2"
-                >
-                  {row.targetLabel}
-                </Link>
-              ) : (
-                <span className="italic">(deleted)</span>
-              )}
-            </span>
           </article>
         );
       })}

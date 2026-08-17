@@ -1,4 +1,5 @@
 import Link from "next/link";
+
 import { FeedIllustration } from "@/components/feed/FeedIllustration";
 
 export default function NotFound() {

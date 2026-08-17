@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+
 import { addComment } from "@/app/actions/comments";
 import { PostAvatar } from "@/components/posts/_shared";
 import type { CommentDto } from "@/types/comment";
@@ -22,7 +23,7 @@ function SubmitButton({ empty }: { empty: boolean }) {
     <button
       type="submit"
       disabled={empty || pending}
-      className="rounded-[var(--radius-sm)] bg-[var(--primary)] px-5 py-2 text-[14px] font-bold text-[var(--primary-foreground)] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+      className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 py-2 text-[14px] font-bold text-[var(--primary-foreground)] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-40"
     >
       {pending ? "Posting…" : "Post"}
     </button>
@@ -55,10 +56,11 @@ export function CommentComposer({
 
     const optimistic: CommentDto = {
       id: `optimistic-${Date.now()}`,
-      content: trimmed,
+      body: trimmed,
       tombstone: false,
+      hiddenReason: null,
       createdAt: new Date().toISOString(),
-      author: { fullName: currentUserName, committeeName: null },
+      author: { fullName: currentUserName, entityName: null },
     };
 
     onOptimisticAdd(optimistic);
@@ -104,7 +106,7 @@ export function CommentComposer({
             <span
               className={`text-[12px] tabular-nums ${
                 chars > MAX_CHARS * 0.9
-                  ? "text-[var(--destructive)]"
+                  ? "text-[var(--destructive-text)]"
                   : "text-[var(--muted-foreground)]"
               }`}
             >
@@ -115,7 +117,7 @@ export function CommentComposer({
         </form>
 
         {error && (
-          <p role="alert" className="mt-2 text-[13px] text-[var(--destructive)]">
+          <p role="alert" className="mt-2 text-[13px] text-[var(--destructive-text)]">
             {error}
           </p>
         )}

@@ -1,91 +1,64 @@
-import { db } from "@/lib/db";
 import { PostStatus } from "@/app/generated/prisma/enums";
-import { relativeTime } from "@/lib/relative-time";
 import { QueueCard } from "@/components/admin/QueueCard";
+import { db } from "@/lib/db";
+import { mediaUrl } from "@/lib/feed";
+import { requirePermission } from "@/lib/rbac/guards";
+import { postScopeWhere, resolveScopeFilter } from "@/lib/rbac/scope-filter";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminQueuePage() {
+export default async function QueuePage() {
+  const user = await requirePermission("post.approve");
+  const scope = await resolveScopeFilter(user, "post.approve");
+
   const posts = await db.post.findMany({
-    where: { status: PostStatus.PENDING },
-    orderBy: { createdAt: "asc" },
-    include: {
-      author: { select: { fullName: true, committeeName: true } },
+    where: { status: PostStatus.IN_REVIEW, ...postScopeWhere(scope) },
+    orderBy: { createdAt: "asc" }, // oldest first — the queue is a queue
+    take: 100,
+    select: {
+      id: true,
+      title: true,
+      bodyText: true,
+      linkUrl: true,
+      createdAt: true,
+      cover: { select: { bucket: true, path: true, altText: true } },
+      author: { select: { fullName: true } },
+      publisher: { select: { name: true } },
     },
   });
 
   return (
-    <main className="mx-auto w-full max-w-[860px] px-6 py-8">
-      <h1 className="text-[20px] font-bold text-[var(--foreground)] mb-8">
-        Approval Queue
-        {posts.length > 0 && (
-          <span className="ml-3 inline-flex items-center justify-center min-w-[24px] h-6 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-[12px] font-bold px-1.5 tabular-nums align-middle">
-            {posts.length > 99 ? "99+" : posts.length}
-          </span>
-        )}
-      </h1>
+    <main className="mx-auto w-full max-w-[900px] px-4 py-8 sm:px-6">
+      <h1 className="text-[24px] font-black text-[var(--foreground)]">Approval queue</h1>
+      <p className="mt-1 text-[15px] text-[var(--muted-foreground)]">
+        Posts submitted beyond their author&apos;s weekly allowance. Rejecting never destroys the
+        post — the author sees your reason and can edit and resubmit.
+      </p>
 
       {posts.length === 0 ? (
-        <QueueEmptyState />
+        <div className="aiesec-card mt-8 px-8 py-12 text-center">
+          <p className="text-[16px] text-[var(--muted-foreground)]">
+            Nothing is waiting for review.
+          </p>
+        </div>
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="mt-8 flex flex-col gap-4">
           {posts.map((post) => (
             <QueueCard
               key={post.id}
               postId={post.id}
               authorName={post.author.fullName}
-              authorEntity={post.author.committeeName ?? ""}
-              submittedAt={relativeTime(post.createdAt)}
+              authorEntity={post.publisher.name}
+              submittedAt={post.createdAt.toISOString()}
               title={post.title}
-              content={post.content}
-              mediaUrl={post.mediaUrl ?? null}
-              linkUrl={post.linkUrl ?? null}
+              content={post.bodyText}
+              mediaUrl={mediaUrl(post.cover)}
+              mediaAlt={post.cover?.altText ?? null}
+              linkUrl={post.linkUrl}
             />
           ))}
         </div>
       )}
     </main>
-  );
-}
-
-function QueueEmptyState() {
-  return (
-    <div className="flex flex-col items-center py-24 gap-6 text-center">
-      <div className="text-[var(--muted-foreground)] opacity-50" aria-hidden="true">
-        <svg
-          viewBox="0 0 80 80"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-20 h-20"
-        >
-          {/* Outer circle */}
-          <circle
-            cx="40"
-            cy="40"
-            r="36"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeDasharray="6 4"
-            opacity="0.4"
-          />
-          {/* Check mark */}
-          <path
-            d="M24 40 L35 52 L56 28"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
-      <div className="flex flex-col gap-2 max-w-xs">
-        <p className="text-[20px] font-bold text-[var(--foreground)]">
-          Queue is empty — nice work.
-        </p>
-        <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-          All submissions have been reviewed.
-        </p>
-      </div>
-    </div>
   );
 }
