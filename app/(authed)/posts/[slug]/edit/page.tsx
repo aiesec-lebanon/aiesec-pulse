@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PostStatus } from "@/app/generated/prisma/enums";
+import { VersionHistoryPanel } from "@/components/drafts/VersionHistoryPanel";
 import { PostComposer } from "@/components/PostComposer";
 import { sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
@@ -28,6 +29,10 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
       bodyJson: true,
       linkUrl: true,
       cover: { select: { bucket: true, path: true, altText: true } },
+      versions: {
+        select: { version: true, title: true, changeNote: true, createdAt: true },
+        orderBy: { version: "desc" },
+      },
     },
   });
   if (!post || post.authorId !== user.id || post.status !== PostStatus.DRAFT) {
@@ -78,6 +83,16 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
           mediaUrl: mediaUrl(post.cover),
           mediaAlt: post.cover?.altText ?? "",
         }}
+      />
+
+      <VersionHistoryPanel
+        postId={post.id}
+        versions={post.versions.map((v) => ({
+          version: v.version,
+          title: v.title,
+          changeNote: v.changeNote,
+          createdAt: v.createdAt.toISOString(),
+        }))}
       />
     </main>
   );

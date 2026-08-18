@@ -383,6 +383,84 @@ export async function deleteDraft(
   );
 }
 
+export type RestoreVersionResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Appends a new PostVersion copying an older one's content rather than
+ * mutating history, consistent with the append-only pattern every other
+ * version-creating action already uses.
+ */
+export async function restorePostVersion(
+  postId: string,
+  version: number
+): Promise<RestoreVersionResult> {
+  const user = await requireSession();
+
+  const post = await db.post.findUnique({
+    where: { id: postId },
+    select: { authorId: true, status: true, publisherEntityId: true },
+  });
+  if (!post) return { ok: false, error: "Draft not found." };
+  if (post.status !== PostStatus.DRAFT) {
+    return { ok: false, error: "Only a draft's version history can be restored this way." };
+  }
+
+  if (post.authorId !== user.id) {
+    const authorised = await checkPermission("post.edit_any", {
+      type: "ENTITY",
+      entityId: post.publisherEntityId,
+    });
+    if (!authorised.ok) return { ok: false, error: authorised.error };
+  }
+
+  const target = await db.postVersion.findUnique({
+    where: { postId_version: { postId, version } },
+    select: { title: true, summary: true, bodyJson: true },
+  });
+  if (!target) return { ok: false, error: "That version no longer exists." };
+
+  const bodyText = plainTextFromDocument(target.bodyJson);
+
+  await db.$transaction(async (tx) => {
+    const latest = await tx.postVersion.findFirst({
+      where: { postId },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    await tx.post.update({
+      where: { id: postId },
+      data: {
+        title: target.title,
+        summary: target.summary,
+        bodyJson: target.bodyJson as unknown as Prisma.InputJsonValue,
+        bodyText,
+        readingMinutes: readingMinutes(bodyText),
+        versions: {
+          create: {
+            version: (latest?.version ?? 0) + 1,
+            title: target.title,
+            summary: target.summary,
+            bodyJson: target.bodyJson as unknown as Prisma.InputJsonValue,
+            editedById: user.id,
+            changeNote: `Restored from version ${version}`,
+          },
+        },
+      },
+    });
+  });
+
+  await withAudit(
+    userActor(user),
+    "post.version_restored",
+    { type: "post", id: postId, entityId: post.publisherEntityId },
+    { restoredFromVersion: version },
+    async () => undefined
+  );
+
+  revalidatePath("/drafts");
+  return { ok: true };
+}
+
 export type MyDraft = {
   id: string;
   slug: string;
