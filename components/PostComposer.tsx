@@ -6,13 +6,18 @@ import { useEffect, useRef, useState } from "react";
 
 import { publishDraft, saveDraft } from "@/app/actions/drafts";
 import { createPost } from "@/app/actions/posts";
+import {
+  AudiencePicker,
+  type AudiencePickerOptions,
+  DEFAULT_AUDIENCE_VALUE,
+} from "@/components/composer/AudiencePicker";
 import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { formatAsWallTime, timeZoneOffsetLabel, zonedWallTimeToUtc } from "@/lib/timezone";
 import { createPostSchema } from "@/lib/zod-schemas";
 
 type FieldErrors = Partial<
-  Record<"title" | "bodyJson" | "linkUrl" | "mediaAlt" | "scheduledAt", string>
+  Record<"title" | "bodyJson" | "linkUrl" | "mediaAlt" | "scheduledAt" | "audience", string>
 >;
 
 // architecture.md §8.1 — verbatim interval.
@@ -24,6 +29,8 @@ export type PostComposerProps = {
   schedulingEnabled?: boolean;
   /** The author's `User.timezone` — schedule times are entered in this zone, not the browser's. */
   timezone?: string;
+  /** Absent (or the flag off) hides the picker entirely — every post keeps the old unconditional GLOBAL default. */
+  audienceOptions?: AudiencePickerOptions;
   /** An already-saved DRAFT being resumed; absent when starting fresh. */
   postId?: string;
   initialValues?: ComposerInitialValues;
@@ -33,6 +40,7 @@ export function PostComposer({
   richTextEnabled = false,
   schedulingEnabled = false,
   timezone = "UTC",
+  audienceOptions,
   postId,
   initialValues,
 }: PostComposerProps) {
@@ -72,6 +80,11 @@ export function PostComposer({
   // not draft state), so this always starts blank even when resuming a draft.
   const [scheduledAt, setScheduledAt] = useState("");
   const minScheduleValue = formatAsWallTime(new Date(), timezone);
+
+  // Same submit-time-only treatment as scheduledAt — not persisted by
+  // autosave. Meaningless when audienceOptions is "fixed" (nothing to
+  // choose), so the default is only ever actually sent for an "open" picker.
+  const [audienceValue, setAudienceValue] = useState(DEFAULT_AUDIENCE_VALUE);
 
   // Seeded from the postId prop when resuming an already-saved draft;
   // undefined otherwise until the first save (autosave or explicit) creates
@@ -154,6 +167,14 @@ export function PostComposer({
       scheduledAtIso = Number.isNaN(utc.getTime()) ? "invalid" : utc.toISOString();
     }
 
+    // Only sent when there's an actual picker to have chosen from — a
+    // "fixed" or absent audienceOptions means the server forces the
+    // publisher's own entity (or the old GLOBAL default) regardless.
+    const audiencePayload =
+      audienceOptions?.kind === "open"
+        ? { scopeType: audienceValue.scopeType, entityId: audienceValue.entityId }
+        : undefined;
+
     const validationResult = createPostSchema.safeParse({
       title,
       bodyJson,
@@ -161,6 +182,7 @@ export function PostComposer({
       mediaUrl: uploadedMediaUrl || "",
       mediaAlt: mediaAlt || undefined,
       scheduledAt: scheduledAtIso,
+      audience: audiencePayload,
     });
     if (!validationResult.success) {
       const errors: FieldErrors = {};
@@ -171,7 +193,8 @@ export function PostComposer({
           field === "bodyJson" ||
           field === "linkUrl" ||
           field === "mediaAlt" ||
-          field === "scheduledAt"
+          field === "scheduledAt" ||
+          field === "audience"
         ) {
           errors[field] = issue.message;
         }
@@ -191,6 +214,7 @@ export function PostComposer({
         mediaUrl: uploadedMediaUrl || "",
         mediaAlt: mediaAlt || undefined,
         scheduledAt: scheduledAtIso,
+        audience: audiencePayload,
       };
       // A draft created by autosave (or being resumed) publishes in place;
       // otherwise this is a from-scratch submission with nothing saved yet.
@@ -217,6 +241,7 @@ export function PostComposer({
         else if (key === "linkUrl") newFieldErrors.linkUrl = msg;
         else if (key === "mediaAlt") newFieldErrors.mediaAlt = msg;
         else if (key === "scheduledAt") newFieldErrors.scheduledAt = msg;
+        else if (key === "audience") newFieldErrors.audience = msg;
         else formError = msg; // _form or unexpected key
       }
       setFieldErrors(newFieldErrors);
@@ -531,6 +556,17 @@ export function PostComposer({
             </p>
           )}
         </div>
+      )}
+
+      {/* ── Audience ── */}
+      {audienceOptions && (
+        <AudiencePicker
+          options={audienceOptions}
+          value={audienceValue}
+          onChange={setAudienceValue}
+          error={fieldErrors.audience}
+          disabled={isSubmitting || isUploading}
+        />
       )}
 
       {/* ── Server error ── */}

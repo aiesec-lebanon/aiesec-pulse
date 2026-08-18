@@ -20,7 +20,12 @@ import {
 import { uniqueSlug } from "@/lib/content/slug";
 import { db, serializableTransaction } from "@/lib/db";
 import { mediaUrl as resolveCoverUrl } from "@/lib/feed";
-import { defaultAudience, resolveAudienceSize } from "@/lib/org/scope";
+import {
+  availableAudiencesFor,
+  defaultAudience,
+  resolveAudienceSize,
+  resolveSubmittedAudience,
+} from "@/lib/org/scope";
 import { resolveQuotaPolicy } from "@/lib/quota";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
 import { checkPermission, requireSession } from "@/lib/rbac/guards";
@@ -260,13 +265,20 @@ export async function publishDraft(
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt } = parsed.data;
+  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience } =
+    parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
   const roleKey = (await publishingRoleFor(user, post.publisherEntityId)) ?? "entity_publisher";
   const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey);
   if (!policy) {
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
+  }
+
+  const audienceOptions = await availableAudiencesFor(user, post.publisherEntityId);
+  const audienceDecision = await resolveSubmittedAudience(audienceOptions, audience);
+  if (!audienceDecision.ok) {
+    return { ok: false, errors: { audience: audienceDecision.error } };
   }
 
   // Same idempotent resolution as saveDraft: reuse the already-attached
@@ -293,7 +305,7 @@ export async function publishDraft(
   }
 
   const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
-  const audiences = defaultAudience();
+  const audiences = audienceDecision.audiences;
   const audienceSize = await resolveAudienceSize(audiences);
 
   const { status, slug } = await serializableTransaction(async (tx) => {
@@ -320,6 +332,11 @@ export async function publishDraft(
         quotaPeriod: policy.periodLabel,
         publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
         audienceSize,
+        // The draft was created with saveDraft's placeholder GLOBAL audience
+        // (lib/zod-schemas.ts has no audience field on the draft path, only
+        // on publish) — replace it wholesale with what was actually decided
+        // above rather than leaving the placeholder rows in place alongside it.
+        audiences: { deleteMany: {}, create: audiences },
         versions: {
           create: {
             version: (latest?.version ?? 0) + 1,

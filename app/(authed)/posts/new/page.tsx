@@ -1,17 +1,22 @@
 import { PostComposer } from "@/components/PostComposer";
 import { isEnabled } from "@/lib/flags";
-import { publishingRoleKeyFor } from "@/lib/org/scope";
+import { availableAudiencesFor, publishingRoleKeyFor } from "@/lib/org/scope";
 import { quotaStateFor } from "@/lib/quota";
 import { requirePermission } from "@/lib/rbac/guards";
 
 export default async function NewPostPage() {
   const user = await requirePermission("post.draft");
   const roleKey = await publishingRoleKeyFor(user.id);
-  const [quota, richTextEnabled, schedulingEnabled] = await Promise.all([
+  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled] = await Promise.all([
     quotaStateFor(user.id, user.primaryEntityId, roleKey),
     isEnabled("posts.rich_text"),
     isEnabled("posts.scheduling"),
+    isEnabled("posts.targeting"),
   ]);
+  const audienceOptions =
+    targetingEnabled && user.primaryEntityId
+      ? await availableAudiencesFor(user, user.primaryEntityId)
+      : undefined;
 
   return (
     <main className="mx-auto w-full max-w-[720px] px-6 py-10">
@@ -45,6 +50,7 @@ export default async function NewPostPage() {
         richTextEnabled={richTextEnabled}
         schedulingEnabled={schedulingEnabled}
         timezone={user.timezone}
+        audienceOptions={audienceOptions}
       />
     </main>
   );

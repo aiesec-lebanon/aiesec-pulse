@@ -39,6 +39,18 @@ const scheduledAtField = z
     message: "Scheduled time must be in the future",
   });
 
+// Absent entirely means "use the default for what this publisher may
+// target" (lib/org/scope.ts's decideAudienceForSubmission) — the composer
+// only ever sends this for a publisher who actually has a picker to choose
+// from; the shape itself is re-validated against that publisher's real scope
+// server-side regardless of what's sent here.
+const audienceField = z
+  .object({
+    scopeType: z.enum(["GLOBAL", "REGION", "ENTITY"]),
+    entityId: z.string().trim().min(1).nullable(),
+  })
+  .optional();
+
 // Sanitised here too, not just on read — a document arriving from a Server
 // Action's argument is untrusted input like any other (lib/content/document.ts).
 // Length limits are enforced against the flattened text, matching what the
@@ -66,6 +78,7 @@ export const createPostSchema = z
     mediaUrl: optionalHttpUrl,
     mediaAlt: z.string().trim().max(300, "Alt text is limited to 300 characters").optional(),
     scheduledAt: scheduledAtField,
+    audience: audienceField,
   })
   .refine((data) => !data.mediaUrl || (data.mediaAlt?.trim().length ?? 0) > 0, {
     message: "Describe the image for people using a screen reader",

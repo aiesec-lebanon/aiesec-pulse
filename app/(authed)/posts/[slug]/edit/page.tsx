@@ -7,7 +7,7 @@ import { sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
 import { isEnabled } from "@/lib/flags";
-import { publishingRoleKeyFor } from "@/lib/org/scope";
+import { availableAudiencesFor, publishingRoleKeyFor } from "@/lib/org/scope";
 import { quotaStateFor } from "@/lib/quota";
 import { requirePermission } from "@/lib/rbac/guards";
 
@@ -28,6 +28,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
       title: true,
       bodyJson: true,
       linkUrl: true,
+      publisherEntityId: true,
       cover: { select: { bucket: true, path: true, altText: true } },
       versions: {
         select: { version: true, title: true, changeNote: true, createdAt: true },
@@ -40,11 +41,15 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
   }
 
   const roleKey = await publishingRoleKeyFor(user.id);
-  const [quota, richTextEnabled, schedulingEnabled] = await Promise.all([
+  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled] = await Promise.all([
     quotaStateFor(user.id, user.primaryEntityId, roleKey),
     isEnabled("posts.rich_text"),
     isEnabled("posts.scheduling"),
+    isEnabled("posts.targeting"),
   ]);
+  const audienceOptions = targetingEnabled
+    ? await availableAudiencesFor(user, post.publisherEntityId)
+    : undefined;
 
   return (
     <main className="mx-auto w-full max-w-[720px] px-6 py-10">
@@ -78,6 +83,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
         richTextEnabled={richTextEnabled}
         schedulingEnabled={schedulingEnabled}
         timezone={user.timezone}
+        audienceOptions={audienceOptions}
         postId={post.id}
         initialValues={{
           title: post.title,

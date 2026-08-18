@@ -19,7 +19,11 @@ import {
 } from "@/lib/content/publish";
 import { uniqueSlug } from "@/lib/content/slug";
 import { db, serializableTransaction } from "@/lib/db";
-import { defaultAudience, resolveAudienceSize } from "@/lib/org/scope";
+import {
+  availableAudiencesFor,
+  resolveAudienceSize,
+  resolveSubmittedAudience,
+} from "@/lib/org/scope";
 import { resolveQuotaPolicy } from "@/lib/quota";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
 import { checkPermission, requireSession } from "@/lib/rbac/guards";
@@ -72,7 +76,8 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt } = parsed.data;
+  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience } =
+    parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
   const roleKey = (await publishingRoleFor(user, entityId)) ?? "entity_publisher";
@@ -81,8 +86,14 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
   }
 
+  const audienceOptions = await availableAudiencesFor(user, entityId);
+  const audienceDecision = await resolveSubmittedAudience(audienceOptions, audience);
+  if (!audienceDecision.ok) {
+    return { ok: false, errors: { audience: audienceDecision.error } };
+  }
+  const audiences = audienceDecision.audiences;
+
   const slug = await uniqueSlug(title);
-  const audiences = defaultAudience();
   const audienceSize = await resolveAudienceSize(audiences);
 
   let coverMediaId: string | null = null;
