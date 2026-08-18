@@ -85,6 +85,17 @@ describe("post documents", () => {
     expect(documentFromPlainText("").content).toEqual([]);
     expect(plainTextFromDocument({ type: "doc", content: [] })).toBe("");
   });
+
+  it("falls back to alt text for an image block, so it isn't invisible to excerpts and search", () => {
+    const text = plainTextFromDocument({
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Before the photo." }] },
+        { type: "image", attrs: { mediaId: "m1", alt: "Delegates at OGX orientation" } },
+      ],
+    });
+    expect(text).toBe("Before the photo.\n\nDelegates at OGX orientation");
+  });
 });
 
 describe("document sanitisation", () => {
@@ -165,6 +176,34 @@ describe("document sanitisation", () => {
     expect(sanitiseDocument(null).content).toEqual([]);
     expect(sanitiseDocument("<script>alert(1)</script>").content).toEqual([]);
     expect(sanitiseDocument({ type: "notdoc" }).content).toEqual([]);
+  });
+
+  it("keeps an image block with a mediaId that doesn't resolve to anything", () => {
+    // Sanitisation only checks shape — whether the id names a real Media row
+    // is a render-time concern, not this function's.
+    const doc = sanitiseDocument({
+      type: "doc",
+      content: [{ type: "image", attrs: { mediaId: "no-such-media", alt: "A tree" } }],
+    });
+    expect(doc.content).toEqual([
+      { type: "image", attrs: { mediaId: "no-such-media", alt: "A tree" } },
+    ]);
+  });
+
+  it("drops an image block missing alt text", () => {
+    const doc = sanitiseDocument({
+      type: "doc",
+      content: [{ type: "image", attrs: { mediaId: "m1", alt: "" } }],
+    });
+    expect(doc.content).toEqual([]);
+  });
+
+  it("drops an image block missing a mediaId", () => {
+    const doc = sanitiseDocument({
+      type: "doc",
+      content: [{ type: "image", attrs: { alt: "A tree" } }],
+    });
+    expect(doc.content).toEqual([]);
   });
 });
 

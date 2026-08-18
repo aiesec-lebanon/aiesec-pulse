@@ -1,10 +1,17 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { type BlockNode, sanitiseDocument, type TextNode } from "@/lib/content/document";
 
+// mediaId -> public URL. Sanitisation keeps a document's image blocks even
+// when the id doesn't resolve to anything (resolution is deliberately not
+// sanitisation's job); a caller that hasn't looked up media yet simply
+// passes nothing, and those blocks render as nothing rather than broken img.
+export type MediaLookup = Record<string, string>;
+
 // Re-sanitised on read as well as write, so a row from an older build or a
 // migration cannot turn a stored-content bug into stored XSS.
-export function DocumentRenderer({ doc }: { doc: unknown }) {
+export function DocumentRenderer({ doc, media = {} }: { doc: unknown; media?: MediaLookup }) {
   const document = sanitiseDocument(doc);
 
   if (document.content.length === 0) {
@@ -13,10 +20,10 @@ export function DocumentRenderer({ doc }: { doc: unknown }) {
     );
   }
 
-  return <>{document.content.map((node, i) => renderBlock(node, i))}</>;
+  return <>{document.content.map((node, i) => renderBlock(node, i, media))}</>;
 }
 
-function renderBlock(node: BlockNode, key: number): React.ReactNode {
+function renderBlock(node: BlockNode, key: number, media: MediaLookup): React.ReactNode {
   switch (node.type) {
     case "paragraph":
       return (
@@ -58,7 +65,7 @@ function renderBlock(node: BlockNode, key: number): React.ReactNode {
           key={key}
           className="my-6 border-l-2 border-[var(--primary)] pl-5 text-[18px] italic leading-[1.7] text-[var(--muted-foreground)]"
         >
-          {node.content?.map((child, i) => renderBlock(child, i))}
+          {node.content?.map((child, i) => renderBlock(child, i, media))}
         </blockquote>
       );
 
@@ -68,7 +75,7 @@ function renderBlock(node: BlockNode, key: number): React.ReactNode {
           key={key}
           className="my-4 list-disc pl-6 text-[18px] leading-[1.7] text-[var(--foreground)]"
         >
-          {node.content?.map((child, i) => renderBlock(child, i))}
+          {node.content?.map((child, i) => renderBlock(child, i, media))}
         </ul>
       );
 
@@ -78,16 +85,34 @@ function renderBlock(node: BlockNode, key: number): React.ReactNode {
           key={key}
           className="my-4 list-decimal pl-6 text-[18px] leading-[1.7] text-[var(--foreground)]"
         >
-          {node.content?.map((child, i) => renderBlock(child, i))}
+          {node.content?.map((child, i) => renderBlock(child, i, media))}
         </ol>
       );
 
     case "listItem":
       return (
         <li key={key} className="mb-1">
-          {node.content?.map((child, i) => renderBlock(child, i))}
+          {node.content?.map((child, i) => renderBlock(child, i, media))}
         </li>
       );
+
+    case "image": {
+      const url = media[node.attrs.mediaId];
+      if (!url) return null;
+      return (
+        <figure key={key} className="my-6">
+          <span className="block overflow-hidden rounded-[var(--radius-lg)]">
+            <Image
+              src={url}
+              alt={node.attrs.alt}
+              width={720}
+              height={405}
+              className="h-auto w-full object-cover"
+            />
+          </span>
+        </figure>
+      );
+    }
 
     default:
       return null;

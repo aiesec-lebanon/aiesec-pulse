@@ -14,7 +14,8 @@ export type BlockNode =
   | { type: "blockquote"; content?: BlockNode[] }
   | { type: "bulletList"; content?: BlockNode[] }
   | { type: "orderedList"; content?: BlockNode[] }
-  | { type: "listItem"; content?: BlockNode[] };
+  | { type: "listItem"; content?: BlockNode[] }
+  | { type: "image"; attrs: { mediaId: string; alt: string } };
 
 export type PulseDocument = { type: "doc"; content: BlockNode[] };
 
@@ -25,6 +26,7 @@ const ALLOWED_BLOCKS = new Set([
   "bulletList",
   "orderedList",
   "listItem",
+  "image",
 ]);
 
 const ALLOWED_MARKS = new Set(["bold", "italic", "strike", "code", "link"]);
@@ -52,6 +54,7 @@ export function plainTextFromDocument(doc: unknown): string {
 }
 
 function blockToText(node: BlockNode): string {
+  if (node.type === "image") return node.attrs.alt;
   if ("content" in node && Array.isArray(node.content)) {
     const children = node.content as Array<BlockNode | TextNode>;
     return children
@@ -125,6 +128,17 @@ function sanitiseBlock(node: unknown): BlockNode | null {
     }
     case "paragraph":
       return { type: "paragraph", content: sanitiseInline(candidate.content) };
+    case "image": {
+      // The id is kept opaque here — whether it names a real Media row is
+      // resolved at render time, not during sanitisation. Alt text is
+      // mandatory, same rule the cover-image field already enforces, so a
+      // block that omits it is dropped rather than kept without one.
+      const attrs = candidate.attrs as { mediaId?: unknown; alt?: unknown } | undefined;
+      const mediaId = typeof attrs?.mediaId === "string" ? attrs.mediaId.trim() : "";
+      const alt = typeof attrs?.alt === "string" ? attrs.alt.trim() : "";
+      if (!mediaId || !alt) return null;
+      return { type: "image", attrs: { mediaId, alt } };
+    }
     case "blockquote":
     case "bulletList":
     case "orderedList":
