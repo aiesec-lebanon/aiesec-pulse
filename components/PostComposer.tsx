@@ -2,14 +2,19 @@
 
 import { ExternalLink, ImageIcon, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { saveDraft } from "@/app/actions/drafts";
 import { createPost, type CreatePostResult } from "@/app/actions/posts";
 import { useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { createPostSchema } from "@/lib/zod-schemas";
 
 type FieldErrors = Partial<Record<"title" | "bodyJson" | "linkUrl" | "mediaAlt", string>>;
+
+// architecture.md §8.1 — verbatim interval.
+const AUTOSAVE_DELAY_MS = 5_000;
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: boolean }) {
   const router = useRouter();
@@ -43,6 +48,49 @@ export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: bo
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // undefined until the first save (autosave or explicit) creates the row;
+  // every save after that updates it in place rather than creating another.
+  const [draftId, setDraftId] = useState<string | undefined>(undefined);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const savingRef = useRef(false);
+
+  async function runSave() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaveStatus("saving");
+    try {
+      const result = await saveDraft(
+        {
+          title,
+          bodyJson,
+          linkUrl: linkUrl || "",
+          mediaUrl: uploadedMediaUrl || "",
+          mediaAlt: mediaAlt || undefined,
+        },
+        draftId
+      );
+      if (result.ok) {
+        setDraftId(result.postId);
+        setSaveStatus("saved");
+      } else {
+        setSaveStatus("error");
+      }
+    } catch {
+      setSaveStatus("error");
+    } finally {
+      savingRef.current = false;
+    }
+  }
+
+  // Debounced: a burst of keystrokes restarts the timer rather than firing on
+  // every one, so autosave reflects a pause in typing, not each character.
+  useEffect(() => {
+    if (!hasContent || isUploading) return;
+    const timeout = setTimeout(() => void runSave(), AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, bodyJson, linkUrl, mediaAlt, uploadedMediaUrl]);
+
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(true);
@@ -56,6 +104,12 @@ export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: bo
   }
 
   function handleCancel() {
+    // Once autosave has actually persisted something, there is nothing left
+    // to "discard" — warning otherwise would just be wrong.
+    if (draftId) {
+      router.push("/drafts");
+      return;
+    }
     if (hasContent && !window.confirm("Discard your update?")) return;
     router.back();
   }
@@ -403,7 +457,7 @@ export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: bo
       )}
 
       {/* ── Actions ── */}
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex flex-wrap items-center gap-3 pt-2">
         <button
           type="submit"
           disabled={submitBlocked}
@@ -418,12 +472,31 @@ export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: bo
 
         <button
           type="button"
+          onClick={() => void runSave()}
+          disabled={submitBlocked || saveStatus === "saving"}
+          className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saveStatus === "saving" ? "Saving…" : "Save draft"}
+        </button>
+
+        <button
+          type="button"
           onClick={handleCancel}
           disabled={submitBlocked}
           className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancel
         </button>
+
+        <span
+          aria-live="polite"
+          role="status"
+          className="text-[13px] text-[var(--muted-foreground)]"
+        >
+          {saveStatus === "saving" && "Saving…"}
+          {saveStatus === "saved" && "Saved"}
+          {saveStatus === "error" && "Couldn't save draft"}
+        </span>
       </div>
     </form>
   );
