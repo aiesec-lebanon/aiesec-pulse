@@ -19,6 +19,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     audit: permissions.has("admin.audit_view"),
     roles: permissions.has("admin.grant_role"),
     privacy: permissions.has("admin.privacy_execute"),
+    flags: permissions.has("admin.configure"),
   };
 
   if (!Object.values(sections).some(Boolean)) redirect("/unauthorized");

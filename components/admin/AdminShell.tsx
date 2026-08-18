@@ -12,6 +12,7 @@ export type AdminSections = {
   audit: boolean;
   roles: boolean;
   privacy: boolean;
+  flags: boolean;
 };
 
 const NAV_ITEMS: ReadonlyArray<{
@@ -27,6 +28,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { href: "/admin/audit", label: "Audit log", section: "audit" },
   { href: "/admin/roles", label: "Roles & grants", section: "roles" },
   { href: "/admin/privacy", label: "Data requests", section: "privacy" },
+  { href: "/admin/flags", label: "Feature flags", section: "flags" },
 ];
 
 interface AdminShellProps {
