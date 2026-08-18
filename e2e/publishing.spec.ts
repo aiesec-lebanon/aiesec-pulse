@@ -254,3 +254,58 @@ test.describe("scheduling", () => {
     await expect(page).toHaveURL(/\/posts\/new/);
   });
 });
+
+test.describe("audience targeting", () => {
+  // The mock "publisher" persona holds entity_publisher only (no
+  // post.target_beyond) — context.md §7.2 gives it no real audience choice,
+  // so the composer shows its entity as information rather than a control.
+  test("a restricted publisher sees their own entity as a fixed audience, not a picker", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    const isolate = isolationId(testInfo);
+    await signInAs("admin", "/admin/flags", isolate);
+    await ensureFlagEnabled(page, "posts.targeting");
+
+    await signInAs("publisher", "/posts/new", isolate);
+
+    await expect(page.getByText(/this post will reach/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Everyone" })).toHaveCount(0);
+  });
+
+  // The mock "admin" persona holds platform_admin, which carries
+  // post.target_beyond — the full picker, defaulting to GLOBAL.
+  test("a platform admin gets the full picker and can publish with it visible", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    const isolate = isolationId(testInfo);
+    const title = uniqueTitle("E2E audience global");
+
+    await signInAs("admin", "/admin/flags", isolate);
+    await ensureFlagEnabled(page, "posts.targeting");
+    await signInAs("admin", "/posts/new", isolate);
+
+    await page.locator("#title").fill(title);
+    await page.locator("#content").pressSequentially(BODY);
+    await page.getByRole("button", { name: "Everyone" }).click();
+    await page.getByRole("button", { name: /^publish$/i }).click();
+
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+  });
+
+  test("the entity typeahead searches and reports no matches gracefully", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    const isolate = isolationId(testInfo);
+    await signInAs("admin", "/admin/flags", isolate);
+    await ensureFlagEnabled(page, "posts.targeting");
+    await signInAs("admin", "/posts/new", isolate);
+
+    await page.getByRole("button", { name: "A specific entity" }).click();
+    await page.getByLabel("Search for an entity").fill("zzz-no-such-entity-zzz");
+
+    await expect(page.getByText(/no matching entity found/i)).toBeVisible();
+  });
+});
