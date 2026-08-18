@@ -27,6 +27,25 @@ async function publish(page: Page, title: string, body = BODY) {
   await page.getByRole("button", { name: /^publish$/i }).click();
 }
 
+// The mock "admin" persona holds platform_admin (see lib/auth/mock-oauth.ts),
+// which is what /admin/flags itself gates on — this drives the real console
+// M2 built rather than writing to the database directly.
+async function ensureFlagEnabled(page: Page, key: string) {
+  await page.goto("/admin/flags");
+  const button = page.getByRole("listitem").filter({ hasText: key }).getByRole("button");
+  if ((await button.getAttribute("aria-pressed")) === "false") {
+    await button.click();
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+  }
+}
+
+// Every mock user is created with the schema's default timezone (UTC — see
+// ensureMockUser), so formatting in UTC is exactly what the composer's
+// zone-aware conversion should turn back into this same instant.
+function toWallTimeUtc(date: Date): string {
+  return date.toISOString().slice(0, 16);
+}
+
 test.describe("publishing", () => {
   test("a publisher can publish and the post appears on the feed", async ({
     page,
@@ -176,5 +195,62 @@ test.describe("engagement", () => {
     await page.getByRole("button", { name: /^post$/i }).click();
 
     await expect(page.getByText(body)).toBeVisible();
+  });
+});
+
+test.describe("scheduling", () => {
+  test("a scheduled post publishes once its time is due", async ({ page, signInAs }, testInfo) => {
+    test.setTimeout(45_000);
+    const isolate = isolationId(testInfo);
+    const title = uniqueTitle("E2E scheduled");
+
+    await signInAs("admin", "/admin/flags", isolate);
+    await ensureFlagEnabled(page, "posts.scheduling");
+
+    await signInAs("publisher", "/feed", isolate);
+    const scheduledFor = new Date(Date.now() + 2 * 60_000);
+
+    await page.goto("/posts/new");
+    await page.locator("#title").fill(title);
+    await page.locator("#content").pressSequentially(BODY);
+    await page.locator("#scheduledAt").fill(toWallTimeUtc(scheduledFor));
+    await page.getByRole("button", { name: /^schedule$/i }).click();
+
+    await expect(page).toHaveURL(/\/posts\/scheduled/, { timeout: 15_000 });
+
+    // No Inngest dev server runs in this test environment (playwright.config.ts
+    // has no such webServer) — this fast-forwards past the scheduled instant
+    // through the same due-post logic the real cron invokes, rather than
+    // waiting out two real minutes.
+    const response = await page.request.post("/api/test/publish-scheduled", {
+      data: { asOf: new Date(scheduledFor.getTime() + 60_000).toISOString() },
+    });
+    expect(response.ok()).toBe(true);
+    expect((await response.json()).published).toBeGreaterThanOrEqual(1);
+
+    await page.goto("/profile");
+    const row = page.locator("li", { hasText: title });
+    await expect(row.getByText(/^published$/i)).toBeVisible();
+  });
+
+  test("scheduling for a past time is rejected", async ({ page, signInAs }, testInfo) => {
+    const isolate = isolationId(testInfo);
+    await signInAs("admin", "/admin/flags", isolate);
+    await ensureFlagEnabled(page, "posts.scheduling");
+
+    await signInAs("publisher", "/feed", isolate);
+    await page.goto("/posts/new");
+    await page.locator("#title").fill(uniqueTitle("E2E past schedule"));
+    await page.locator("#content").pressSequentially(BODY);
+
+    // .fill() sets the value directly rather than driving the native picker
+    // UI, so it isn't stopped by the input's `min` attribute — exercising
+    // the same client-side "must be in the future" refine a manually-typed
+    // past value would hit, belt-and-suspenders with the server-side check.
+    await page.locator("#scheduledAt").fill("2020-01-01T00:00");
+    await page.getByRole("button", { name: /^schedule$/i }).click();
+
+    await expect(alertText(page).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/posts\/new/);
   });
 });
