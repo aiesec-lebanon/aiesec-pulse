@@ -57,6 +57,27 @@ export const createPostSchema = z
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 
+// Deliberately lenient: "leave and return to it" means a draft must be
+// saveable in whatever half-finished state it's in — no minimum title/body
+// length, and no cross-field alt-text-required rule. Full completeness is
+// re-enforced by createPostSchema at the moment a draft is actually published.
+const draftBodyJsonField = z
+  .unknown()
+  .transform((value): PulseDocument => sanitiseDocument(value))
+  .refine((doc) => plainTextFromDocument(doc).length <= 50_000, {
+    message: "Posts are limited to 50,000 characters",
+  });
+
+export const saveDraftSchema = z.object({
+  title: z.string().trim().max(200, "Titles are limited to 200 characters").default(""),
+  bodyJson: draftBodyJsonField,
+  summary: z.string().trim().max(400, "Summaries are limited to 400 characters").optional(),
+  linkUrl: optionalHttpUrl,
+  mediaUrl: optionalHttpUrl,
+  mediaAlt: z.string().trim().max(300, "Alt text is limited to 300 characters").optional(),
+});
+export type SaveDraftInput = z.infer<typeof saveDraftSchema>;
+
 export const createCommentSchema = z.object({
   content: z
     .string()

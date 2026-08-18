@@ -13,6 +13,7 @@ export type LimitName =
   | "auth"
   | "breakGlass"
   | "postSubmit"
+  | "draftAutosave"
   | "comment"
   | "report"
   | "upload"
@@ -22,6 +23,10 @@ const LIMITS: Record<LimitName, { max: number; windowSeconds: number; by: "ip" |
   auth: { max: 10, windowSeconds: 15 * 60, by: "ip" },
   breakGlass: { max: 5, windowSeconds: 15 * 60, by: "ip" },
   postSubmit: { max: 5, windowSeconds: 60, by: "user" },
+  // The composer autosaves on a 5-second debounce (architecture.md §8.1), so
+  // postSubmit's 5/minute budget would be exhausted by normal typing. Headroom
+  // above the ~12 ticks/minute the debounce can produce, not a bare minimum.
+  draftAutosave: { max: 20, windowSeconds: 60, by: "user" },
   comment: { max: 10, windowSeconds: 60, by: "user" },
   report: { max: 20, windowSeconds: 60 * 60, by: "user" },
   upload: { max: 20, windowSeconds: 60 * 60, by: "user" },

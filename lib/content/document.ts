@@ -208,3 +208,15 @@ export function excerptFrom(text: string, maxLength = 200): string {
   const lastSpace = cut.lastIndexOf(" ");
   return `${(lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
+
+// Shared by every path that materialises an uploaded image into a Media row
+// (createPost, resubmitPost, saveDraft) — the signed-upload flow never learns
+// a real content-type, so this is the one place that guesses one back from
+// the storage URL's extension.
+export function guessMimeType(url: string): string {
+  const lower = url.toLowerCase();
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".avif")) return "image/avif";
+  return "image/jpeg";
+}

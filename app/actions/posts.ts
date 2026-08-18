@@ -9,6 +9,7 @@ import {
   type BlockNode,
   CONTAINER_BLOCK_TYPES,
   excerptFrom,
+  guessMimeType,
   isSafeHref,
   plainTextFromDocument,
   type PulseDocument,
@@ -472,12 +473,4 @@ export async function restorePost(
       return { ok: true as const };
     }
   );
-}
-
-function guessMimeType(url: string): string {
-  const lower = url.toLowerCase();
-  if (lower.endsWith(".png")) return "image/png";
-  if (lower.endsWith(".webp")) return "image/webp";
-  if (lower.endsWith(".avif")) return "image/avif";
-  return "image/jpeg";
 }
