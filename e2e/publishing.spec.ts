@@ -309,3 +309,41 @@ test.describe("audience targeting", () => {
     await expect(page.getByText(/no matching entity found/i)).toBeVisible();
   });
 });
+
+test.describe("topics", () => {
+  test("a chosen topic shows on the post, links to its archive, and the archive lists the post", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    const isolate = isolationId(testInfo);
+    const title = uniqueTitle("E2E topic");
+
+    await signInAs("publisher", "/posts/new", isolate);
+    await page.locator("#title").fill(title);
+    await page.locator("#content").pressSequentially(BODY);
+
+    const topicGroup = page.getByRole("group", { name: "Topics" });
+    const firstTopic = topicGroup.getByRole("button").first();
+    const topicName = (await firstTopic.textContent())?.trim();
+    await firstTopic.click();
+
+    await page.getByRole("button", { name: /^publish$/i }).click();
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+
+    // The chip is its own link, distinct from the card link it sits beside
+    // on feed cards (SecondaryPostCard) — verified here via the post detail
+    // page, then followed through to the archive.
+    const chip = page.getByRole("link", { name: topicName, exact: true });
+    await expect(chip).toBeVisible();
+    await chip.click();
+
+    await expect(page).toHaveURL(/\/topics\/[a-z0-9-]+$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(topicName!);
+    // SecondaryPostCard wraps its whole card (title + author + reaction/
+    // comment counts) in one link, so the link's own accessible name is a
+    // long concatenation of all of it — asserting on the post's own h3
+    // heading is the robust way to confirm it's listed here, rather than
+    // matching against that full concatenated string.
+    await expect(page.getByRole("heading", { level: 3, name: title })).toBeVisible();
+  });
+});
