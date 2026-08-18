@@ -443,3 +443,28 @@ a {
   max-width: 100%;
   border-radius: var(--radius-lg);
 }
+.pulse-editor-prose .pulse-editor-image {
+  display: block;
+  margin: 24px 0;
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+}
+/* An image block whose mediaId already names a saved Media row rather than a
+   fresh upload — resolving that to a preview URL is a render-time concern
+   this editing surface doesn't own (DocumentRenderer's MediaLookup does). */
+.pulse-editor-prose .pulse-editor-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 24px 0;
+  min-height: 96px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+  text-align: center;
+}

@@ -5,9 +5,10 @@ import { notFound } from "next/navigation";
 
 import { CommentStatus, PostStatus } from "@/app/generated/prisma/enums";
 import { CommentsSection } from "@/components/post-detail/CommentsSection";
-import { DocumentRenderer } from "@/components/post-detail/DocumentRenderer";
+import { DocumentRenderer, type MediaLookup } from "@/components/post-detail/DocumentRenderer";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
 import { PostAvatar } from "@/components/posts/_shared";
+import { collectImageMediaIds, sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
 import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
@@ -69,14 +70,31 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
 
   if (!post) return notFound();
 
-  const [initialComments] = await Promise.all([
+  // Inline image blocks store a mediaId, not a URL (lib/content/document.ts)
+  // — resolved here rather than inside DocumentRenderer, which stays a pure
+  // render function over whatever lookup its caller already has.
+  const imageMediaIds = collectImageMediaIds(sanitiseDocument(post.bodyJson));
+
+  const [initialComments, inlineMedia] = await Promise.all([
     db.comment.findMany({
       where: { postId: post.id, status: { not: CommentStatus.HIDDEN } },
       orderBy: { createdAt: "desc" },
       take: 20,
       select: commentSelect,
     }),
+    imageMediaIds.length > 0
+      ? db.media.findMany({
+          where: { id: { in: imageMediaIds } },
+          select: { id: true, bucket: true, path: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const bodyMedia: MediaLookup = Object.fromEntries(
+    inlineMedia
+      .map((media) => [media.id, mediaUrl(media)] as const)
+      .filter((entry): entry is [string, string] => entry[1] !== null)
+  );
 
   const publishedAt = post.publishedAt ?? post.createdAt;
   const cover = mediaUrl(post.cover);
@@ -136,7 +154,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
 
       {/* ~70ch keeps line length in the comfortable reading range. */}
       <div className="mt-8 max-w-[70ch]">
-        <DocumentRenderer doc={post.bodyJson} />
+        <DocumentRenderer doc={post.bodyJson} media={bodyMedia} />
       </div>
 
       {post.linkUrl && (

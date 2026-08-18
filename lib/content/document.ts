@@ -31,7 +31,39 @@ const ALLOWED_BLOCKS = new Set([
 
 const ALLOWED_MARKS = new Set(["bold", "italic", "strike", "code", "link"]);
 
+// Block types whose `content` is itself BlockNode[] — as opposed to
+// paragraph/heading, whose `content` is inline TextNode[]. Shared by every
+// caller that walks the document's block structure (sanitiseBlock here,
+// collectImageMediaIds below, materializeInlineImages in app/actions/posts.ts)
+// so a text run is never misread as a nested block.
+export const CONTAINER_BLOCK_TYPES = new Set([
+  "blockquote",
+  "bulletList",
+  "orderedList",
+  "listItem",
+]);
+
 export const EMPTY_DOCUMENT: PulseDocument = { type: "doc", content: [] };
+
+// The mediaIds a post-detail (or any other read surface) needs to resolve
+// into URLs before handing the document to DocumentRenderer — an image block
+// with an unresolved mediaId renders as nothing (see DocumentRenderer.tsx).
+export function collectImageMediaIds(doc: PulseDocument): string[] {
+  const ids: string[] = [];
+
+  function walk(node: BlockNode) {
+    if (node.type === "image") {
+      ids.push(node.attrs.mediaId);
+      return;
+    }
+    if (CONTAINER_BLOCK_TYPES.has(node.type) && "content" in node && Array.isArray(node.content)) {
+      (node.content as BlockNode[]).forEach(walk);
+    }
+  }
+
+  doc.content.forEach(walk);
+  return ids;
+}
 
 export function documentFromPlainText(text: string): PulseDocument {
   const paragraphs = text

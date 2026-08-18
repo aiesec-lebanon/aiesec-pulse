@@ -48,6 +48,10 @@ test.describe("publishing", () => {
     await signInAs("publisher", "/feed", isolationId(testInfo));
     await publish(page, title, Array(400).fill("word").join(" "));
 
+    // 400 real keystrokes into the editor push submission close to the
+    // default assertion timeout — wait for the redirect first, same as the
+    // "can publish" test above, rather than racing the two.
+    await expect(page).toHaveURL(POST_SLUG_URL);
     await expect(page.getByText(/\d+ min read/).first()).toBeVisible();
   });
 

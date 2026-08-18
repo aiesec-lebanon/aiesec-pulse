@@ -5,7 +5,15 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { userActor, withAudit } from "@/lib/audit";
-import { excerptFrom, plainTextFromDocument, readingMinutes } from "@/lib/content/document";
+import {
+  type BlockNode,
+  CONTAINER_BLOCK_TYPES,
+  excerptFrom,
+  isSafeHref,
+  plainTextFromDocument,
+  type PulseDocument,
+  readingMinutes,
+} from "@/lib/content/document";
 import { uniqueSlug } from "@/lib/content/slug";
 import { db, serializableTransaction } from "@/lib/db";
 import { defaultAudience, resolveAudienceSize } from "@/lib/org/scope";
@@ -44,6 +52,55 @@ async function publishingRoleFor(user: { id: string }, entityId: string): Promis
     }
   }
   return null;
+}
+
+/**
+ * The rich-text editor's image toolbar uploads directly to storage before a
+ * post exists (components/editor/RichTextEditor.tsx), so an inline image
+ * block's `mediaId` is actually just the upload's public URL until the post
+ * is submitted. This walks the document once at submit time, creates one
+ * real Media row per distinct upload URL — mirroring the cover-image
+ * materialisation just above each call site — and rewrites `mediaId` to the
+ * created row's id. A `mediaId` that isn't an http(s) URL already names a
+ * real Media row (unchanged content from a prior version, or a resubmit) and
+ * is left alone.
+ */
+async function materializeInlineImages(doc: PulseDocument, userId: string): Promise<PulseDocument> {
+  const createdForUrl = new Map<string, string>();
+
+  async function walk(node: BlockNode): Promise<BlockNode> {
+    if (node.type === "image") {
+      if (!isSafeHref(node.attrs.mediaId)) return node;
+
+      let mediaId = createdForUrl.get(node.attrs.mediaId);
+      if (!mediaId) {
+        const media = await db.media.create({
+          data: {
+            ownerId: userId,
+            bucket: "post-media",
+            path: node.attrs.mediaId.replace(/^.*\/post-media\//, ""),
+            mimeType: guessMimeType(node.attrs.mediaId),
+            bytes: 0,
+            altText: node.attrs.alt,
+          },
+          select: { id: true },
+        });
+        mediaId = media.id;
+        createdForUrl.set(node.attrs.mediaId, mediaId);
+      }
+      return { type: "image", attrs: { mediaId, alt: node.attrs.alt } };
+    }
+
+    if (CONTAINER_BLOCK_TYPES.has(node.type) && "content" in node && Array.isArray(node.content)) {
+      const content = await Promise.all((node.content as BlockNode[]).map(walk));
+      return { ...node, content } as BlockNode;
+    }
+
+    return node;
+  }
+
+  const content = await Promise.all(doc.content.map(walk));
+  return { type: "doc", content };
 }
 
 export async function createPost(input: CreatePostInput): Promise<CreatePostResult> {
@@ -112,6 +169,8 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     coverMediaId = media.id;
   }
 
+  const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
+
   const { post, status } = await serializableTransaction(async (tx) => {
     const used = await usedInPeriod(tx, user.id, policy.periodLabel);
     const status = used < policy.maxPosts ? PostStatus.PUBLISHED : PostStatus.IN_REVIEW;
@@ -124,7 +183,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
         termLabel: currentTermLabel(),
         title,
         summary: summary?.trim() || excerptFrom(bodyText),
-        bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
+        bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
         bodyText,
         readingMinutes: readingMinutes(bodyText),
         coverMediaId,
@@ -139,7 +198,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
             version: 1,
             title,
             summary: summary?.trim() || excerptFrom(bodyText),
-            bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
+            bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
             editedById: user.id,
           },
         },
@@ -208,6 +267,8 @@ export async function resubmitPost(
   if (!policy)
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
 
+  const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
+
   const { status } = await serializableTransaction(async (tx) => {
     const used = await usedInPeriod(tx, user.id, policy.periodLabel);
     const status = used < policy.maxPosts ? PostStatus.PUBLISHED : PostStatus.IN_REVIEW;
@@ -223,7 +284,7 @@ export async function resubmitPost(
       data: {
         title,
         summary: summary?.trim() || excerptFrom(bodyText),
-        bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
+        bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
         bodyText,
         readingMinutes: readingMinutes(bodyText),
         linkUrl: linkUrl || null,
@@ -236,7 +297,7 @@ export async function resubmitPost(
             version: (latest?.version ?? 0) + 1,
             title,
             summary: summary?.trim() || excerptFrom(bodyText),
-            bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
+            bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
             editedById: user.id,
             changeNote: "Resubmitted after rejection",
           },

@@ -9,16 +9,20 @@ import {
   Heading2,
   Heading3,
   Heading4,
+  ImagePlus,
   Italic as ItalicIcon,
   Link2,
   List,
   ListOrdered,
+  Loader2,
   type LucideIcon,
   Quote,
   Strikethrough,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { InsertImageDialog } from "@/components/editor/InsertImageDialog";
+import { PulseImageNode } from "@/components/editor/PulseImageNode";
 import { isSafeHref, type PulseDocument, sanitiseDocument } from "@/lib/content/document";
 
 // The extension list is the enforcement point for §10.1's rule: "the toolbar
@@ -45,8 +49,15 @@ function editorExtensions() {
       HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" },
       isAllowedUri: (url) => isSafeHref(url),
     }),
+    PulseImageNode,
   ];
 }
+
+// Mirrors the cover-image field's own rule set exactly (components/PostComposer.tsx)
+// — one signed-upload endpoint, one policy, enforced wherever an author attaches
+// an image.
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export type RichTextEditorProps = {
   id?: string;
@@ -155,6 +166,10 @@ function Toolbar({ editor, disabled }: { editor: Editor; disabled: boolean }) {
     }),
   });
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ publicUrl: string } | null>(null);
+
   function toggleLink() {
     if (state.link) {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
@@ -167,6 +182,62 @@ function Toolbar({ editor, disabled }: { editor: Editor; disabled: boolean }) {
       return;
     }
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }
+
+  async function handleImageSelected(file: File) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      window.alert("Only JPEG, PNG, and WEBP images are allowed.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      window.alert("Image must be 5 MB or smaller.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const signRes = await fetch("/api/storage/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+      });
+      if (!signRes.ok) {
+        const err = (await signRes.json()) as { error?: string };
+        throw new Error(err.error ?? "Could not start upload.");
+      }
+      const { uploadUrl, publicUrl } = (await signRes.json()) as {
+        uploadUrl: string;
+        publicUrl: string;
+      };
+
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("Upload to storage failed. Please try again.");
+
+      // mediaId is a placeholder here — the storage URL itself. It becomes a
+      // real Media row (and a real id) at submit time, in
+      // materializeInlineImages (app/actions/posts.ts); sanitiseDocument
+      // treats mediaId as opaque either way (lib/content/document.ts).
+      setPendingImage({ publicUrl });
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Image upload failed.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function confirmImageInsert(alt: string) {
+    if (!pendingImage) return;
+    editor
+      .chain()
+      .focus()
+      .insertPulseImage({ mediaId: pendingImage.publicUrl, alt, src: pendingImage.publicUrl })
+      .run();
+    setPendingImage(null);
   }
 
   return (
@@ -254,6 +325,35 @@ function Toolbar({ editor, disabled }: { editor: Editor; disabled: boolean }) {
         disabled={disabled}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       />
+
+      <Divider />
+
+      <ToolbarButton
+        label={isUploading ? "Uploading image…" : "Insert image"}
+        icon={isUploading ? Loader2 : ImagePlus}
+        spinning={isUploading}
+        disabled={disabled || isUploading}
+        onClick={() => fileInputRef.current?.click()}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        aria-hidden
+        tabIndex={-1}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleImageSelected(file);
+        }}
+      />
+      <InsertImageDialog
+        key={pendingImage?.publicUrl ?? "closed"}
+        open={pendingImage !== null}
+        previewUrl={pendingImage?.publicUrl ?? null}
+        onCancel={() => setPendingImage(null)}
+        onConfirm={confirmImageInsert}
+      />
     </div>
   );
 }
@@ -265,14 +365,17 @@ function Divider() {
 function ToolbarButton({
   label,
   icon: Icon,
-  active = false,
+  active,
   disabled = false,
+  spinning = false,
   onClick,
 }: {
   label: string;
   icon: LucideIcon;
+  /** Omitted (not `false`) for action buttons like "Insert image" that aren't a toggle — aria-pressed shouldn't be announced on those at all. */
   active?: boolean;
   disabled?: boolean;
+  spinning?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -292,7 +395,12 @@ function ToolbarButton({
             : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
       ].join(" ")}
     >
-      <Icon size={16} strokeWidth={2} aria-hidden />
+      <Icon
+        size={16}
+        strokeWidth={2}
+        className={spinning ? "animate-spin" : undefined}
+        aria-hidden
+      />
     </button>
   );
 }
