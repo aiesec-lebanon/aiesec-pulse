@@ -77,6 +77,7 @@ export default async function ProfilePage() {
         hiddenReason: true,
         createdAt: true,
         publishedAt: true,
+        scheduledAt: true,
         reactionCount: true,
         commentCount: true,
         cover: { select: { bucket: true, path: true, altText: true } },
@@ -241,6 +242,22 @@ export default async function ProfilePage() {
                   {post.status === PostStatus.IN_REVIEW && (
                     <p className="mt-2 text-[12px] text-[var(--muted-foreground)]">
                       Waiting for an editor in your entity to review — usually within 24 hours.
+                    </p>
+                  )}
+
+                  {post.status === PostStatus.SCHEDULED && post.scheduledAt && (
+                    <p className="mt-2 text-[12px] text-[var(--muted-foreground)]">
+                      Scheduled to publish{" "}
+                      <time dateTime={post.scheduledAt.toISOString()}>
+                        {post.scheduledAt.toLocaleString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                      .
                     </p>
                   )}
 

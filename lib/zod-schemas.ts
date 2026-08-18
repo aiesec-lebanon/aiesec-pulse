@@ -23,6 +23,22 @@ const httpUrl = z
 
 const optionalHttpUrl = z.union([httpUrl, z.literal("")]).optional();
 
+// The composer sends an ISO instant already converted to UTC client-side
+// (lib/timezone.ts) — this only re-checks shape and futurity, the way every
+// other client-computed value here is still validated server-side rather
+// than trusted.
+const scheduledAtField = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value): Date | null => (value ? new Date(value) : null))
+  .refine((date) => date === null || !Number.isNaN(date.getTime()), {
+    message: "Enter a valid date and time",
+  })
+  .refine((date) => date === null || date.getTime() > Date.now(), {
+    message: "Scheduled time must be in the future",
+  });
+
 // Sanitised here too, not just on read — a document arriving from a Server
 // Action's argument is untrusted input like any other (lib/content/document.ts).
 // Length limits are enforced against the flattened text, matching what the
@@ -49,13 +65,22 @@ export const createPostSchema = z
     linkUrl: optionalHttpUrl,
     mediaUrl: optionalHttpUrl,
     mediaAlt: z.string().trim().max(300, "Alt text is limited to 300 characters").optional(),
+    scheduledAt: scheduledAtField,
   })
   .refine((data) => !data.mediaUrl || (data.mediaAlt?.trim().length ?? 0) > 0, {
     message: "Describe the image for people using a screen reader",
     path: ["mediaAlt"],
   });
 
-export type CreatePostInput = z.infer<typeof createPostSchema>;
+// z.input, not z.infer/z.output: this is the parameter type for createPost/
+// resubmitPost/publishDraft, i.e. what a caller sends before validation —
+// scheduledAt arrives as the composer's UTC ISO string, not yet the `Date`
+// the schema's transform produces. Every field here was already untransformed
+// except this one; bodyJson stayed correct under z.infer only because its
+// input type is `unknown`, wide enough to accept what the composer already
+// holds — that coincidence doesn't extend to a field whose input and output
+// types genuinely differ.
+export type CreatePostInput = z.input<typeof createPostSchema>;
 
 // Deliberately lenient: "leave and return to it" means a draft must be
 // saveable in whatever half-finished state it's in — no minimum title/body

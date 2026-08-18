@@ -12,6 +12,7 @@ import {
   readingMinutes,
 } from "@/lib/content/document";
 import {
+  auditActionFor,
   decidePublishStatus,
   materializeInlineImages,
   publishingRoleFor,
@@ -196,7 +197,7 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
 }
 
 export type PublishDraftResult =
-  | { ok: true; postId: string; slug: string; status: "PUBLISHED" | "IN_REVIEW" }
+  | { ok: true; postId: string; slug: string; status: "PUBLISHED" | "IN_REVIEW" | "SCHEDULED" }
   | { ok: false; errors: Record<string, string> };
 
 /**
@@ -259,7 +260,7 @@ export async function publishDraft(
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
+  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
   const roleKey = (await publishingRoleFor(user, post.publisherEntityId)) ?? "entity_publisher";
@@ -296,7 +297,7 @@ export async function publishDraft(
   const audienceSize = await resolveAudienceSize(audiences);
 
   const { status, slug } = await serializableTransaction(async (tx) => {
-    const status = await decidePublishStatus(tx, user.id, policy);
+    const status = await decidePublishStatus(tx, user.id, policy, scheduledAt);
 
     const latest = await tx.postVersion.findFirst({
       where: { postId },
@@ -315,6 +316,7 @@ export async function publishDraft(
         coverMediaId,
         linkUrl: linkUrl || null,
         status,
+        scheduledAt: status === PostStatus.SCHEDULED ? scheduledAt : null,
         quotaPeriod: policy.periodLabel,
         publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
         audienceSize,
@@ -336,9 +338,14 @@ export async function publishDraft(
 
   await withAudit(
     userActor(user),
-    status === PostStatus.PUBLISHED ? "post.published" : "post.queued",
+    auditActionFor(status),
     { type: "post", id: postId, entityId: post.publisherEntityId },
-    { title, quotaPeriod: policy.periodLabel, quotaMax: policy.maxPosts },
+    {
+      title,
+      quotaPeriod: policy.periodLabel,
+      quotaMax: policy.maxPosts,
+      ...(status === PostStatus.SCHEDULED ? { scheduledAt: scheduledAt!.toISOString() } : {}),
+    },
     async () => undefined
   );
 

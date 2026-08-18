@@ -8,9 +8,12 @@ import { publishDraft, saveDraft } from "@/app/actions/drafts";
 import { createPost } from "@/app/actions/posts";
 import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import { formatAsWallTime, timeZoneOffsetLabel, zonedWallTimeToUtc } from "@/lib/timezone";
 import { createPostSchema } from "@/lib/zod-schemas";
 
-type FieldErrors = Partial<Record<"title" | "bodyJson" | "linkUrl" | "mediaAlt", string>>;
+type FieldErrors = Partial<
+  Record<"title" | "bodyJson" | "linkUrl" | "mediaAlt" | "scheduledAt", string>
+>;
 
 // architecture.md §8.1 — verbatim interval.
 const AUTOSAVE_DELAY_MS = 5_000;
@@ -18,6 +21,9 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export type PostComposerProps = {
   richTextEnabled?: boolean;
+  schedulingEnabled?: boolean;
+  /** The author's `User.timezone` — schedule times are entered in this zone, not the browser's. */
+  timezone?: string;
   /** An already-saved DRAFT being resumed; absent when starting fresh. */
   postId?: string;
   initialValues?: ComposerInitialValues;
@@ -25,6 +31,8 @@ export type PostComposerProps = {
 
 export function PostComposer({
   richTextEnabled = false,
+  schedulingEnabled = false,
+  timezone = "UTC",
   postId,
   initialValues,
 }: PostComposerProps) {
@@ -58,6 +66,12 @@ export function PostComposer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
+
+  // Wall-clock digits in `timezone`, no zone suffix — never persisted by
+  // autosave (architecture.md §8.2 treats scheduling as a submit-time input,
+  // not draft state), so this always starts blank even when resuming a draft.
+  const [scheduledAt, setScheduledAt] = useState("");
+  const minScheduleValue = formatAsWallTime(new Date(), timezone);
 
   // Seeded from the postId prop when resuming an already-saved draft;
   // undefined otherwise until the first save (autosave or explicit) creates
@@ -130,12 +144,23 @@ export function PostComposer({
     e.preventDefault();
     if (isSubmitting || isUploading) return;
 
+    // Converted client-side so "Monday 9am Beirut" means what the author
+    // intended regardless of the browser's own zone (architecture.md §8.3);
+    // an unparseable value still reaches the schema so its "invalid date"
+    // message is the one shown, rather than throwing here.
+    let scheduledAtIso: string | undefined;
+    if (scheduledAt) {
+      const utc = zonedWallTimeToUtc(scheduledAt, timezone);
+      scheduledAtIso = Number.isNaN(utc.getTime()) ? "invalid" : utc.toISOString();
+    }
+
     const validationResult = createPostSchema.safeParse({
       title,
       bodyJson,
       linkUrl: linkUrl || "",
       mediaUrl: uploadedMediaUrl || "",
       mediaAlt: mediaAlt || undefined,
+      scheduledAt: scheduledAtIso,
     });
     if (!validationResult.success) {
       const errors: FieldErrors = {};
@@ -145,7 +170,8 @@ export function PostComposer({
           field === "title" ||
           field === "bodyJson" ||
           field === "linkUrl" ||
-          field === "mediaAlt"
+          field === "mediaAlt" ||
+          field === "scheduledAt"
         ) {
           errors[field] = issue.message;
         }
@@ -164,6 +190,7 @@ export function PostComposer({
         linkUrl: linkUrl || "",
         mediaUrl: uploadedMediaUrl || "",
         mediaAlt: mediaAlt || undefined,
+        scheduledAt: scheduledAtIso,
       };
       // A draft created by autosave (or being resumed) publishes in place;
       // otherwise this is a from-scratch submission with nothing saved yet.
@@ -174,6 +201,8 @@ export function PostComposer({
       if (result.ok) {
         if (result.status === "PUBLISHED") {
           router.push(`/posts/${result.slug}`);
+        } else if (result.status === "SCHEDULED") {
+          router.push("/posts/scheduled");
         } else {
           router.push("/posts/queued");
         }
@@ -187,6 +216,7 @@ export function PostComposer({
         else if (key === "bodyJson") newFieldErrors.bodyJson = msg;
         else if (key === "linkUrl") newFieldErrors.linkUrl = msg;
         else if (key === "mediaAlt") newFieldErrors.mediaAlt = msg;
+        else if (key === "scheduledAt") newFieldErrors.scheduledAt = msg;
         else formError = msg; // _form or unexpected key
       }
       setFieldErrors(newFieldErrors);
@@ -463,6 +493,46 @@ export function PostComposer({
         )}
       </div>
 
+      {/* ── Schedule ── */}
+      {schedulingEnabled && (
+        <div>
+          <label
+            htmlFor="scheduledAt"
+            className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+          >
+            Schedule <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
+          </label>
+          <input
+            id="scheduledAt"
+            name="scheduledAt"
+            type="datetime-local"
+            value={scheduledAt}
+            min={minScheduleValue}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            aria-describedby={fieldErrors.scheduledAt ? "scheduledAt-error" : "scheduledAt-hint"}
+            aria-invalid={fieldErrors.scheduledAt ? true : undefined}
+            className={[
+              "h-11 w-full max-w-[280px] rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[var(--foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+              fieldErrors.scheduledAt ? "border-[var(--destructive)]" : "border-[var(--border)]",
+            ].join(" ")}
+          />
+          {fieldErrors.scheduledAt ? (
+            <p
+              id="scheduledAt-error"
+              role="alert"
+              className="mt-1 text-[13px] text-[var(--destructive-text)]"
+            >
+              {fieldErrors.scheduledAt}
+            </p>
+          ) : (
+            <p id="scheduledAt-hint" className="mt-1 text-[13px] text-[var(--muted-foreground)]">
+              Leave blank to publish immediately. Times use your profile timezone ({timezone},{" "}
+              {timeZoneOffsetLabel(timezone)}).
+            </p>
+          )}
+        </div>
+      )}
+
       {/* ── Server error ── */}
       {serverError && (
         <div
@@ -484,7 +554,15 @@ export function PostComposer({
           {(isSubmitting || isUploading) && (
             <Loader2 size={16} strokeWidth={2} className="animate-spin" aria-hidden />
           )}
-          {isUploading ? "Uploading…" : isSubmitting ? "Publishing…" : "Publish"}
+          {isUploading
+            ? "Uploading…"
+            : isSubmitting
+              ? scheduledAt
+                ? "Scheduling…"
+                : "Publishing…"
+              : scheduledAt
+                ? "Schedule"
+                : "Publish"}
         </button>
 
         <button

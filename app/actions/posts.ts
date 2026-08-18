@@ -12,6 +12,7 @@ import {
   readingMinutes,
 } from "@/lib/content/document";
 import {
+  auditActionFor,
   decidePublishStatus,
   materializeInlineImages,
   publishingRoleFor,
@@ -31,7 +32,7 @@ import {
 } from "@/lib/zod-schemas";
 
 export type CreatePostResult =
-  | { ok: true; postId: string; slug: string; status: "PUBLISHED" | "IN_REVIEW" }
+  | { ok: true; postId: string; slug: string; status: "PUBLISHED" | "IN_REVIEW" | "SCHEDULED" }
   | { ok: false; errors: Record<string, string> };
 
 export async function createPost(input: CreatePostInput): Promise<CreatePostResult> {
@@ -71,7 +72,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
+  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
   const roleKey = (await publishingRoleFor(user, entityId)) ?? "entity_publisher";
@@ -103,7 +104,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
 
   const { post, status } = await serializableTransaction(async (tx) => {
-    const status = await decidePublishStatus(tx, user.id, policy);
+    const status = await decidePublishStatus(tx, user.id, policy, scheduledAt);
 
     const post = await tx.post.create({
       data: {
@@ -119,6 +120,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
         coverMediaId,
         linkUrl: linkUrl || null,
         status,
+        scheduledAt: status === PostStatus.SCHEDULED ? scheduledAt : null,
         quotaPeriod: policy.periodLabel,
         publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
         audienceSize,
@@ -142,9 +144,14 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
 
   await withAudit(
     userActor(user),
-    status === PostStatus.PUBLISHED ? "post.published" : "post.queued",
+    auditActionFor(status),
     { type: "post", id: post.id, entityId },
-    { title, quotaPeriod: policy.periodLabel, quotaMax: policy.maxPosts },
+    {
+      title,
+      quotaPeriod: policy.periodLabel,
+      quotaMax: policy.maxPosts,
+      ...(status === PostStatus.SCHEDULED ? { scheduledAt: scheduledAt!.toISOString() } : {}),
+    },
     async () => undefined
   );
 
@@ -236,6 +243,13 @@ export async function resubmitPost(
 
     return { status };
   });
+
+  if (status === PostStatus.SCHEDULED) {
+    // decidePublishStatus only returns this when given a scheduledAt, which
+    // resubmission never passes — guards against silently writing a
+    // SCHEDULED post with no scheduledAt set if that ever changes.
+    throw new Error("Unexpected SCHEDULED status while resubmitting a post");
+  }
 
   await withAudit(
     userActor(user),

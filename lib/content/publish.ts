@@ -99,14 +99,31 @@ export async function materializeInlineImages(
 /**
  * The quota-resolution step duplicated across createPost, resubmitPost, and
  * publishDraft's transactions: whoever submits while under quota publishes
- * immediately, the rest queue. Takes a transaction client so the
+ * immediately (or schedules, if a future `scheduledAt` was given), the rest
+ * queue. A scheduled post still consumes quota at submit time
+ * (architecture.md §8.2) — `lib/quota.ts`'s `QUOTA_CONSUMING_STATUSES`
+ * already counts SCHEDULED alongside PUBLISHED and IN_REVIEW, so nothing
+ * here needs to special-case it. Takes a transaction client so the
  * read-then-write stays inside the caller's serializable transaction.
  */
 export async function decidePublishStatus(
   tx: Prisma.TransactionClient | typeof db,
   userId: string,
-  policy: ResolvedQuota
-): Promise<typeof PostStatus.PUBLISHED | typeof PostStatus.IN_REVIEW> {
+  policy: ResolvedQuota,
+  scheduledAt: Date | null = null
+): Promise<
+  typeof PostStatus.PUBLISHED | typeof PostStatus.IN_REVIEW | typeof PostStatus.SCHEDULED
+> {
   const used = await usedInPeriod(tx, userId, policy.periodLabel);
-  return used < policy.maxPosts ? PostStatus.PUBLISHED : PostStatus.IN_REVIEW;
+  if (used >= policy.maxPosts) return PostStatus.IN_REVIEW;
+  return scheduledAt ? PostStatus.SCHEDULED : PostStatus.PUBLISHED;
+}
+
+/** Shared by createPost and publishDraft so the same outcome reads the same in the audit log. */
+export function auditActionFor(
+  status: typeof PostStatus.PUBLISHED | typeof PostStatus.IN_REVIEW | typeof PostStatus.SCHEDULED
+): string {
+  if (status === PostStatus.PUBLISHED) return "post.published";
+  if (status === PostStatus.SCHEDULED) return "post.scheduled";
+  return "post.queued";
 }

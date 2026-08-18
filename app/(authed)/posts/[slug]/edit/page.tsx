@@ -40,9 +40,10 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
   }
 
   const roleKey = await publishingRoleKeyFor(user.id);
-  const [quota, richTextEnabled] = await Promise.all([
+  const [quota, richTextEnabled, schedulingEnabled] = await Promise.all([
     quotaStateFor(user.id, user.primaryEntityId, roleKey),
     isEnabled("posts.rich_text"),
+    isEnabled("posts.scheduling"),
   ]);
 
   return (
@@ -75,6 +76,8 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
 
       <PostComposer
         richTextEnabled={richTextEnabled}
+        schedulingEnabled={schedulingEnabled}
+        timezone={user.timezone}
         postId={post.id}
         initialValues={{
           title: post.title,
