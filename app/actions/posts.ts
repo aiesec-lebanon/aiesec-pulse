@@ -18,6 +18,7 @@ import {
   publishingRoleFor,
 } from "@/lib/content/publish";
 import { uniqueSlug } from "@/lib/content/slug";
+import { resolveValidTopicIds } from "@/lib/content/topics";
 import { db, serializableTransaction } from "@/lib/db";
 import {
   availableAudiencesFor,
@@ -76,7 +77,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience } =
+  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience, topicIds } =
     parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
@@ -92,6 +93,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     return { ok: false, errors: { audience: audienceDecision.error } };
   }
   const audiences = audienceDecision.audiences;
+  const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
   const slug = await uniqueSlug(title);
   const audienceSize = await resolveAudienceSize(audiences);
@@ -136,6 +138,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
         publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
         audienceSize,
         audiences: { create: audiences },
+        topics: { create: validTopicIds.map((topicId) => ({ topicId })) },
         versions: {
           create: {
             version: 1,
@@ -208,7 +211,7 @@ export async function resubmitPost(
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl } = parsed.data;
+  const { title, bodyJson, summary, linkUrl, topicIds } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
   const roleKey = (await publishingRoleFor(user, post.publisherEntityId)) ?? "entity_publisher";
   const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey);
@@ -216,6 +219,7 @@ export async function resubmitPost(
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
 
   const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
+  const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
   const { status } = await serializableTransaction(async (tx) => {
     const status = await decidePublishStatus(tx, user.id, policy);
@@ -239,6 +243,12 @@ export async function resubmitPost(
         rejectionReason: null,
         quotaPeriod: policy.periodLabel,
         publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
+        // Re-sent in full each time, same as createPost/publishDraft — not
+        // merged with whatever the post already carried.
+        topics: {
+          deleteMany: {},
+          create: validTopicIds.map((topicId) => ({ topicId })),
+        },
         versions: {
           create: {
             version: (latest?.version ?? 0) + 1,

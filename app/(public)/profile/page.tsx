@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { RejectedPostPanel } from "@/components/profile/RejectedPostPanel";
+import { listActiveTopics } from "@/lib/content/topics";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
 import { isEnabled } from "@/lib/flags";
@@ -60,7 +61,7 @@ export default async function ProfilePage() {
   const user = await requireSession();
   const canPublish = await can(user, "post.publish");
 
-  const [posts, entity, richTextEnabled] = await Promise.all([
+  const [posts, entity, richTextEnabled, topics] = await Promise.all([
     db.post.findMany({
       where: { authorId: user.id },
       orderBy: { createdAt: "desc" },
@@ -81,12 +82,14 @@ export default async function ProfilePage() {
         reactionCount: true,
         commentCount: true,
         cover: { select: { bucket: true, path: true, altText: true } },
+        topics: { select: { topicId: true } },
       },
     }),
     user.primaryEntityId
       ? db.entity.findUnique({ where: { id: user.primaryEntityId }, select: { name: true } })
       : Promise.resolve(null),
     isEnabled("posts.rich_text"),
+    listActiveTopics(),
   ]);
 
   const published = posts.filter((p) => p.status === PostStatus.PUBLISHED);
@@ -285,8 +288,10 @@ export default async function ProfilePage() {
                         mediaUrl: mediaUrl(post.cover),
                         mediaAlt: post.cover?.altText ?? null,
                         rejectionReason: post.rejectionReason,
+                        topicIds: post.topics.map((t) => t.topicId),
                       }}
                       richTextEnabled={richTextEnabled}
+                      topics={topics}
                     />
                   )}
                 </li>

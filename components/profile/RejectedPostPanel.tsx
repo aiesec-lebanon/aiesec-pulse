@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { resubmitPost } from "@/app/actions/posts";
+import { TopicPicker } from "@/components/composer/TopicPicker";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { type PulseDocument, sanitiseDocument } from "@/lib/content/document";
+import type { TopicOption } from "@/lib/content/topics";
 import { createPostSchema } from "@/lib/zod-schemas";
 
 type Props = {
@@ -18,8 +20,10 @@ type Props = {
     mediaUrl: string | null;
     mediaAlt: string | null;
     rejectionReason: string | null;
+    topicIds: string[];
   };
   richTextEnabled?: boolean;
+  topics?: TopicOption[];
 };
 
 type FieldErrors = Partial<Record<"title" | "bodyJson" | "linkUrl", string>>;
@@ -32,13 +36,14 @@ function extractDomain(url: string): string {
   }
 }
 
-export function RejectedPostPanel({ post, richTextEnabled = false }: Props) {
+export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const [title, setTitle] = useState(post.title);
   const [bodyJson, setBodyJson] = useState<PulseDocument>(() => sanitiseDocument(post.bodyJson));
   const [linkUrl, setLinkUrl] = useState(post.linkUrl ?? "");
+  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>(post.topicIds);
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -82,6 +87,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false }: Props) {
         linkUrl: linkUrl || "",
         mediaUrl: post.mediaUrl ?? "",
         mediaAlt: post.mediaAlt ?? undefined,
+        topicIds: selectedTopicIds,
       });
       if (result.ok) {
         setSuccessMsg(
@@ -244,6 +250,15 @@ export function RejectedPostPanel({ post, richTextEnabled = false }: Props) {
                 </div>
               )}
             </div>
+
+            {topics.length > 0 && (
+              <TopicPicker
+                topics={topics}
+                selectedIds={selectedTopicIds}
+                onChange={setSelectedTopicIds}
+                disabled={isSubmitting}
+              />
+            )}
 
             {serverError && (
               <div

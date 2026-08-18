@@ -4,6 +4,7 @@ import { PostStatus } from "@/app/generated/prisma/enums";
 import { VersionHistoryPanel } from "@/components/drafts/VersionHistoryPanel";
 import { PostComposer } from "@/components/PostComposer";
 import { sanitiseDocument } from "@/lib/content/document";
+import { listActiveTopics } from "@/lib/content/topics";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
 import { isEnabled } from "@/lib/flags";
@@ -41,11 +42,12 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
   }
 
   const roleKey = await publishingRoleKeyFor(user.id);
-  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled] = await Promise.all([
+  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled, topics] = await Promise.all([
     quotaStateFor(user.id, user.primaryEntityId, roleKey),
     isEnabled("posts.rich_text"),
     isEnabled("posts.scheduling"),
     isEnabled("posts.targeting"),
+    listActiveTopics(),
   ]);
   const audienceOptions = targetingEnabled
     ? await availableAudiencesFor(user, post.publisherEntityId)
@@ -84,6 +86,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
         schedulingEnabled={schedulingEnabled}
         timezone={user.timezone}
         audienceOptions={audienceOptions}
+        topics={topics}
         postId={post.id}
         initialValues={{
           title: post.title,

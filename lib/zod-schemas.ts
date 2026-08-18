@@ -51,6 +51,14 @@ const audienceField = z
   })
   .optional();
 
+// Absent means "no topics" on a fresh create; on an update it's re-sent in
+// full each time (never merged) — a post's topics on create/publish/resubmit
+// are exactly what the picker showed selected, not accumulated. An id that
+// doesn't name a real, active Topic is silently dropped server-side
+// (lib/content/topics.ts's resolveValidTopicIds), not rejected — a tag
+// carries no authorisation weight.
+const topicIdsField = z.array(z.string().trim().min(1)).max(20).optional();
+
 // Sanitised here too, not just on read — a document arriving from a Server
 // Action's argument is untrusted input like any other (lib/content/document.ts).
 // Length limits are enforced against the flattened text, matching what the
@@ -79,6 +87,7 @@ export const createPostSchema = z
     mediaAlt: z.string().trim().max(300, "Alt text is limited to 300 characters").optional(),
     scheduledAt: scheduledAtField,
     audience: audienceField,
+    topicIds: topicIdsField,
   })
   .refine((data) => !data.mediaUrl || (data.mediaAlt?.trim().length ?? 0) > 0, {
     message: "Describe the image for people using a screen reader",

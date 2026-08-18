@@ -18,6 +18,7 @@ import {
   publishingRoleFor,
 } from "@/lib/content/publish";
 import { uniqueSlug } from "@/lib/content/slug";
+import { resolveValidTopicIds } from "@/lib/content/topics";
 import { db, serializableTransaction } from "@/lib/db";
 import { mediaUrl as resolveCoverUrl } from "@/lib/feed";
 import {
@@ -265,7 +266,7 @@ export async function publishDraft(
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience } =
+  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience, topicIds } =
     parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
@@ -307,6 +308,7 @@ export async function publishDraft(
   const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
   const audiences = audienceDecision.audiences;
   const audienceSize = await resolveAudienceSize(audiences);
+  const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
   const { status, slug } = await serializableTransaction(async (tx) => {
     const status = await decidePublishStatus(tx, user.id, policy, scheduledAt);
@@ -337,6 +339,10 @@ export async function publishDraft(
         // on publish) — replace it wholesale with what was actually decided
         // above rather than leaving the placeholder rows in place alongside it.
         audiences: { deleteMany: {}, create: audiences },
+        topics: {
+          deleteMany: {},
+          create: validTopicIds.map((topicId) => ({ topicId })),
+        },
         versions: {
           create: {
             version: (latest?.version ?? 0) + 1,

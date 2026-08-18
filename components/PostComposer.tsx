@@ -11,8 +11,10 @@ import {
   type AudiencePickerOptions,
   DEFAULT_AUDIENCE_VALUE,
 } from "@/components/composer/AudiencePicker";
+import { TopicPicker } from "@/components/composer/TopicPicker";
 import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import type { TopicOption } from "@/lib/content/topics";
 import { formatAsWallTime, timeZoneOffsetLabel, zonedWallTimeToUtc } from "@/lib/timezone";
 import { createPostSchema } from "@/lib/zod-schemas";
 
@@ -31,6 +33,8 @@ export type PostComposerProps = {
   timezone?: string;
   /** Absent (or the flag off) hides the picker entirely — every post keeps the old unconditional GLOBAL default. */
   audienceOptions?: AudiencePickerOptions;
+  /** The 13 pre-seeded, active topics. Empty hides the picker — nothing to choose from. */
+  topics?: TopicOption[];
   /** An already-saved DRAFT being resumed; absent when starting fresh. */
   postId?: string;
   initialValues?: ComposerInitialValues;
@@ -41,6 +45,7 @@ export function PostComposer({
   schedulingEnabled = false,
   timezone = "UTC",
   audienceOptions,
+  topics = [],
   postId,
   initialValues,
 }: PostComposerProps) {
@@ -85,6 +90,11 @@ export function PostComposer({
   // autosave. Meaningless when audienceOptions is "fixed" (nothing to
   // choose), so the default is only ever actually sent for an "open" picker.
   const [audienceValue, setAudienceValue] = useState(DEFAULT_AUDIENCE_VALUE);
+
+  // Also submit-time-only, like scheduledAt/audienceValue — resuming a draft
+  // starts with nothing selected rather than re-fetching what was chosen
+  // last time, since topics were never part of what saveDraft persisted.
+  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
 
   // Seeded from the postId prop when resuming an already-saved draft;
   // undefined otherwise until the first save (autosave or explicit) creates
@@ -183,6 +193,7 @@ export function PostComposer({
       mediaAlt: mediaAlt || undefined,
       scheduledAt: scheduledAtIso,
       audience: audiencePayload,
+      topicIds: selectedTopicIds,
     });
     if (!validationResult.success) {
       const errors: FieldErrors = {};
@@ -215,6 +226,7 @@ export function PostComposer({
         mediaAlt: mediaAlt || undefined,
         scheduledAt: scheduledAtIso,
         audience: audiencePayload,
+        topicIds: selectedTopicIds,
       };
       // A draft created by autosave (or being resumed) publishes in place;
       // otherwise this is a from-scratch submission with nothing saved yet.
@@ -517,6 +529,16 @@ export function PostComposer({
           </div>
         )}
       </div>
+
+      {/* ── Topics ── */}
+      {topics.length > 0 && (
+        <TopicPicker
+          topics={topics}
+          selectedIds={selectedTopicIds}
+          onChange={setSelectedTopicIds}
+          disabled={isSubmitting || isUploading}
+        />
+      )}
 
       {/* ── Schedule ── */}
       {schedulingEnabled && (
