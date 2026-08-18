@@ -15,4 +15,5 @@ export type FeedPost = {
   reactionCount: number;
   commentCount: number;
   publishedAt: Date;
+  topics: Array<{ slug: string; name: string }>;
 };

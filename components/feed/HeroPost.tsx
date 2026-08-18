@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { PostAvatar } from "@/components/posts/_shared";
+import { TopicChip } from "@/components/topics/TopicChip";
 import { relativeTime } from "@/lib/relative-time";
 import type { FeedPost } from "@/types/feed";
 
@@ -87,6 +88,14 @@ export function HeroPost({ post }: { post: FeedPost }) {
           {post.title}
         </Link>
       </h2>
+
+      {post.topics.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {post.topics.slice(0, 3).map((topic) => (
+            <TopicChip key={topic.slug} slug={topic.slug} name={topic.name} />
+          ))}
+        </div>
+      )}
 
       <p className="mt-3 line-clamp-3 text-[18px] leading-[1.6] text-[var(--muted-foreground)]">
         {post.excerpt}

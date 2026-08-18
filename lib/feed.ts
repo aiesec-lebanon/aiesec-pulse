@@ -27,6 +27,7 @@ const feedSelect = {
     select: { id: true, fullName: true, avatarUrl: true },
   },
   publisher: { select: { name: true, tag: true } },
+  topics: { select: { topic: { select: { slug: true, name: true } } } },
 } as const;
 
 type FeedRow = {
@@ -43,6 +44,7 @@ type FeedRow = {
   cover: { path: string; altText: string | null; bucket: string } | null;
   author: { id: string; fullName: string; avatarUrl: string | null };
   publisher: { name: string; tag: string | null };
+  topics: Array<{ topic: { slug: string; name: string } }>;
 };
 
 // SUPABASE_URL is the S3 endpoint used for uploads; public objects are served
@@ -91,6 +93,18 @@ export function toFeedPost(row: FeedRow): FeedPost {
     reactionCount: row.reactionCount,
     commentCount: row.commentCount,
     publishedAt: row.publishedAt ?? row.createdAt,
+    topics: row.topics.map((t) => t.topic),
+  };
+}
+
+// Shared by getFeedPage and getTopicFeed so "what counts as visible" can
+// never drift between the main feed and a topic archive.
+function visiblePublishedWhere(scope: Parameters<typeof audienceFilter>[0]) {
+  return {
+    status: PostStatus.PUBLISHED,
+    publishedAt: { lte: new Date() },
+    OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    ...audienceFilter(scope),
   };
 }
 
@@ -99,12 +113,7 @@ export async function getFeedPage(page: number): Promise<{ posts: FeedPost[]; ha
   const scope = await scopeSetFor(user);
 
   const rows = await db.post.findMany({
-    where: {
-      status: PostStatus.PUBLISHED,
-      publishedAt: { lte: new Date() },
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      ...audienceFilter(scope),
-    },
+    where: visiblePublishedWhere(scope),
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
     skip: (page - 1) * POSTS_PER_PAGE,
     take: POSTS_PER_PAGE + 1,
@@ -114,6 +123,32 @@ export async function getFeedPage(page: number): Promise<{ posts: FeedPost[]; ha
   return {
     posts: rows.slice(0, POSTS_PER_PAGE).map(toFeedPost),
     hasNext: rows.length > POSTS_PER_PAGE,
+  };
+}
+
+const TOPIC_PAGE_SIZE = 12;
+
+// Same audience-scoping as the main feed — a topic archive is never a way
+// around targeting (context.md §8.3: audience is a distribution control the
+// reader-facing surfaces must all honour identically).
+export async function getTopicFeed(
+  topicId: string,
+  page: number
+): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+
+  const rows = await db.post.findMany({
+    where: { ...visiblePublishedWhere(scope), topics: { some: { topicId } } },
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * TOPIC_PAGE_SIZE,
+    take: TOPIC_PAGE_SIZE + 1,
+    select: feedSelect,
+  });
+
+  return {
+    posts: rows.slice(0, TOPIC_PAGE_SIZE).map(toFeedPost),
+    hasNext: rows.length > TOPIC_PAGE_SIZE,
   };
 }
 

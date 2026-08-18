@@ -8,6 +8,7 @@ import { CommentsSection } from "@/components/post-detail/CommentsSection";
 import { DocumentRenderer, type MediaLookup } from "@/components/post-detail/DocumentRenderer";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
 import { PostAvatar } from "@/components/posts/_shared";
+import { TopicChip } from "@/components/topics/TopicChip";
 import { collectImageMediaIds, sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
@@ -65,6 +66,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
       author: { select: { fullName: true, avatarUrl: true } },
       publisher: { select: { name: true } },
       reactions: { where: { userId: user.id }, take: 1, select: { userId: true } },
+      topics: { select: { topic: { select: { slug: true, name: true } } } },
     },
   });
 
@@ -151,6 +153,14 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
           {post.readingMinutes} min read
         </span>
       </div>
+
+      {post.topics.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {post.topics.map(({ topic }) => (
+            <TopicChip key={topic.slug} slug={topic.slug} name={topic.name} />
+          ))}
+        </div>
+      )}
 
       {/* ~70ch keeps line length in the comfortable reading range. */}
       <div className="mt-8 max-w-[70ch]">
