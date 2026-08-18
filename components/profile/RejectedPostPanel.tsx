@@ -5,21 +5,24 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { resubmitPost } from "@/app/actions/posts";
+import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import { type PulseDocument, sanitiseDocument } from "@/lib/content/document";
 import { createPostSchema } from "@/lib/zod-schemas";
 
 type Props = {
   post: {
     id: string;
     title: string;
-    content: string;
+    bodyJson: unknown;
     linkUrl: string | null;
     mediaUrl: string | null;
     mediaAlt: string | null;
     rejectionReason: string | null;
   };
+  richTextEnabled?: boolean;
 };
 
-type FieldErrors = Partial<Record<"title" | "content" | "linkUrl", string>>;
+type FieldErrors = Partial<Record<"title" | "bodyJson" | "linkUrl", string>>;
 
 function extractDomain(url: string): string {
   try {
@@ -29,12 +32,12 @@ function extractDomain(url: string): string {
   }
 }
 
-export function RejectedPostPanel({ post }: Props) {
+export function RejectedPostPanel({ post, richTextEnabled = false }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const [title, setTitle] = useState(post.title);
-  const [content, setContent] = useState(post.content);
+  const [bodyJson, setBodyJson] = useState<PulseDocument>(() => sanitiseDocument(post.bodyJson));
   const [linkUrl, setLinkUrl] = useState(post.linkUrl ?? "");
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -52,7 +55,7 @@ export function RejectedPostPanel({ post }: Props) {
 
     const validated = createPostSchema.safeParse({
       title,
-      content,
+      bodyJson,
       linkUrl: linkUrl || "",
       mediaUrl: post.mediaUrl ?? "",
       mediaAlt: post.mediaAlt ?? undefined,
@@ -61,7 +64,7 @@ export function RejectedPostPanel({ post }: Props) {
       const errors: FieldErrors = {};
       for (const issue of validated.error.issues) {
         const field = issue.path[0];
-        if (field === "title" || field === "content" || field === "linkUrl") {
+        if (field === "title" || field === "bodyJson" || field === "linkUrl") {
           errors[field] = issue.message;
         }
       }
@@ -75,7 +78,7 @@ export function RejectedPostPanel({ post }: Props) {
     try {
       const result = await resubmitPost(post.id, {
         title,
-        content,
+        bodyJson,
         linkUrl: linkUrl || "",
         mediaUrl: post.mediaUrl ?? "",
         mediaAlt: post.mediaAlt ?? undefined,
@@ -93,7 +96,7 @@ export function RejectedPostPanel({ post }: Props) {
       let formError: string | null = null;
       for (const [key, msg] of Object.entries(result.errors)) {
         if (key === "title") newFieldErrors.title = msg;
-        else if (key === "content") newFieldErrors.content = msg;
+        else if (key === "bodyJson") newFieldErrors.bodyJson = msg;
         else if (key === "linkUrl") newFieldErrors.linkUrl = msg;
         else formError = msg;
       }
@@ -106,12 +109,6 @@ export function RejectedPostPanel({ post }: Props) {
     } finally {
       setIsSubmitting(false);
     }
-  }
-
-  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setContent(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = `${e.target.scrollHeight}px`;
   }
 
   if (successMsg) {
@@ -195,22 +192,22 @@ export function RejectedPostPanel({ post }: Props) {
                   *
                 </span>
               </label>
-              <textarea
+              <RichTextEditor
                 id={`edit-content-${post.id}`}
-                required
-                rows={5}
-                maxLength={10000}
-                value={content}
-                onChange={handleContentChange}
-                style={{ resize: "none", overflow: "hidden" }}
-                className={[
-                  "w-full min-h-[120px] rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 py-2 text-[14px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
-                  fieldErrors.content ? "border-[var(--destructive)]" : "border-[var(--border)]",
-                ].join(" ")}
+                content={bodyJson}
+                onChange={setBodyJson}
+                showToolbar={richTextEnabled}
+                disabled={isSubmitting}
+                ariaDescribedBy={fieldErrors.bodyJson ? `edit-content-${post.id}-error` : undefined}
+                ariaInvalid={Boolean(fieldErrors.bodyJson)}
               />
-              {fieldErrors.content && (
-                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive-text)]">
-                  {fieldErrors.content}
+              {fieldErrors.bodyJson && (
+                <p
+                  id={`edit-content-${post.id}-error`}
+                  role="alert"
+                  className="mt-1 text-[12px] text-[var(--destructive-text)]"
+                >
+                  {fieldErrors.bodyJson}
                 </p>
               )}
             </div>

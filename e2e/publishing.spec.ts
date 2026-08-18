@@ -16,10 +16,14 @@ const POST_SLUG_URL = /\/posts\/(?!new$|queued$)[a-z0-9-]+$/;
 
 // Located by id: the labels carry a required-marker span, which makes a text
 // match brittle.
+//
+// #content is TipTap's contenteditable root, not a <textarea> — .fill() only
+// sets textContent and doesn't reliably reach ProseMirror's own model, so
+// this drives it with real keystrokes the way an author actually would.
 async function publish(page: Page, title: string, body = BODY) {
   await page.goto("/posts/new");
   await page.locator("#title").fill(title);
-  await page.locator("#content").fill(body);
+  await page.locator("#content").pressSequentially(body);
   await page.getByRole("button", { name: /post update/i }).click();
 }
 
@@ -54,7 +58,7 @@ test.describe("publishing", () => {
     await signInAs("publisher", "/feed", isolationId(testInfo));
     await page.goto("/posts/new");
     await page.locator("#title").fill("ab"); // below the 3-character minimum
-    await page.locator("#content").fill("short");
+    await page.locator("#content").pressSequentially("short");
     await page.getByRole("button", { name: /post update/i }).click();
 
     await expect(alertText(page).first()).toBeVisible();

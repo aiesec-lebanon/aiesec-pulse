@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  plainTextFromDocument,
+  type PulseDocument,
+  sanitiseDocument,
+} from "@/lib/content/document";
+
 // z.string().url() alone accepts javascript: and data:, which become XSS once
 // the value reaches an href. Mirrored for link marks in content/document.ts.
 const httpUrl = z
@@ -17,6 +23,20 @@ const httpUrl = z
 
 const optionalHttpUrl = z.union([httpUrl, z.literal("")]).optional();
 
+// Sanitised here too, not just on read — a document arriving from a Server
+// Action's argument is untrusted input like any other (lib/content/document.ts).
+// Length limits are enforced against the flattened text, matching what the
+// composer's own character counter shows the author.
+const bodyJsonField = z
+  .unknown()
+  .transform((value): PulseDocument => sanitiseDocument(value))
+  .refine((doc) => plainTextFromDocument(doc).trim().length >= 10, {
+    message: "Write at least 10 characters",
+  })
+  .refine((doc) => plainTextFromDocument(doc).length <= 50_000, {
+    message: "Posts are limited to 50,000 characters",
+  });
+
 export const createPostSchema = z
   .object({
     title: z
@@ -24,11 +44,7 @@ export const createPostSchema = z
       .trim()
       .min(3, "Give your post a title of at least 3 characters")
       .max(200, "Titles are limited to 200 characters"),
-    content: z
-      .string()
-      .trim()
-      .min(10, "Write at least 10 characters")
-      .max(50_000, "Posts are limited to 50,000 characters"),
+    bodyJson: bodyJsonField,
     summary: z.string().trim().max(400, "Summaries are limited to 400 characters").optional(),
     linkUrl: optionalHttpUrl,
     mediaUrl: optionalHttpUrl,

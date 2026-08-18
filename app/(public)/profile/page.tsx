@@ -5,6 +5,7 @@ import { PostStatus } from "@/app/generated/prisma/enums";
 import { RejectedPostPanel } from "@/components/profile/RejectedPostPanel";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
+import { isEnabled } from "@/lib/flags";
 import { can } from "@/lib/rbac/can";
 import { requireSession } from "@/lib/rbac/guards";
 import { relativeTime } from "@/lib/relative-time";
@@ -59,7 +60,7 @@ export default async function ProfilePage() {
   const user = await requireSession();
   const canPublish = await can(user, "post.publish");
 
-  const [posts, entity] = await Promise.all([
+  const [posts, entity, richTextEnabled] = await Promise.all([
     db.post.findMany({
       where: { authorId: user.id },
       orderBy: { createdAt: "desc" },
@@ -69,6 +70,7 @@ export default async function ProfilePage() {
         title: true,
         summary: true,
         bodyText: true,
+        bodyJson: true,
         status: true,
         linkUrl: true,
         rejectionReason: true,
@@ -83,6 +85,7 @@ export default async function ProfilePage() {
     user.primaryEntityId
       ? db.entity.findUnique({ where: { id: user.primaryEntityId }, select: { name: true } })
       : Promise.resolve(null),
+    isEnabled("posts.rich_text"),
   ]);
 
   const published = posts.filter((p) => p.status === PostStatus.PUBLISHED);
@@ -255,12 +258,13 @@ export default async function ProfilePage() {
                       post={{
                         id: post.id,
                         title: post.title,
-                        content: post.bodyText,
+                        bodyJson: post.bodyJson,
                         linkUrl: post.linkUrl,
                         mediaUrl: mediaUrl(post.cover),
                         mediaAlt: post.cover?.altText ?? null,
                         rejectionReason: post.rejectionReason,
                       }}
+                      richTextEnabled={richTextEnabled}
                     />
                   )}
                 </li>

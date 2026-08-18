@@ -1,5 +1,6 @@
 import { PostComposer } from "@/components/PostComposer";
 import { db } from "@/lib/db";
+import { isEnabled } from "@/lib/flags";
 import { quotaStateFor } from "@/lib/quota";
 import { requirePermission } from "@/lib/rbac/guards";
 
@@ -21,7 +22,10 @@ async function publishingRoleKey(userId: string): Promise<string> {
 export default async function NewPostPage() {
   const user = await requirePermission("post.draft");
   const roleKey = await publishingRoleKey(user.id);
-  const quota = await quotaStateFor(user.id, user.primaryEntityId, roleKey);
+  const [quota, richTextEnabled] = await Promise.all([
+    quotaStateFor(user.id, user.primaryEntityId, roleKey),
+    isEnabled("posts.rich_text"),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-[720px] px-6 py-10">
@@ -51,7 +55,7 @@ export default async function NewPostPage() {
         )}
       </div>
 
-      <PostComposer />
+      <PostComposer richTextEnabled={richTextEnabled} />
     </main>
   );
 }

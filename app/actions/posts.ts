@@ -5,7 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { userActor, withAudit } from "@/lib/audit";
-import { documentFromPlainText, excerptFrom, readingMinutes } from "@/lib/content/document";
+import { excerptFrom, plainTextFromDocument, readingMinutes } from "@/lib/content/document";
 import { uniqueSlug } from "@/lib/content/slug";
 import { db, serializableTransaction } from "@/lib/db";
 import { defaultAudience, resolveAudienceSize } from "@/lib/org/scope";
@@ -83,7 +83,8 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, content, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
+  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
+  const bodyText = plainTextFromDocument(bodyJson);
 
   const roleKey = (await publishingRoleFor(user, entityId)) ?? "entity_publisher";
   const policy = await resolveQuotaPolicy(entityId, roleKey);
@@ -91,7 +92,6 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
   }
 
-  const bodyJson = documentFromPlainText(content);
   const slug = await uniqueSlug(title);
   const audiences = defaultAudience();
   const audienceSize = await resolveAudienceSize(audiences);
@@ -123,10 +123,10 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
         publisherEntityId: entityId,
         termLabel: currentTermLabel(),
         title,
-        summary: summary?.trim() || excerptFrom(content),
+        summary: summary?.trim() || excerptFrom(bodyText),
         bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
-        bodyText: content,
-        readingMinutes: readingMinutes(content),
+        bodyText,
+        readingMinutes: readingMinutes(bodyText),
         coverMediaId,
         linkUrl: linkUrl || null,
         status,
@@ -138,7 +138,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
           create: {
             version: 1,
             title,
-            summary: summary?.trim() || excerptFrom(content),
+            summary: summary?.trim() || excerptFrom(bodyText),
             bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
             editedById: user.id,
           },
@@ -201,13 +201,12 @@ export async function resubmitPost(
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, content, summary, linkUrl } = parsed.data;
+  const { title, bodyJson, summary, linkUrl } = parsed.data;
+  const bodyText = plainTextFromDocument(bodyJson);
   const roleKey = (await publishingRoleFor(user, post.publisherEntityId)) ?? "entity_publisher";
   const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey);
   if (!policy)
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
-
-  const bodyJson = documentFromPlainText(content);
 
   const { status } = await serializableTransaction(async (tx) => {
     const used = await usedInPeriod(tx, user.id, policy.periodLabel);
@@ -223,10 +222,10 @@ export async function resubmitPost(
       where: { id: postId },
       data: {
         title,
-        summary: summary?.trim() || excerptFrom(content),
+        summary: summary?.trim() || excerptFrom(bodyText),
         bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
-        bodyText: content,
-        readingMinutes: readingMinutes(content),
+        bodyText,
+        readingMinutes: readingMinutes(bodyText),
         linkUrl: linkUrl || null,
         status,
         rejectionReason: null,
@@ -236,7 +235,7 @@ export async function resubmitPost(
           create: {
             version: (latest?.version ?? 0) + 1,
             title,
-            summary: summary?.trim() || excerptFrom(content),
+            summary: summary?.trim() || excerptFrom(bodyText),
             bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
             editedById: user.id,
             changeNote: "Resubmitted after rejection",

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { createPost, type CreatePostResult } from "@/app/actions/posts";
+import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import { EMPTY_DOCUMENT, plainTextFromDocument, type PulseDocument } from "@/lib/content/document";
 import { createPostSchema } from "@/lib/zod-schemas";
 
 function extractDomain(url: string): string {
@@ -15,13 +17,13 @@ function extractDomain(url: string): string {
   }
 }
 
-type FieldErrors = Partial<Record<"title" | "content" | "linkUrl" | "image" | "mediaAlt", string>>;
+type FieldErrors = Partial<Record<"title" | "bodyJson" | "linkUrl" | "image" | "mediaAlt", string>>;
 
-export function PostComposer() {
+export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: boolean }) {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [bodyJson, setBodyJson] = useState<PulseDocument>(EMPTY_DOCUMENT);
   const [linkUrl, setLinkUrl] = useState("");
   // Required whenever an image is attached; the Zod schema enforces it, since a
   // prompt the author can ignore does not make the image accessible.
@@ -34,15 +36,15 @@ export function PostComposer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [titleFocused, setTitleFocused] = useState(false);
-  const [contentFocused, setContentFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
+  const bodyText = plainTextFromDocument(bodyJson);
   const hasContent =
     title.trim().length > 0 ||
-    content.trim().length > 0 ||
+    bodyText.trim().length > 0 ||
     linkUrl.trim().length > 0 ||
     imagePreview !== null;
 
@@ -123,12 +125,6 @@ export function PostComposer() {
     }
   }
 
-  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setContent(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = `${e.target.scrollHeight}px`;
-  }
-
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(true);
@@ -152,7 +148,7 @@ export function PostComposer() {
 
     const validationResult = createPostSchema.safeParse({
       title,
-      content,
+      bodyJson,
       linkUrl: linkUrl || "",
       mediaUrl: uploadedMediaUrl || "",
       mediaAlt: mediaAlt || undefined,
@@ -163,7 +159,7 @@ export function PostComposer() {
         const field = issue.path[0];
         if (
           field === "title" ||
-          field === "content" ||
+          field === "bodyJson" ||
           field === "linkUrl" ||
           field === "mediaAlt"
         ) {
@@ -180,7 +176,7 @@ export function PostComposer() {
     try {
       const result: CreatePostResult = await createPost({
         title,
-        content,
+        bodyJson,
         linkUrl: linkUrl || "",
         mediaUrl: uploadedMediaUrl || "",
         mediaAlt: mediaAlt || undefined,
@@ -199,7 +195,7 @@ export function PostComposer() {
       let formError: string | null = null;
       for (const [key, msg] of Object.entries(result.errors)) {
         if (key === "title") newFieldErrors.title = msg;
-        else if (key === "content") newFieldErrors.content = msg;
+        else if (key === "bodyJson") newFieldErrors.bodyJson = msg;
         else if (key === "linkUrl") newFieldErrors.linkUrl = msg;
         else if (key === "mediaAlt") newFieldErrors.mediaAlt = msg;
         else formError = msg; // _form or unexpected key
@@ -278,41 +274,30 @@ export function PostComposer() {
             *
           </span>
         </label>
-        <textarea
+        <RichTextEditor
           id="content"
-          name="content"
-          required
-          rows={6}
-          maxLength={10000}
-          value={content}
-          onChange={handleContentChange}
-          onFocus={() => setContentFocused(true)}
-          onBlur={() => setContentFocused(false)}
-          placeholder="Share what's happening in your entity…"
-          aria-describedby={fieldErrors.content ? "content-error" : undefined}
-          style={{ resize: "none", overflow: "hidden" }}
-          className={[
-            "w-full min-h-[150px] rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 py-2.5 text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
-            fieldErrors.content ? "border-[var(--destructive)]" : "border-[var(--border)]",
-          ].join(" ")}
+          content={bodyJson}
+          onChange={setBodyJson}
+          showToolbar={richTextEnabled}
+          disabled={isSubmitting || isUploading}
+          ariaDescribedBy={fieldErrors.bodyJson ? "content-error" : undefined}
+          ariaInvalid={Boolean(fieldErrors.bodyJson)}
         />
         <div className="mt-1 flex items-start justify-between gap-2">
-          {fieldErrors.content ? (
+          {fieldErrors.bodyJson ? (
             <p
               id="content-error"
               role="alert"
               className="text-[13px] text-[var(--destructive-text)]"
             >
-              {fieldErrors.content}
+              {fieldErrors.bodyJson}
             </p>
           ) : (
             <span />
           )}
-          {contentFocused && (
-            <span className="shrink-0 text-[12px] text-[var(--muted-foreground)]">
-              {content.length.toLocaleString()}/50,000
-            </span>
-          )}
+          <span className="shrink-0 text-[12px] text-[var(--muted-foreground)]">
+            {bodyText.length.toLocaleString()}/50,000
+          </span>
         </div>
       </div>
 
