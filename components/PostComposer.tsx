@@ -2,128 +2,46 @@
 
 import { ExternalLink, ImageIcon, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { createPost, type CreatePostResult } from "@/app/actions/posts";
+import { useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
-import { EMPTY_DOCUMENT, plainTextFromDocument, type PulseDocument } from "@/lib/content/document";
 import { createPostSchema } from "@/lib/zod-schemas";
 
-function extractDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
-
-type FieldErrors = Partial<Record<"title" | "bodyJson" | "linkUrl" | "image" | "mediaAlt", string>>;
+type FieldErrors = Partial<Record<"title" | "bodyJson" | "linkUrl" | "mediaAlt", string>>;
 
 export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: boolean }) {
   const router = useRouter();
 
-  const [title, setTitle] = useState("");
-  const [bodyJson, setBodyJson] = useState<PulseDocument>(EMPTY_DOCUMENT);
-  const [linkUrl, setLinkUrl] = useState("");
-  // Required whenever an image is attached; the Zod schema enforces it, since a
-  // prompt the author can ignore does not make the image accessible.
-  const [mediaAlt, setMediaAlt] = useState("");
-
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const previewUrlRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    title,
+    setTitle,
+    bodyJson,
+    setBodyJson,
+    linkUrl,
+    setLinkUrl,
+    mediaAlt,
+    setMediaAlt,
+    imagePreview,
+    uploadedMediaUrl,
+    isUploading,
+    imageError,
+    fileInputRef,
+    clearImage,
+    handleFileSelected,
+    bodyText,
+    hasContent,
+    linkDomain,
+    linkIsValid,
+    linkIsInvalid,
+  } = useComposerForm();
 
   const [titleFocused, setTitleFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
-
-  const bodyText = plainTextFromDocument(bodyJson);
-  const hasContent =
-    title.trim().length > 0 ||
-    bodyText.trim().length > 0 ||
-    linkUrl.trim().length > 0 ||
-    imagePreview !== null;
-
-  function clearImage() {
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    previewUrlRef.current = null;
-    setImagePreview(null);
-    setUploadedMediaUrl(null);
-    setMediaAlt("");
-    setIsUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  async function handleFileSelected(file: File) {
-    const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
-    if (!ALLOWED.includes(file.type)) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        image: "Only JPEG, PNG, and WEBP images are allowed.",
-      }));
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        image: "Image must be 5 MB or smaller.",
-      }));
-      return;
-    }
-
-    setFieldErrors((prev) => {
-      const next = { ...prev };
-      delete next.image;
-      return next;
-    });
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    const objectUrl = URL.createObjectURL(file);
-    previewUrlRef.current = objectUrl;
-    setImagePreview(objectUrl);
-    setUploadedMediaUrl(null);
-    setIsUploading(true);
-
-    try {
-      const signRes = await fetch("/api/storage/sign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-        }),
-      });
-      if (!signRes.ok) {
-        const err = (await signRes.json()) as { error?: string };
-        throw new Error(err.error ?? "Could not start upload.");
-      }
-      const { uploadUrl, publicUrl } = (await signRes.json()) as {
-        uploadUrl: string;
-        publicUrl: string;
-      };
-
-      const putRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!putRes.ok) throw new Error("Upload to storage failed. Please try again.");
-
-      setUploadedMediaUrl(publicUrl);
-    } catch (err) {
-      clearImage();
-      setFieldErrors((prev) => ({
-        ...prev,
-        image: err instanceof Error ? err.message : "Image upload failed.",
-      }));
-    } finally {
-      setIsUploading(false);
-    }
-  }
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -211,9 +129,6 @@ export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: bo
     }
   }
 
-  const linkDomain = extractDomain(linkUrl);
-  const linkIsValid = linkUrl.length > 0 && linkDomain.length > 0;
-  const linkIsInvalid = linkUrl.length > 0 && !linkIsValid;
   const submitBlocked = isSubmitting || isUploading;
 
   return (
@@ -418,9 +333,9 @@ export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: bo
           </div>
         )}
 
-        {fieldErrors.image && (
+        {imageError && (
           <p role="alert" className="mt-1 text-[13px] text-[var(--destructive-text)]">
-            {fieldErrors.image}
+            {imageError}
           </p>
         )}
 
