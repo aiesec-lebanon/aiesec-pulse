@@ -3,6 +3,7 @@ import "server-only";
 import { ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { ancestorChain } from "@/lib/org/entities";
+import { can } from "@/lib/rbac/can";
 import { cached, cacheKeys } from "@/lib/redis";
 
 // A relevance filter, not a confidentiality boundary — the content policy says
@@ -106,4 +107,102 @@ export async function resolveAudienceSize(
       },
     },
   });
+}
+
+/**
+ * What a publisher may choose as their post's audience. `fixed` means there
+ * is no real choice to offer — context.md §7.2's "target audience beyond own
+ * scope: ❌" for entity_publisher/entity_editor — so the composer shows
+ * their entity as information, not a control. `open` (post.target_beyond)
+ * gets the full picker: GLOBAL, any region, or any entity via typeahead.
+ */
+export type AudienceOptions =
+  | { kind: "fixed"; entityId: string; label: string }
+  | { kind: "open"; regions: Array<{ id: string; name: string }> };
+
+export async function availableAudiencesFor(
+  user: { id: string },
+  entityId: string
+): Promise<AudienceOptions> {
+  if (await can(user, "post.target_beyond")) {
+    const regions = await db.entity.findMany({
+      where: { kind: "REGION", isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+    return { kind: "open", regions };
+  }
+
+  const entity = await db.entity.findUnique({ where: { id: entityId }, select: { name: true } });
+  return { kind: "fixed", entityId, label: entity?.name ?? "your entity" };
+}
+
+export type SubmittedAudience = { scopeType: ScopeType; entityId: string | null };
+export type AudienceDecision =
+  | { ok: true; scopeType: ScopeType; entityId: string | null }
+  | { ok: false; error: string };
+
+/**
+ * The RBAC boundary itself, isolated from any DB lookup so it's unit-testable
+ * under a fake clock-free, DB-free harness: given what a publisher is allowed
+ * to target and what they submitted, decide accept/reject. A `fixed` result
+ * only ever accepts an absent submission or one that already names their own
+ * entity — anything else (a REGION/GLOBAL audience from a client that skipped
+ * or tampered with the picker) is rejected outright, not silently narrowed to
+ * their entity, so a bypassed client fails loudly rather than appearing to
+ * succeed while quietly doing something different from what it asked for.
+ */
+export function decideAudienceForSubmission(
+  options: AudienceOptions,
+  submitted: SubmittedAudience | undefined
+): AudienceDecision {
+  if (options.kind === "fixed") {
+    if (
+      !submitted ||
+      (submitted.scopeType === ScopeType.ENTITY && submitted.entityId === options.entityId)
+    ) {
+      return { ok: true, scopeType: ScopeType.ENTITY, entityId: options.entityId };
+    }
+    return { ok: false, error: "You can only publish to your own entity." };
+  }
+
+  if (!submitted || submitted.scopeType === ScopeType.GLOBAL) {
+    return { ok: true, scopeType: ScopeType.GLOBAL, entityId: null };
+  }
+  if (!submitted.entityId) {
+    return { ok: false, error: "Choose an entity for this audience." };
+  }
+  return { ok: true, scopeType: submitted.scopeType, entityId: submitted.entityId };
+}
+
+/**
+ * The DB-touching wrapper `createPost`/`publishDraft` actually call: runs the
+ * pure decision above, then — only for a REGION/ENTITY result — confirms the
+ * named entity is real, active, and (for REGION) actually a region. The scope
+ * boundary is never trusted from the client, only re-derived server-side.
+ */
+export async function resolveSubmittedAudience(
+  options: AudienceOptions,
+  submitted: SubmittedAudience | undefined
+): Promise<
+  | { ok: true; audiences: Array<{ scopeType: ScopeType; entityId: string | null }> }
+  | { ok: false; error: string }
+> {
+  const decision = decideAudienceForSubmission(options, submitted);
+  if (!decision.ok) return decision;
+
+  if (decision.entityId) {
+    const entity = await db.entity.findUnique({
+      where: { id: decision.entityId },
+      select: { kind: true, isActive: true },
+    });
+    if (!entity || !entity.isActive) {
+      return { ok: false, error: "That entity could not be found." };
+    }
+    if (decision.scopeType === ScopeType.REGION && entity.kind !== "REGION") {
+      return { ok: false, error: "Choose a region for a region-wide audience." };
+    }
+  }
+
+  return { ok: true, audiences: [{ scopeType: decision.scopeType, entityId: decision.entityId }] };
 }

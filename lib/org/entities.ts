@@ -206,6 +206,35 @@ export async function subtreeEntityIds(entityId: string): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+export type EntitySearchResult = { id: string; name: string; tag: string | null; path: string };
+
+/**
+ * Name lookahead for the composer's audience typeahead
+ * (components/composer/AudiencePicker.tsx). `contains`/`insensitive` compiles
+ * to a leading-wildcard ILIKE, which the `Entity_name_trgm_idx` GIN index can
+ * serve — the same substring-match convention this codebase already uses for
+ * `User.fullName`/`Post.title`, just applied to `Entity` for the first time.
+ * A 2-character floor keeps a single keystroke from scanning the whole table.
+ */
+export async function searchEntitiesByName(
+  query: string,
+  kinds: EntityKind[]
+): Promise<EntitySearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  return db.entity.findMany({
+    where: {
+      isActive: true,
+      kind: { in: kinds },
+      name: { contains: trimmed, mode: "insensitive" },
+    },
+    orderBy: { name: "asc" },
+    take: 20,
+    select: { id: true, name: true, tag: true, path: true },
+  });
+}
+
 export async function ancestorChain(entityId: string): Promise<Entity[]> {
   const entity = await db.entity.findUnique({ where: { id: entityId } });
   if (!entity) return [];
