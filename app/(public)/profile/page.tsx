@@ -132,9 +132,14 @@ export default async function ProfilePage() {
         </div>
 
         {canPublish && (
-          <Link href="/posts/new" className="aiesec-btn-primary shrink-0 self-start">
-            New post
-          </Link>
+          <div className="flex shrink-0 flex-wrap gap-3 self-start">
+            <Link href="/posts/new" className="aiesec-btn-primary">
+              New post
+            </Link>
+            <Link href="/drafts" className="aiesec-btn-secondary">
+              My drafts
+            </Link>
+          </div>
         )}
       </div>
 

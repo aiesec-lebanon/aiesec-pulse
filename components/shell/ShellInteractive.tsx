@@ -185,6 +185,16 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
                           New post
                         </Link>
                       )}
+                      {user.canPublish && (
+                        <Link
+                          href="/drafts"
+                          role="menuitem"
+                          onClick={() => setDropdownOpen(false)}
+                          className={menuItemClass}
+                        >
+                          My drafts
+                        </Link>
+                      )}
                       {user.canModerate && (
                         <Link
                           href="/admin/queue"
@@ -307,6 +317,11 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
           {user?.canPublish && (
             <DrawerLink href="/posts/new" onNavigate={() => setDrawerOpen(false)}>
               New post
+            </DrawerLink>
+          )}
+          {user?.canPublish && (
+            <DrawerLink href="/drafts" onNavigate={() => setDrawerOpen(false)}>
+              My drafts
             </DrawerLink>
           )}
           {user?.canModerate && (

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { saveDraft } from "@/app/actions/drafts";
 import { createPost, type CreatePostResult } from "@/app/actions/posts";
-import { useComposerForm } from "@/components/composer/useComposerForm";
+import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { createPostSchema } from "@/lib/zod-schemas";
 
@@ -16,7 +16,18 @@ type FieldErrors = Partial<Record<"title" | "bodyJson" | "linkUrl" | "mediaAlt",
 const AUTOSAVE_DELAY_MS = 5_000;
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: boolean }) {
+export type PostComposerProps = {
+  richTextEnabled?: boolean;
+  /** An already-saved DRAFT being resumed; absent when starting fresh. */
+  postId?: string;
+  initialValues?: ComposerInitialValues;
+};
+
+export function PostComposer({
+  richTextEnabled = false,
+  postId,
+  initialValues,
+}: PostComposerProps) {
   const router = useRouter();
 
   const {
@@ -40,7 +51,7 @@ export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: bo
     linkDomain,
     linkIsValid,
     linkIsInvalid,
-  } = useComposerForm();
+  } = useComposerForm(initialValues);
 
   const [titleFocused, setTitleFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -48,9 +59,10 @@ export function PostComposer({ richTextEnabled = false }: { richTextEnabled?: bo
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // undefined until the first save (autosave or explicit) creates the row;
-  // every save after that updates it in place rather than creating another.
-  const [draftId, setDraftId] = useState<string | undefined>(undefined);
+  // Seeded from the postId prop when resuming an already-saved draft;
+  // undefined otherwise until the first save (autosave or explicit) creates
+  // the row. Every save after that updates one row in place.
+  const [draftId, setDraftId] = useState<string | undefined>(postId);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const savingRef = useRef(false);
 

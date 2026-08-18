@@ -63,6 +63,25 @@ export function defaultAudience(): Array<{ scopeType: ScopeType; entityId: strin
   return [{ scopeType: ScopeType.GLOBAL, entityId: null }];
 }
 
+// Shared by every page that needs to show a publisher their effective quota
+// tier before they submit (most permissive grant wins) — currently
+// /posts/new and /posts/[id]/edit. Server Actions resolve their own,
+// entity-scoped version of this at write time; this is the display-only read.
+export async function publishingRoleKeyFor(userId: string): Promise<string> {
+  const grants = await db.roleGrant.findMany({
+    where: {
+      userId,
+      revokedAt: null,
+      OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+    },
+    select: { role: { select: { key: true } } },
+  });
+  for (const key of ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"]) {
+    if (grants.some((g) => g.role.key === key)) return key;
+  }
+  return "entity_publisher";
+}
+
 export async function resolveAudienceSize(
   audiences: Array<{ scopeType: ScopeType; entityId: string | null }>
 ): Promise<number> {

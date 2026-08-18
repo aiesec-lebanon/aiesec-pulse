@@ -1,11 +1,35 @@
+import { notFound } from "next/navigation";
+
+import { PostStatus } from "@/app/generated/prisma/enums";
 import { PostComposer } from "@/components/PostComposer";
+import { sanitiseDocument } from "@/lib/content/document";
+import { db } from "@/lib/db";
+import { mediaUrl } from "@/lib/feed";
 import { isEnabled } from "@/lib/flags";
 import { publishingRoleKeyFor } from "@/lib/org/scope";
 import { quotaStateFor } from "@/lib/quota";
 import { requirePermission } from "@/lib/rbac/guards";
 
-export default async function NewPostPage() {
+export default async function EditDraftPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requirePermission("post.draft");
+
+  const post = await db.post.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      authorId: true,
+      status: true,
+      title: true,
+      bodyJson: true,
+      linkUrl: true,
+      cover: { select: { bucket: true, path: true, altText: true } },
+    },
+  });
+  if (!post || post.authorId !== user.id || post.status !== PostStatus.DRAFT) {
+    return notFound();
+  }
+
   const roleKey = await publishingRoleKeyFor(user.id);
   const [quota, richTextEnabled] = await Promise.all([
     quotaStateFor(user.id, user.primaryEntityId, roleKey),
@@ -15,10 +39,10 @@ export default async function NewPostPage() {
   return (
     <main className="mx-auto w-full max-w-[720px] px-6 py-10">
       <h1 className="text-[36px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-        Share an update
+        Edit your draft
       </h1>
       <p className="mt-2 text-[16px] text-[var(--muted-foreground)]">
-        Your post will reach AIESEC members worldwide.
+        Your changes save automatically as you go.
       </p>
 
       <div className="mt-5 mb-8">
@@ -28,7 +52,7 @@ export default async function NewPostPage() {
             className="inline-flex items-center rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-3 py-1.5 text-[13px] font-medium text-[var(--destructive-text)]"
           >
             You&apos;ve used your {quota.max} {quota.max === 1 ? "post" : "posts"} for this week.
-            The next one goes to the approval queue.
+            Publishing this one will send it to the approval queue.
           </span>
         ) : (
           <span
@@ -40,7 +64,17 @@ export default async function NewPostPage() {
         )}
       </div>
 
-      <PostComposer richTextEnabled={richTextEnabled} />
+      <PostComposer
+        richTextEnabled={richTextEnabled}
+        postId={post.id}
+        initialValues={{
+          title: post.title,
+          bodyJson: sanitiseDocument(post.bodyJson),
+          linkUrl: post.linkUrl ?? "",
+          mediaUrl: mediaUrl(post.cover),
+          mediaAlt: post.cover?.altText ?? "",
+        }}
+      />
     </main>
   );
 }
