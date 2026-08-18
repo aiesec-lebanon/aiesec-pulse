@@ -1,6 +1,7 @@
 import "server-only";
 
-import { PostStatus } from "@/app/generated/prisma/enums";
+import type { FollowState } from "@/app/actions/follows";
+import { FollowTarget, PostStatus } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
@@ -26,7 +27,7 @@ const feedSelect = {
   author: {
     select: { id: true, fullName: true, avatarUrl: true },
   },
-  publisher: { select: { name: true, tag: true } },
+  publisher: { select: { id: true, name: true, tag: true } },
   topics: { select: { topic: { select: { slug: true, name: true } } } },
 } as const;
 
@@ -43,7 +44,7 @@ type FeedRow = {
   commentCount: number;
   cover: { path: string; altText: string | null; bucket: string } | null;
   author: { id: string; fullName: string; avatarUrl: string | null };
-  publisher: { name: string; tag: string | null };
+  publisher: { id: string; name: string; tag: string | null };
   topics: Array<{ topic: { slug: string; name: string } }>;
 };
 
@@ -75,7 +76,7 @@ export function mediaUrl(cover: { bucket: string; path: string } | null): string
   return `${base}/${cover.bucket}/${cover.path}`;
 }
 
-export function toFeedPost(row: FeedRow): FeedPost {
+export function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>): FeedPost {
   return {
     id: row.id,
     slug: row.slug,
@@ -90,6 +91,8 @@ export function toFeedPost(row: FeedRow): FeedPost {
       avatarUrl: row.author.avatarUrl,
       entityName: row.publisher.name,
     },
+    publisherEntityId: row.publisher.id,
+    entityFollowState: entityFollowStates.get(row.publisher.id) ?? "none",
     reactionCount: row.reactionCount,
     commentCount: row.commentCount,
     publishedAt: row.publishedAt ?? row.createdAt,
@@ -108,6 +111,22 @@ function visiblePublishedWhere(scope: Parameters<typeof audienceFilter>[0]) {
   };
 }
 
+// One extra indexed query (Follow's own @@unique([userId, targetType,
+// targetId]) covers this lookup) per feed page, batched across every
+// distinct publisher entity shown rather than resolved per card.
+async function entityFollowStatesFor(
+  userId: string,
+  entityIds: string[]
+): Promise<Map<string, FollowState>> {
+  if (entityIds.length === 0) return new Map();
+
+  const follows = await db.follow.findMany({
+    where: { userId, targetType: FollowTarget.ENTITY, targetId: { in: entityIds } },
+    select: { targetId: true, muted: true },
+  });
+  return new Map(follows.map((f) => [f.targetId, f.muted ? "muted" : "following"]));
+}
+
 export async function getFeedPage(page: number): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
@@ -119,9 +138,13 @@ export async function getFeedPage(page: number): Promise<{ posts: FeedPost[]; ha
     take: POSTS_PER_PAGE + 1,
     select: feedSelect,
   });
+  const page1 = rows.slice(0, POSTS_PER_PAGE);
+  const entityFollowStates = await entityFollowStatesFor(user.id, [
+    ...new Set(page1.map((r) => r.publisher.id)),
+  ]);
 
   return {
-    posts: rows.slice(0, POSTS_PER_PAGE).map(toFeedPost),
+    posts: page1.map((r) => toFeedPost(r, entityFollowStates)),
     hasNext: rows.length > POSTS_PER_PAGE,
   };
 }
@@ -145,9 +168,13 @@ export async function getTopicFeed(
     take: TOPIC_PAGE_SIZE + 1,
     select: feedSelect,
   });
+  const page1 = rows.slice(0, TOPIC_PAGE_SIZE);
+  const entityFollowStates = await entityFollowStatesFor(user.id, [
+    ...new Set(page1.map((r) => r.publisher.id)),
+  ]);
 
   return {
-    posts: rows.slice(0, TOPIC_PAGE_SIZE).map(toFeedPost),
+    posts: page1.map((r) => toFeedPost(r, entityFollowStates)),
     hasNext: rows.length > TOPIC_PAGE_SIZE,
   };
 }

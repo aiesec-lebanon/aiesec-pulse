@@ -2,10 +2,14 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { type FollowState } from "@/app/actions/follows";
+import { FollowTarget } from "@/app/generated/prisma/enums";
+import { FollowButton } from "@/components/engagement/FollowButton";
 import { FeedIllustration } from "@/components/feed/FeedIllustration";
 import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
 import { db } from "@/lib/db";
 import { getTopicFeed } from "@/lib/feed";
+import { requireSession } from "@/lib/rbac/guards";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -27,6 +31,7 @@ export default async function TopicArchivePage({
   const { slug } = await params;
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const user = await requireSession();
 
   // Same visibility rule as the main feed: an inactive topic isn't a valid
   // browsing destination even if a stale link to it still exists.
@@ -36,7 +41,20 @@ export default async function TopicArchivePage({
   });
   if (!topic || !topic.isActive) return notFound();
 
-  const { posts, hasNext } = await getTopicFeed(topic.id, page);
+  const [{ posts, hasNext }, follow] = await Promise.all([
+    getTopicFeed(topic.id, page),
+    db.follow.findUnique({
+      where: {
+        userId_targetType_targetId: {
+          userId: user.id,
+          targetType: FollowTarget.TOPIC,
+          targetId: topic.id,
+        },
+      },
+      select: { muted: true },
+    }),
+  ]);
+  const followState: FollowState = follow ? (follow.muted ? "muted" : "following") : "none";
 
   return (
     <main className="w-full max-w-[1200px] flex-1 mx-auto px-6 py-10">
@@ -48,9 +66,17 @@ export default async function TopicArchivePage({
         Back to feed
       </Link>
 
-      <h1 className="text-[32px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-        {topic.name}
-      </h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-[32px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
+          {topic.name}
+        </h1>
+        <FollowButton
+          targetType={FollowTarget.TOPIC}
+          targetId={topic.id}
+          initialState={followState}
+          label={topic.name}
+        />
+      </div>
       {topic.description && (
         <p className="mt-2 max-w-[60ch] text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
           {topic.description}

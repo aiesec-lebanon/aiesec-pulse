@@ -347,3 +347,68 @@ test.describe("topics", () => {
     await expect(page.getByRole("heading", { level: 3, name: title })).toBeVisible();
   });
 });
+
+test.describe("follow and mute", () => {
+  test("follows a topic, sees it in the Following settings panel, and can remove it", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    const isolate = isolationId(testInfo);
+    await signInAs("member", "/feed", isolate);
+
+    // A fixed, always-seeded topic (prisma/seed.ts) rather than one created
+    // by this test — deterministic, unlike which post lands as feed hero.
+    await page.goto("/topics/bd");
+
+    // The button updates optimistically the instant it's clicked, before the
+    // debounced server write (FollowButton's 300ms, matching ReactionButton's
+    // pattern) has necessarily even fired — let alone the Server Action's own
+    // round trip (a target-existence check, then a read, then a write,
+    // sequential, against a remote database) completing. Waiting for the
+    // actual POST response, rather than guessing a fixed delay long enough to
+    // cover all of that, is what makes the settings-panel check below a
+    // genuine persistence check rather than a race against it.
+    const followRequest = page.waitForResponse(
+      (res) => res.request().method() === "POST" && res.url().includes("/topics/bd")
+    );
+    await page.getByRole("button", { name: /^follow business development$/i }).click();
+    await expect(
+      page.getByRole("button", { name: /^unfollow business development$/i })
+    ).toBeVisible();
+    await followRequest;
+
+    await page.goto("/settings/following");
+    const row = page.getByRole("listitem").filter({ hasText: "Business Development" });
+    await expect(row).toBeVisible();
+    await expect(row.getByText(/^following$/i)).toBeVisible();
+
+    await row.getByRole("button", { name: /^remove$/i }).click();
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Business Development" })
+    ).toHaveCount(0);
+  });
+
+  test("follows a publisher entity from the feed's hero card", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    const isolate = isolationId(testInfo);
+    const title = uniqueTitle("E2E entity follow");
+
+    await signInAs("publisher", "/posts/new", isolate);
+    await page.locator("#title").fill(title);
+    await page.locator("#content").pressSequentially(BODY);
+    await page.getByRole("button", { name: /^publish$/i }).click();
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+
+    await page.goto("/feed");
+    // Confirms the just-published post actually landed as the feed hero
+    // (SecondaryPostCard/SidebarPostItem don't carry an entity-follow
+    // control — see components/feed/HeroPost.tsx) before relying on it.
+    await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
+
+    const followButton = page.getByRole("button", { name: /^follow /i }).first();
+    await followButton.click();
+    await expect(page.getByRole("button", { name: /^unfollow /i }).first()).toBeVisible();
+  });
+});

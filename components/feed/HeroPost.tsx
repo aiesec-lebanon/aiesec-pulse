@@ -2,6 +2,8 @@ import { Heart, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
+import { FollowTarget } from "@/app/generated/prisma/enums";
+import { FollowButton } from "@/components/engagement/FollowButton";
 import { PostAvatar } from "@/components/posts/_shared";
 import { TopicChip } from "@/components/topics/TopicChip";
 import { relativeTime } from "@/lib/relative-time";
@@ -61,6 +63,13 @@ export function HeroPost({ post }: { post: FeedPost }) {
             <span className="text-[14px] text-[var(--muted-foreground)]">
               {post.author.entityName}
             </span>
+            <FollowButton
+              targetType={FollowTarget.ENTITY}
+              targetId={post.publisherEntityId}
+              initialState={post.entityFollowState}
+              label={post.author.entityName}
+              compact
+            />
           </>
         )}
 

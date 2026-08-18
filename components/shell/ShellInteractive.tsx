@@ -217,6 +217,14 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
                       )}
 
                       <Link
+                        href="/settings/following"
+                        role="menuitem"
+                        onClick={() => setDropdownOpen(false)}
+                        className={menuItemClass}
+                      >
+                        Following
+                      </Link>
+                      <Link
                         href="/settings/privacy"
                         role="menuitem"
                         onClick={() => setDropdownOpen(false)}
