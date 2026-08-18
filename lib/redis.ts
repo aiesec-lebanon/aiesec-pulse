@@ -99,6 +99,7 @@ export const cacheKeys = {
   scopeSet: (userId: string) => `scope:${userId}`,
   session: (jti: string) => `sess:${jti}`,
   entityTree: () => "org:tree",
+  flag: (key: string) => `flag:${key}`,
 };
 
 export async function invalidateUserAuthorisation(userId: string): Promise<void> {
