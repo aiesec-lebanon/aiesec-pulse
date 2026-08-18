@@ -412,3 +412,87 @@ test.describe("follow and mute", () => {
     await expect(page.getByRole("button", { name: /^unfollow /i }).first()).toBeVisible();
   });
 });
+
+test.describe("search", () => {
+  test("finds a post by keyword and excludes a post scoped outside the viewer's entity chain", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    // Two full publish flows (each a real, char-by-char TipTap type) plus a
+    // flag flip and an entity-typeahead pick is more sequential browser work
+    // than the default 30s budget — every other test here does at most one
+    // publish.
+    test.setTimeout(60_000);
+
+    const isolate = isolationId(testInfo);
+    // Distinctive and unique per run: both posts carry it, so a scope-filter
+    // regression that let the second post through would still be caught,
+    // rather than the two titles merely not matching the same query.
+    const keyword = `kangaroo${Date.now()}`;
+
+    await signInAs("admin", "/admin/flags", isolate);
+    await ensureFlagEnabled(page, "search.enabled");
+    await ensureFlagEnabled(page, "posts.targeting");
+
+    const visibleTitle = uniqueTitle(`E2E ${keyword} global`);
+    await signInAs("publisher", "/posts/new", isolate);
+    await page.locator("#title").fill(visibleTitle);
+    await page.locator("#content").pressSequentially(BODY);
+    await page.getByRole("button", { name: /^publish$/i }).click();
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+
+    // Scoped to "Lebanon" (an MC, lib/org/entities.ts's seeded tree) — every
+    // mock persona's primaryEntityId is ROOT_ENTITY_ID (lib/auth/mock-oauth.ts),
+    // and a scope chain only walks upward to your own ancestors, so root's
+    // chain is just itself. A member never sees this post.
+    const scopedTitle = uniqueTitle(`E2E ${keyword} scoped`);
+    await signInAs("admin", "/posts/new", isolate);
+    await page.getByRole("button", { name: "A specific entity" }).click();
+    await page.getByLabel("Search for an entity").fill("Lebanon");
+    await page.getByRole("button", { name: /^Lebanon/ }).click();
+    await page.locator("#title").fill(scopedTitle);
+    await page.locator("#content").pressSequentially(BODY);
+    await page.getByRole("button", { name: /^publish$/i }).click();
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+
+    await signInAs("member", "/search", isolate);
+    await page.getByRole("searchbox", { name: /^search posts$/i }).fill(keyword);
+    await page.getByRole("button", { name: /^search$/i }).click();
+
+    await expect(page.getByRole("link", { name: visibleTitle })).toBeVisible();
+    await expect(page.getByRole("link", { name: scopedTitle })).toHaveCount(0);
+  });
+
+  test("a type filter narrows results to the matching post kind", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    const isolate = isolationId(testInfo);
+    const keyword = `narwhal${Date.now()}`;
+    const title = uniqueTitle(`E2E ${keyword} announcement`);
+
+    await signInAs("admin", "/admin/flags", isolate);
+    await ensureFlagEnabled(page, "search.enabled");
+
+    await signInAs("publisher", "/posts/new", isolate);
+    await page.locator("#title").fill(title);
+    await page.locator("#content").pressSequentially(BODY);
+    await page.getByRole("button", { name: /^publish$/i }).click();
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+
+    await page.goto("/search");
+    await page.getByRole("searchbox", { name: /^search posts$/i }).fill(keyword);
+    // Every post from the composer publishes as a STORY (no kind picker
+    // exists in it yet) — filtering to a different kind must exclude it,
+    // proving the filter is actually applied rather than ignored.
+    await page.getByRole("combobox", { name: /^filter by post type$/i }).selectOption("EVENT");
+    await page.getByRole("button", { name: /^search$/i }).click();
+
+    await expect(page.getByRole("link", { name: title })).toHaveCount(0);
+
+    await page.getByRole("combobox", { name: /^filter by post type$/i }).selectOption("STORY");
+    await page.getByRole("button", { name: /^search$/i }).click();
+
+    await expect(page.getByRole("link", { name: title })).toBeVisible();
+  });
+});
