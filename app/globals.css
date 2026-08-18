@@ -355,3 +355,91 @@ a {
   font-weight: 500;
   color: var(--muted-foreground);
 }
+
+/* ── Rich-text editor prose (design system §10.1) ────────────────────────
+   Scoped to the TipTap editable surface. ProseMirror renders bare tags into
+   the DOM directly, not through React, so per-element Tailwind classes
+   aren't reachable here — these descendant selectors are the same technique
+   .legal-prose already uses, sized to match DocumentRenderer's read-mode
+   scale exactly: what an author sees while typing is what a reader sees. */
+.pulse-editor-prose {
+  min-height: 150px;
+  padding: 12px 16px;
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+.pulse-editor-prose:focus {
+  outline: none;
+}
+.pulse-editor-prose p {
+  margin-bottom: 16px;
+}
+.pulse-editor-prose p:last-child {
+  margin-bottom: 0;
+}
+.pulse-editor-prose h2 {
+  margin-top: 32px;
+  margin-bottom: 12px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+.pulse-editor-prose h3 {
+  margin-top: 24px;
+  margin-bottom: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+.pulse-editor-prose h4 {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+.pulse-editor-prose blockquote {
+  margin: 24px 0;
+  border-inline-start: 2px solid var(--primary);
+  padding-inline-start: 20px;
+  font-size: 18px;
+  font-style: italic;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+.pulse-editor-prose ul,
+.pulse-editor-prose ol {
+  margin: 16px 0;
+  padding-inline-start: 24px;
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+.pulse-editor-prose ul {
+  list-style: disc;
+}
+.pulse-editor-prose ol {
+  list-style: decimal;
+}
+.pulse-editor-prose li {
+  margin-bottom: 4px;
+}
+.pulse-editor-prose code {
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  padding: 2px 6px;
+  font-size: 0.9em;
+}
+.pulse-editor-prose a {
+  color: var(--primary-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pulse-editor-prose img {
+  max-width: 100%;
+  border-radius: var(--radius-lg);
+}
