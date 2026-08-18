@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Menu, X } from "lucide-react";
+import { ChevronDown, Menu, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -15,6 +15,7 @@ export type ShellUser = {
   canPublish: boolean;
   canModerate: boolean;
   canAdminister: boolean;
+  searchEnabled: boolean;
 };
 
 export function ShellInteractive({ user }: { user: ShellUser | null }) {
@@ -124,6 +125,15 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
             </Link>
 
             <div className="flex items-center gap-1">
+              {user?.searchEnabled && (
+                <Link
+                  href="/search"
+                  aria-label="Search posts"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                >
+                  <Search size={18} strokeWidth={2} aria-hidden />
+                </Link>
+              )}
               <ThemeToggle />
               {user && (
                 <div ref={dropdownRef} className="relative ml-1">
@@ -322,6 +332,11 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
           <DrawerLink href="/feed" onNavigate={() => setDrawerOpen(false)} current>
             Latest
           </DrawerLink>
+          {user?.searchEnabled && (
+            <DrawerLink href="/search" onNavigate={() => setDrawerOpen(false)}>
+              Search
+            </DrawerLink>
+          )}
           {user?.canPublish && (
             <DrawerLink href="/posts/new" onNavigate={() => setDrawerOpen(false)}>
               New post
