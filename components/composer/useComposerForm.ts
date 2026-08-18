@@ -26,7 +26,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 /**
  * Owns the composer's field state and the cover-image upload flow — identical
  * whether the form is starting fresh (/posts/new) or resuming an
- * already-saved draft (/posts/[id]/edit), so neither route has to duplicate
+ * already-saved draft (/posts/[slug]/edit), so neither route has to duplicate
  * the state and the drag/drop/upload handling.
  */
 export function useComposerForm(initialValues?: ComposerInitialValues) {

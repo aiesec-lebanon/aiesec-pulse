@@ -10,12 +10,16 @@ import { publishingRoleKeyFor } from "@/lib/org/scope";
 import { quotaStateFor } from "@/lib/quota";
 import { requirePermission } from "@/lib/rbac/guards";
 
-export default async function EditDraftPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+// Named [slug], not [id]: Next.js requires every route sharing this position
+// under /posts/ — this one and the published-post reader — to use the same
+// dynamic segment name, even across different route groups. The lookup below
+// still authorises on the post's real id; the slug is just the URL param.
+export default async function EditDraftPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const user = await requirePermission("post.draft");
 
   const post = await db.post.findUnique({
-    where: { id },
+    where: { slug },
     select: {
       id: true,
       authorId: true,

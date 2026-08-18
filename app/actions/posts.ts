@@ -6,21 +6,21 @@ import type { Prisma } from "@/app/generated/prisma/client";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { userActor, withAudit } from "@/lib/audit";
 import {
-  type BlockNode,
-  CONTAINER_BLOCK_TYPES,
   excerptFrom,
   guessMimeType,
-  isSafeHref,
   plainTextFromDocument,
-  type PulseDocument,
   readingMinutes,
 } from "@/lib/content/document";
+import {
+  decidePublishStatus,
+  materializeInlineImages,
+  publishingRoleFor,
+} from "@/lib/content/publish";
 import { uniqueSlug } from "@/lib/content/slug";
 import { db, serializableTransaction } from "@/lib/db";
 import { defaultAudience, resolveAudienceSize } from "@/lib/org/scope";
-import { resolveQuotaPolicy, usedInPeriod } from "@/lib/quota";
+import { resolveQuotaPolicy } from "@/lib/quota";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
-import { can } from "@/lib/rbac/can";
 import { checkPermission, requireSession } from "@/lib/rbac/guards";
 import { currentTermLabel } from "@/lib/term";
 import {
@@ -33,76 +33,6 @@ import {
 export type CreatePostResult =
   | { ok: true; postId: string; slug: string; status: "PUBLISHED" | "IN_REVIEW" }
   | { ok: false; errors: Record<string, string> };
-
-async function publishingRoleFor(user: { id: string }, entityId: string): Promise<string | null> {
-  if (await can(user, "post.publish", { type: "ENTITY", entityId })) {
-    const grants = await db.roleGrant.findMany({
-      where: {
-        userId: user.id,
-        revokedAt: null,
-        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
-        role: {
-          key: { in: ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"] },
-        },
-      },
-      select: { role: { select: { key: true } } },
-    });
-    // Most permissive first: an editor who also publishes gets the wider allowance.
-    for (const key of ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"]) {
-      if (grants.some((g) => g.role.key === key)) return key;
-    }
-  }
-  return null;
-}
-
-/**
- * The rich-text editor's image toolbar uploads directly to storage before a
- * post exists (components/editor/RichTextEditor.tsx), so an inline image
- * block's `mediaId` is actually just the upload's public URL until the post
- * is submitted. This walks the document once at submit time, creates one
- * real Media row per distinct upload URL — mirroring the cover-image
- * materialisation just above each call site — and rewrites `mediaId` to the
- * created row's id. A `mediaId` that isn't an http(s) URL already names a
- * real Media row (unchanged content from a prior version, or a resubmit) and
- * is left alone.
- */
-async function materializeInlineImages(doc: PulseDocument, userId: string): Promise<PulseDocument> {
-  const createdForUrl = new Map<string, string>();
-
-  async function walk(node: BlockNode): Promise<BlockNode> {
-    if (node.type === "image") {
-      if (!isSafeHref(node.attrs.mediaId)) return node;
-
-      let mediaId = createdForUrl.get(node.attrs.mediaId);
-      if (!mediaId) {
-        const media = await db.media.create({
-          data: {
-            ownerId: userId,
-            bucket: "post-media",
-            path: node.attrs.mediaId.replace(/^.*\/post-media\//, ""),
-            mimeType: guessMimeType(node.attrs.mediaId),
-            bytes: 0,
-            altText: node.attrs.alt,
-          },
-          select: { id: true },
-        });
-        mediaId = media.id;
-        createdForUrl.set(node.attrs.mediaId, mediaId);
-      }
-      return { type: "image", attrs: { mediaId, alt: node.attrs.alt } };
-    }
-
-    if (CONTAINER_BLOCK_TYPES.has(node.type) && "content" in node && Array.isArray(node.content)) {
-      const content = await Promise.all((node.content as BlockNode[]).map(walk));
-      return { ...node, content } as BlockNode;
-    }
-
-    return node;
-  }
-
-  const content = await Promise.all(doc.content.map(walk));
-  return { type: "doc", content };
-}
 
 export async function createPost(input: CreatePostInput): Promise<CreatePostResult> {
   const user = await requireSession();
@@ -173,8 +103,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
 
   const { post, status } = await serializableTransaction(async (tx) => {
-    const used = await usedInPeriod(tx, user.id, policy.periodLabel);
-    const status = used < policy.maxPosts ? PostStatus.PUBLISHED : PostStatus.IN_REVIEW;
+    const status = await decidePublishStatus(tx, user.id, policy);
 
     const post = await tx.post.create({
       data: {
@@ -271,8 +200,7 @@ export async function resubmitPost(
   const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
 
   const { status } = await serializableTransaction(async (tx) => {
-    const used = await usedInPeriod(tx, user.id, policy.periodLabel);
-    const status = used < policy.maxPosts ? PostStatus.PUBLISHED : PostStatus.IN_REVIEW;
+    const status = await decidePublishStatus(tx, user.id, policy);
 
     const latest = await tx.postVersion.findFirst({
       where: { postId },

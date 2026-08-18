@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import type { Prisma } from "@/app/generated/prisma/client";
 import { PostStatus } from "@/app/generated/prisma/enums";
@@ -11,14 +11,26 @@ import {
   plainTextFromDocument,
   readingMinutes,
 } from "@/lib/content/document";
+import {
+  decidePublishStatus,
+  materializeInlineImages,
+  publishingRoleFor,
+} from "@/lib/content/publish";
 import { uniqueSlug } from "@/lib/content/slug";
-import { db } from "@/lib/db";
+import { db, serializableTransaction } from "@/lib/db";
 import { mediaUrl as resolveCoverUrl } from "@/lib/feed";
-import { defaultAudience } from "@/lib/org/scope";
+import { defaultAudience, resolveAudienceSize } from "@/lib/org/scope";
+import { resolveQuotaPolicy } from "@/lib/quota";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
 import { checkPermission, requireSession } from "@/lib/rbac/guards";
 import { currentTermLabel } from "@/lib/term";
-import { fieldErrors, type SaveDraftInput, saveDraftSchema } from "@/lib/zod-schemas";
+import {
+  type CreatePostInput,
+  createPostSchema,
+  fieldErrors,
+  type SaveDraftInput,
+  saveDraftSchema,
+} from "@/lib/zod-schemas";
 
 export type SaveDraftResult =
   | { ok: true; postId: string; slug: string }
@@ -181,6 +193,162 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
 
   revalidatePath("/drafts");
   return { ok: true, postId: post.id, slug: post.slug };
+}
+
+export type PublishDraftResult =
+  | { ok: true; postId: string; slug: string; status: "PUBLISHED" | "IN_REVIEW" }
+  | { ok: false; errors: Record<string, string> };
+
+/**
+ * The draft equivalent of createPost: transitions an existing DRAFT to
+ * PUBLISHED/IN_REVIEW rather than creating a new row, sharing the same
+ * quota-resolution and image-materialisation logic (lib/content/publish.ts)
+ * instead of duplicating it. Re-validated with the strict createPostSchema —
+ * saveDraft's lenient schema was only ever a "leave and return" convenience,
+ * not a lower publish bar.
+ */
+export async function publishDraft(
+  postId: string,
+  input: CreatePostInput
+): Promise<PublishDraftResult> {
+  const user = await requireSession();
+
+  const post = await db.post.findUnique({
+    where: { id: postId },
+    select: {
+      authorId: true,
+      status: true,
+      publisherEntityId: true,
+      coverMediaId: true,
+      cover: { select: { bucket: true, path: true } },
+    },
+  });
+  if (!post || post.authorId !== user.id) {
+    return { ok: false, errors: { _form: "Draft not found." } };
+  }
+  if (post.status !== PostStatus.DRAFT) {
+    return { ok: false, errors: { _form: "Only drafts can be published this way." } };
+  }
+
+  const authorised = await checkPermission("post.publish", {
+    type: "ENTITY",
+    entityId: post.publisherEntityId,
+  });
+  if (!authorised.ok) return { ok: false, errors: { _form: authorised.error } };
+
+  const limit = await checkRateLimit("postSubmit", user.id);
+  if (!limit.allowed) return { ok: false, errors: { _form: retryMessage(limit) } };
+
+  // A posting restriction outranks the permission, same as createPost.
+  const restricted = await db.userRestriction.findFirst({
+    where: {
+      userId: user.id,
+      kind: "posting",
+      startsAt: { lte: new Date() },
+      OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+    },
+    select: { reason: true },
+  });
+  if (restricted) {
+    return {
+      ok: false,
+      errors: { _form: `Posting is currently restricted: ${restricted.reason}` },
+    };
+  }
+
+  const parsed = createPostSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+
+  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
+  const bodyText = plainTextFromDocument(bodyJson);
+
+  const roleKey = (await publishingRoleFor(user, post.publisherEntityId)) ?? "entity_publisher";
+  const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey);
+  if (!policy) {
+    return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
+  }
+
+  // Same idempotent resolution as saveDraft: reuse the already-attached
+  // cover unless the incoming URL actually names a different image.
+  let coverMediaId: string | null = post.coverMediaId;
+  if (mediaUrl) {
+    const currentUrl = post.cover ? resolveCoverUrl(post.cover) : null;
+    if (currentUrl !== mediaUrl) {
+      const media = await db.media.create({
+        data: {
+          ownerId: user.id,
+          bucket: "post-media",
+          path: mediaUrl.replace(/^.*\/post-media\//, ""),
+          mimeType: guessMimeType(mediaUrl),
+          bytes: 0,
+          altText: mediaAlt ?? null,
+        },
+        select: { id: true },
+      });
+      coverMediaId = media.id;
+    }
+  } else {
+    coverMediaId = null;
+  }
+
+  const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
+  const audiences = defaultAudience();
+  const audienceSize = await resolveAudienceSize(audiences);
+
+  const { status, slug } = await serializableTransaction(async (tx) => {
+    const status = await decidePublishStatus(tx, user.id, policy);
+
+    const latest = await tx.postVersion.findFirst({
+      where: { postId },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+
+    const updated = await tx.post.update({
+      where: { id: postId },
+      data: {
+        title,
+        summary: summary?.trim() || excerptFrom(bodyText),
+        bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
+        bodyText,
+        readingMinutes: readingMinutes(bodyText),
+        coverMediaId,
+        linkUrl: linkUrl || null,
+        status,
+        quotaPeriod: policy.periodLabel,
+        publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
+        audienceSize,
+        versions: {
+          create: {
+            version: (latest?.version ?? 0) + 1,
+            title,
+            summary: summary?.trim() || excerptFrom(bodyText),
+            bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
+            editedById: user.id,
+          },
+        },
+      },
+      select: { slug: true },
+    });
+
+    return { status, slug: updated.slug };
+  });
+
+  await withAudit(
+    userActor(user),
+    status === PostStatus.PUBLISHED ? "post.published" : "post.queued",
+    { type: "post", id: postId, entityId: post.publisherEntityId },
+    { title, quotaPeriod: policy.periodLabel, quotaMax: policy.maxPosts },
+    async () => undefined
+  );
+
+  revalidateTag("feed", "max");
+  revalidatePath("/feed");
+  revalidatePath("/profile");
+  revalidatePath("/drafts");
+  if (status === PostStatus.IN_REVIEW) revalidatePath("/admin/queue");
+
+  return { ok: true, postId, slug, status };
 }
 
 /** Author-only, DRAFT-only — matches deleteOwnComment's ownership-only gate. */

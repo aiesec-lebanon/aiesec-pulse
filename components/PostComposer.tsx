@@ -4,8 +4,8 @@ import { ExternalLink, ImageIcon, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { saveDraft } from "@/app/actions/drafts";
-import { createPost, type CreatePostResult } from "@/app/actions/posts";
+import { publishDraft, saveDraft } from "@/app/actions/drafts";
+import { createPost } from "@/app/actions/posts";
 import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 import { createPostSchema } from "@/lib/zod-schemas";
@@ -158,13 +158,18 @@ export function PostComposer({
     setIsSubmitting(true);
 
     try {
-      const result: CreatePostResult = await createPost({
+      const publishInput = {
         title,
         bodyJson,
         linkUrl: linkUrl || "",
         mediaUrl: uploadedMediaUrl || "",
         mediaAlt: mediaAlt || undefined,
-      });
+      };
+      // A draft created by autosave (or being resumed) publishes in place;
+      // otherwise this is a from-scratch submission with nothing saved yet.
+      const result = draftId
+        ? await publishDraft(draftId, publishInput)
+        : await createPost(publishInput);
 
       if (result.ok) {
         if (result.status === "PUBLISHED") {
@@ -479,7 +484,7 @@ export function PostComposer({
           {(isSubmitting || isUploading) && (
             <Loader2 size={16} strokeWidth={2} className="animate-spin" aria-hidden />
           )}
-          {isUploading ? "Uploading…" : isSubmitting ? "Posting…" : "Post update"}
+          {isUploading ? "Uploading…" : isSubmitting ? "Publishing…" : "Publish"}
         </button>
 
         <button

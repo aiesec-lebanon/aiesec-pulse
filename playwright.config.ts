@@ -29,6 +29,12 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
 
+  // 4 parallel workers against one dev server and one real (remote) database
+  // means every request queues behind real network latency and connection-pool
+  // contention, not just the app's own work — the 5s default leaves too little
+  // margin, most visibly on the assertion right after a publish action.
+  expect: { timeout: 10_000 },
+
   use: {
     baseURL,
     trace: "on-first-retry",

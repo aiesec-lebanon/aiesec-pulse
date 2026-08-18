@@ -42,7 +42,7 @@ export default async function DraftsPage() {
               className="aiesec-card flex flex-wrap items-center justify-between gap-3 p-4"
             >
               <Link
-                href={`/posts/${draft.id}/edit`}
+                href={`/posts/${draft.slug}/edit`}
                 className="min-w-0 flex-1 rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
                 <p className="truncate text-[15px] font-bold leading-snug text-[var(--foreground)] transition-colors hover:text-[var(--primary-text)]">

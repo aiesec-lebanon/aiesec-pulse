@@ -24,7 +24,7 @@ async function publish(page: Page, title: string, body = BODY) {
   await page.goto("/posts/new");
   await page.locator("#title").fill(title);
   await page.locator("#content").pressSequentially(body);
-  await page.getByRole("button", { name: /post update/i }).click();
+  await page.getByRole("button", { name: /^publish$/i }).click();
 }
 
 test.describe("publishing", () => {
@@ -50,8 +50,12 @@ test.describe("publishing", () => {
 
     // 400 real keystrokes into the editor push submission close to the
     // default assertion timeout — wait for the redirect first, same as the
-    // "can publish" test above, rather than racing the two.
-    await expect(page).toHaveURL(POST_SLUG_URL);
+    // "can publish" test above, rather than racing the two. A longer post
+    // is also long enough that draft autosave (5s debounce) can fire mid-type,
+    // so the eventual publish goes through publishDraft's extra lookup rather
+    // than createPost's — a couple of round trips slower, hence the longer
+    // explicit wait rather than the implicit default.
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
     await expect(page.getByText(/\d+ min read/).first()).toBeVisible();
   });
 
@@ -63,7 +67,7 @@ test.describe("publishing", () => {
     await page.goto("/posts/new");
     await page.locator("#title").fill("ab"); // below the 3-character minimum
     await page.locator("#content").pressSequentially("short");
-    await page.getByRole("button", { name: /post update/i }).click();
+    await page.getByRole("button", { name: /^publish$/i }).click();
 
     await expect(alertText(page).first()).toBeVisible();
     await expect(page).toHaveURL(/\/posts\/new/);
@@ -73,6 +77,9 @@ test.describe("publishing", () => {
     page,
     signInAs,
   }, testInfo) => {
+    // Three full publish cycles against a real database leaves little margin
+    // under the 30s default once autosave adds its own background traffic.
+    test.setTimeout(60_000);
     // Going over quota routes to review rather than blocking the author.
     await signInAs("publisher", "/feed", isolationId(testInfo));
 
@@ -82,7 +89,7 @@ test.describe("publishing", () => {
     }
 
     await publish(page, uniqueTitle("E2E over quota"));
-    await expect(page).toHaveURL(/\/posts\/queued/);
+    await expect(page).toHaveURL(/\/posts\/queued/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: /in review/i })).toBeVisible();
   });
 });
@@ -93,6 +100,9 @@ test.describe("approval queue", () => {
     browser,
     signInAs,
   }, testInfo) => {
+    // Three publish cycles plus a second browser context for the editor —
+    // same margin problem as "the third post in a week" above.
+    test.setTimeout(60_000);
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E queued for approval");
 

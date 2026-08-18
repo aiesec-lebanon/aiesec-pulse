@@ -65,7 +65,7 @@ export function defaultAudience(): Array<{ scopeType: ScopeType; entityId: strin
 
 // Shared by every page that needs to show a publisher their effective quota
 // tier before they submit (most permissive grant wins) — currently
-// /posts/new and /posts/[id]/edit. Server Actions resolve their own,
+// /posts/new and /posts/[slug]/edit. Server Actions resolve their own,
 // entity-scoped version of this at write time; this is the display-only read.
 export async function publishingRoleKeyFor(userId: string): Promise<string> {
   const grants = await db.roleGrant.findMany({
