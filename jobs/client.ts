@@ -10,6 +10,7 @@ type Events = {
   "org/term.transition.requested": { data: { dryRun: boolean; termLabel?: string } };
   "privacy/retention.sweep.requested": { data: { dryRun: boolean } };
   "privacy/dsr.export.requested": { data: { requestId: string; userId: string } };
+  "posts/schedule.publish.requested": { data: Record<string, never> };
 };
 
 export const inngest = new Inngest({
@@ -23,4 +24,5 @@ export const JOB_IDS = {
   termTransition: "term-transition",
   retentionSweep: "retention-sweep",
   dsrExport: "dsr-export",
+  publishScheduled: "publish-scheduled",
 } as const;
