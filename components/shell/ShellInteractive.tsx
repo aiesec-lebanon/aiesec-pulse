@@ -227,6 +227,14 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
                       )}
 
                       <Link
+                        href="/bookmarks"
+                        role="menuitem"
+                        onClick={() => setDropdownOpen(false)}
+                        className={menuItemClass}
+                      >
+                        Bookmarks
+                      </Link>
+                      <Link
                         href="/settings/following"
                         role="menuitem"
                         onClick={() => setDropdownOpen(false)}
@@ -355,6 +363,11 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
           {user && (
             <DrawerLink href="/profile" onNavigate={() => setDrawerOpen(false)}>
               Your posts
+            </DrawerLink>
+          )}
+          {user && (
+            <DrawerLink href="/bookmarks" onNavigate={() => setDrawerOpen(false)}>
+              Bookmarks
             </DrawerLink>
           )}
           <DrawerLink href="/legal/privacy" onNavigate={() => setDrawerOpen(false)}>

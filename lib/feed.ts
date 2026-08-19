@@ -179,6 +179,38 @@ export async function getTopicFeed(
   };
 }
 
+const BOOKMARKS_PAGE_SIZE = 12;
+
+// Ordered by when the viewer bookmarked the post, not when it was published
+// — starting the query from Bookmark rather than Post is what gives that
+// ordering for free. visiblePublishedWhere on the nested post relation drops
+// a bookmark whose post has since been unpublished or fallen outside the
+// viewer's audience, same "never a way around targeting" rule getTopicFeed
+// already follows.
+export async function getBookmarkedPosts(
+  page: number
+): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+
+  const rows = await db.bookmark.findMany({
+    where: { userId: user.id, post: visiblePublishedWhere(scope) },
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * BOOKMARKS_PAGE_SIZE,
+    take: BOOKMARKS_PAGE_SIZE + 1,
+    select: { post: { select: feedSelect } },
+  });
+  const page1 = rows.slice(0, BOOKMARKS_PAGE_SIZE);
+  const entityFollowStates = await entityFollowStatesFor(user.id, [
+    ...new Set(page1.map((r) => r.post.publisher.id)),
+  ]);
+
+  return {
+    posts: page1.map((r) => toFeedPost(r.post, entityFollowStates)),
+    hasNext: rows.length > BOOKMARKS_PAGE_SIZE,
+  };
+}
+
 export type TrendingAuthor = {
   id: string;
   fullName: string;
