@@ -3,12 +3,14 @@
 import { Check, MessageCircle, Share2 } from "lucide-react";
 import { useState } from "react";
 
+import { BookmarkButton } from "@/components/engagement/BookmarkButton";
 import { ReactionButton } from "@/components/engagement/ReactionButton";
 
 type Props = {
   postId: string;
   initialReacted: boolean;
   initialReactionCount: number;
+  initialBookmarked: boolean;
   commentCount: number;
 };
 
@@ -18,6 +20,7 @@ export function EngagementBar({
   postId,
   initialReacted,
   initialReactionCount,
+  initialBookmarked,
   commentCount,
 }: Props) {
   const [copied, setCopied] = useState(false);
@@ -77,6 +80,10 @@ export function EngagementBar({
       <span aria-live="polite" className="sr-only">
         {copied ? "Link copied to clipboard" : ""}
       </span>
+
+      <div className="md:ml-auto">
+        <BookmarkButton postId={postId} initialBookmarked={initialBookmarked} />
+      </div>
     </div>
   );
 }

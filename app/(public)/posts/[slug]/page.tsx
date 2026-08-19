@@ -66,6 +66,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
       author: { select: { fullName: true, avatarUrl: true } },
       publisher: { select: { name: true } },
       reactions: { where: { userId: user.id }, take: 1, select: { userId: true } },
+      bookmarks: { where: { userId: user.id }, take: 1, select: { userId: true } },
       topics: { select: { topic: { select: { slug: true, name: true } } } },
     },
   });
@@ -196,6 +197,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
         postId={post.id}
         initialReacted={post.reactions.length > 0}
         initialReactionCount={post.reactionCount}
+        initialBookmarked={post.bookmarks.length > 0}
         commentCount={post.commentCount}
       />
 
