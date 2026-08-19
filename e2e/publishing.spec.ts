@@ -332,8 +332,11 @@ test.describe("topics", () => {
 
     // The chip is its own link, distinct from the card link it sits beside
     // on feed cards (SecondaryPostCard) — verified here via the post detail
-    // page, then followed through to the archive.
-    const chip = page.getByRole("link", { name: topicName, exact: true });
+    // page, then followed through to the archive. `.first()` disambiguates
+    // from any same-named topic chips M13's related-posts rail may also
+    // render further down the page — the post's own chip, right under its
+    // heading, is always first in DOM order.
+    const chip = page.getByRole("link", { name: topicName, exact: true }).first();
     await expect(chip).toBeVisible();
     await chip.click();
 

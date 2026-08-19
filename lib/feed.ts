@@ -228,6 +228,58 @@ export async function getBookmarkedPosts(
   };
 }
 
+const RELATED_POSTS_LIMIT = 4;
+
+// Story 20: shared-topic posts first, then same-publisher-entity, excluding
+// self — no new query infrastructure, just visiblePublishedWhere (the same
+// "never a way around targeting" rule getTopicFeed/getBookmarkedPosts
+// already follow) sliced two ways and merged.
+export async function getRelatedPosts(
+  excludePostId: string,
+  publisherEntityId: string,
+  topicIds: string[]
+): Promise<FeedPost[]> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  const where = visiblePublishedWhere(scope);
+
+  const byTopic =
+    topicIds.length > 0
+      ? await db.post.findMany({
+          where: {
+            ...where,
+            id: { not: excludePostId },
+            topics: { some: { topicId: { in: topicIds } } },
+          },
+          orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+          take: RELATED_POSTS_LIMIT,
+          select: feedSelect,
+        })
+      : [];
+
+  const remaining = RELATED_POSTS_LIMIT - byTopic.length;
+  const byEntity =
+    remaining > 0
+      ? await db.post.findMany({
+          where: {
+            ...where,
+            id: { notIn: [excludePostId, ...byTopic.map((p) => p.id)] },
+            publisherEntityId,
+          },
+          orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+          take: remaining,
+          select: feedSelect,
+        })
+      : [];
+
+  const rows = [...byTopic, ...byEntity];
+  const entityFollowStates = await entityFollowStatesFor(user.id, [
+    ...new Set(rows.map((r) => r.publisher.id)),
+  ]);
+
+  return rows.map((r) => toFeedPost(r, entityFollowStates));
+}
+
 // ---------------------------------------------------------------------------
 // Ranking (story 16, M12) — architecture.md §11. Deterministic and weighted,
 // no learned model; every term below is inspectable per-post via

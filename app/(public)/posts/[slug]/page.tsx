@@ -9,12 +9,13 @@ import { CommentsSection } from "@/components/post-detail/CommentsSection";
 import { DocumentRenderer, type MediaLookup } from "@/components/post-detail/DocumentRenderer";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
 import { ReadingProgress } from "@/components/post-detail/ReadingProgress";
+import { RelatedPosts } from "@/components/post-detail/RelatedPosts";
 import { WhyThisAppeared } from "@/components/post-detail/WhyThisAppeared";
 import { PostAvatar } from "@/components/posts/_shared";
 import { TopicChip } from "@/components/topics/TopicChip";
 import { collectImageMediaIds, sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
-import { getPostRankingBreakdown, mediaUrl } from "@/lib/feed";
+import { getPostRankingBreakdown, getRelatedPosts, mediaUrl } from "@/lib/feed";
 import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
 import { isEnabled } from "@/lib/flags";
 import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
@@ -75,12 +76,13 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
       createdAt: true,
       reactionCount: true,
       commentCount: true,
+      publisherEntityId: true,
       cover: { select: { bucket: true, path: true, altText: true } },
       author: { select: { fullName: true, avatarUrl: true } },
       publisher: { select: { name: true } },
       reactions: { where: { userId: user.id }, take: 1, select: { userId: true } },
       bookmarks: { where: { userId: user.id }, take: 1, select: { userId: true } },
-      topics: { select: { topic: { select: { slug: true, name: true } } } },
+      topics: { select: { topicId: true, topic: { select: { slug: true, name: true } } } },
     },
   });
 
@@ -91,7 +93,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   // render function over whatever lookup its caller already has.
   const imageMediaIds = collectImageMediaIds(sanitiseDocument(post.bodyJson));
 
-  const [initialComments, inlineMedia, rankingBreakdown] = await Promise.all([
+  const [initialComments, inlineMedia, rankingBreakdown, relatedPosts] = await Promise.all([
     db.comment.findMany({
       where: { postId: post.id, status: { not: CommentStatus.HIDDEN } },
       orderBy: { createdAt: "desc" },
@@ -105,6 +107,11 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
         })
       : Promise.resolve([]),
     showWhyThisAppeared ? getPostRankingBreakdown(post.id) : Promise.resolve(null),
+    getRelatedPosts(
+      post.id,
+      post.publisherEntityId,
+      post.topics.map((t) => t.topicId)
+    ),
   ]);
 
   const bodyMedia: MediaLookup = Object.fromEntries(
@@ -218,6 +225,8 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
       />
 
       {rankingBreakdown && <WhyThisAppeared breakdown={rankingBreakdown} />}
+
+      <RelatedPosts posts={relatedPosts} />
 
       <CommentsSection
         postId={post.id}
