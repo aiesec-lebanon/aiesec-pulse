@@ -1,4 +1,5 @@
 import { ArrowLeft, ExternalLink } from "lucide-react";
+import { cookies } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,11 +8,14 @@ import { CommentStatus, PostStatus } from "@/app/generated/prisma/enums";
 import { CommentsSection } from "@/components/post-detail/CommentsSection";
 import { DocumentRenderer, type MediaLookup } from "@/components/post-detail/DocumentRenderer";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
+import { WhyThisAppeared } from "@/components/post-detail/WhyThisAppeared";
 import { PostAvatar } from "@/components/posts/_shared";
 import { TopicChip } from "@/components/topics/TopicChip";
 import { collectImageMediaIds, sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
-import { mediaUrl } from "@/lib/feed";
+import { getPostRankingBreakdown, mediaUrl } from "@/lib/feed";
+import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
+import { isEnabled } from "@/lib/flags";
 import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { relativeTime } from "@/lib/relative-time";
@@ -49,6 +53,14 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   const user = await requireSession();
   const scope = await scopeSetFor(user);
 
+  // "Why this appeared" is a For You-mode-only disclosure (architecture.md
+  // §11) — Latest is an explicitly unranked escape hatch, so there is
+  // nothing for it to explain there.
+  const rankedAvailable = await isEnabled("feed.ranked");
+  const cookieStore = await cookies();
+  const showWhyThisAppeared =
+    rankedAvailable && parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value) === "for-you";
+
   const post = await db.post.findFirst({
     where: { slug, status: PostStatus.PUBLISHED, ...audienceFilter(scope) },
     select: {
@@ -78,7 +90,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   // render function over whatever lookup its caller already has.
   const imageMediaIds = collectImageMediaIds(sanitiseDocument(post.bodyJson));
 
-  const [initialComments, inlineMedia] = await Promise.all([
+  const [initialComments, inlineMedia, rankingBreakdown] = await Promise.all([
     db.comment.findMany({
       where: { postId: post.id, status: { not: CommentStatus.HIDDEN } },
       orderBy: { createdAt: "desc" },
@@ -91,6 +103,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
           select: { id: true, bucket: true, path: true },
         })
       : Promise.resolve([]),
+    showWhyThisAppeared ? getPostRankingBreakdown(post.id) : Promise.resolve(null),
   ]);
 
   const bodyMedia: MediaLookup = Object.fromEntries(
@@ -200,6 +213,8 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
         initialBookmarked={post.bookmarks.length > 0}
         commentCount={post.commentCount}
       />
+
+      {rankingBreakdown && <WhyThisAppeared breakdown={rankingBreakdown} />}
 
       <CommentsSection
         postId={post.id}
