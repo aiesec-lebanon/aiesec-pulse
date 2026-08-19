@@ -38,6 +38,26 @@ test.describe("axe-core, WCAG 2.2 AA", () => {
     await expectNoA11yViolations(page, "/posts/new");
   });
 
+  test("drafts", async ({ page, signInAs }) => {
+    await signInAs("publisher", "/drafts");
+    await expectNoA11yViolations(page, "/drafts");
+  });
+
+  test("search", async ({ page, signInAs }) => {
+    await signInAs("member", "/search");
+    await expectNoA11yViolations(page, "/search");
+  });
+
+  test("bookmarks", async ({ page, signInAs }) => {
+    await signInAs("member", "/bookmarks");
+    await expectNoA11yViolations(page, "/bookmarks");
+  });
+
+  test("topic archive", async ({ page, signInAs }) => {
+    await signInAs("member", "/topics/bd");
+    await expectNoA11yViolations(page, "/topics/bd");
+  });
+
   test("moderation queue", async ({ page, signInAs }) => {
     await signInAs("editor", "/admin/queue");
     await expectNoA11yViolations(page, "/admin/queue");
