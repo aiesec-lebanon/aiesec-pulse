@@ -1,9 +1,14 @@
+import { cookies } from "next/headers";
+
 import { FeedEmptyState } from "@/components/feed/FeedEmptyState";
+import { FeedModeToggle } from "@/components/feed/FeedModeToggle";
 import { HeroPost } from "@/components/feed/HeroPost";
 import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
 import { SidebarPostItem } from "@/components/feed/SidebarPostItem";
 import { TrendingAuthorCard } from "@/components/feed/TrendingAuthorCard";
-import { getFeedPage, getTrendingAuthors } from "@/lib/feed";
+import { getFeedPage, getForYouFeedPage, getTrendingAuthors } from "@/lib/feed";
+import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
+import { isEnabled } from "@/lib/flags";
 import { can } from "@/lib/rbac/can";
 import { requireSession } from "@/lib/rbac/guards";
 
@@ -16,8 +21,14 @@ export default async function FeedPage({
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
+  // Latest-only, no toggle, when the flag is off — matches how /drafts,
+  // /search etc. gate their own entry points (courtesy, not a boundary).
+  const rankedAvailable = await isEnabled("feed.ranked");
+  const cookieStore = await cookies();
+  const mode = rankedAvailable ? parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value) : "latest";
+
   const [{ posts, hasNext }, trendingAuthors] = await Promise.all([
-    getFeedPage(page),
+    mode === "for-you" ? getForYouFeedPage(page) : getFeedPage(page),
     page === 1 ? getTrendingAuthors() : Promise.resolve([]),
   ]);
 
@@ -31,7 +42,15 @@ export default async function FeedPage({
 
   return (
     <main className="w-full max-w-[1200px] flex-1 mx-auto px-6 py-10">
-      <h1 className="sr-only">Latest across the AIESEC network</h1>
+      <h1 className="sr-only">
+        {mode === "for-you" ? "Your personalised feed" : "Latest across the AIESEC network"}
+      </h1>
+
+      {rankedAvailable && (
+        <div className="mb-6">
+          <FeedModeToggle mode={mode} />
+        </div>
+      )}
 
       <section aria-label="Featured story">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
