@@ -8,6 +8,7 @@ import { CommentStatus, PostStatus } from "@/app/generated/prisma/enums";
 import { CommentsSection } from "@/components/post-detail/CommentsSection";
 import { DocumentRenderer, type MediaLookup } from "@/components/post-detail/DocumentRenderer";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
+import { ReadingProgress } from "@/components/post-detail/ReadingProgress";
 import { WhyThisAppeared } from "@/components/post-detail/WhyThisAppeared";
 import { PostAvatar } from "@/components/posts/_shared";
 import { TopicChip } from "@/components/topics/TopicChip";
@@ -118,6 +119,8 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   return (
     // pb-24 on mobile leaves room for the sticky engagement bar (~52px).
     <main className="mx-auto w-full max-w-[720px] px-6 py-8 pb-24 md:pb-16">
+      <ReadingProgress />
+
       <Link
         href="/feed"
         className="mb-8 inline-flex min-h-[24px] items-center gap-1.5 rounded-[var(--radius-sm)] text-[14px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
