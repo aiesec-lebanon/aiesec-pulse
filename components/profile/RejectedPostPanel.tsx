@@ -119,7 +119,11 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
 
   if (successMsg) {
     return (
-      <div className="mt-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--success)_10%,var(--card))] border border-[var(--success)]/30 px-4 py-3 text-[14px] text-[var(--success-text)]">
+      <div
+        role="status"
+        aria-live="polite"
+        className="mt-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--success)_10%,var(--card))] border border-[var(--success)]/30 px-4 py-3 text-[14px] text-[var(--success-text)]"
+      >
         {successMsg}
       </div>
     );
@@ -130,13 +134,13 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--destructive-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="flex min-h-[36px] items-center gap-1.5 text-[13px] font-medium text-[var(--destructive-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         aria-expanded={open}
       >
         <ChevronDown
           size={14}
           strokeWidth={2.5}
-          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={`transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
           aria-hidden
         />
         {open ? "Close review" : "Review & edit"}
@@ -147,7 +151,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
           {/* Rejection reason */}
           {post.rejectionReason && (
             <div className="mb-5 rounded-[var(--radius-md)] border border-[var(--destructive)]/30 bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))] px-4 py-3">
-              <p className="text-[12px] font-medium uppercase tracking-wide text-[var(--destructive-text)] opacity-80">
+              <p className="text-[12px] font-medium uppercase tracking-wide text-[var(--destructive-text)]">
                 Moderator&apos;s reason
               </p>
               <p className="mt-1 text-[14px] leading-[1.5] text-[var(--foreground)]">
@@ -273,10 +277,15 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary)] px-5 py-2 text-[14px] font-bold text-[var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 py-2 text-[14px] font-bold text-[var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting && (
-                  <Loader2 size={14} strokeWidth={2} className="animate-spin" aria-hidden />
+                  <Loader2
+                    size={14}
+                    strokeWidth={2}
+                    className="animate-spin motion-reduce:animate-none"
+                    aria-hidden
+                  />
                 )}
                 {isSubmitting ? "Resubmitting…" : "Resubmit post"}
               </button>

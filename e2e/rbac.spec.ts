@@ -59,7 +59,13 @@ test.describe("a publisher", () => {
     await signInAs("publisher", "/feed", isolationId(testInfo));
     await page.goto("/posts/new");
     await expect(page.getByRole("heading", { name: /share an update/i })).toBeVisible();
-    await expect(page.getByRole("status")).toContainText(/posts this week: \d+ of 2/i);
+    // Two `role="status"` regions render on this page (the quota pill and the
+    // composer's own draft-autosave indicator) — both individually correct
+    // per the design system's §8.3 live-region rule, so the locator narrows
+    // by content instead of assuming a single match.
+    await expect(page.getByRole("status").filter({ hasText: /posts this week/i })).toContainText(
+      /posts this week: \d+ of 2/i
+    );
   });
 
   test("cannot approve their own entity's queue", async ({ page, signInAs }) => {

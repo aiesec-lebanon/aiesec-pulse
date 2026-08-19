@@ -27,7 +27,7 @@ export function HeroPost({ post }: { post: FeedPost }) {
         aria-hidden
         className="group block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
       >
-        <div className="relative aspect-[4/3] overflow-hidden rounded-[20px] sm:aspect-video">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-[var(--radius-lg)] sm:aspect-video">
           {post.mediaUrl ? (
             <Image
               src={post.mediaUrl}

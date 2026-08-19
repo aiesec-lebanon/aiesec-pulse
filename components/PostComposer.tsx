@@ -374,7 +374,7 @@ export function PostComposer({
                 <Loader2
                   size={28}
                   strokeWidth={2}
-                  className="animate-spin text-[var(--primary-text)]"
+                  className="animate-spin text-[var(--primary-text)] motion-reduce:animate-none"
                   aria-label="Uploading image…"
                 />
               </div>
@@ -610,7 +610,12 @@ export function PostComposer({
           className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-6 py-3 text-[16px] font-bold text-[var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {(isSubmitting || isUploading) && (
-            <Loader2 size={16} strokeWidth={2} className="animate-spin" aria-hidden />
+            <Loader2
+              size={16}
+              strokeWidth={2}
+              className="animate-spin motion-reduce:animate-none"
+              aria-hidden
+            />
           )}
           {isUploading
             ? "Uploading…"

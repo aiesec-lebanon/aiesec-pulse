@@ -69,7 +69,7 @@ export function AdminShell({ userName, queuedCount, sections, children }: AdminS
           <button
             type="button"
             onClick={() => setSidebarOpen((v) => !v)}
-            className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-[5px] flex-shrink-0 rounded-[var(--radius-sm)] hover:bg-[var(--muted)] transition-colors"
+            className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-1 flex-shrink-0 rounded-[var(--radius-sm)] hover:bg-[var(--muted)] transition-colors"
             aria-label={sidebarOpen ? "Close menu" : "Open menu"}
             aria-expanded={sidebarOpen}
           >

@@ -16,10 +16,10 @@ export function SecondaryPostCard({ post }: { post: FeedPost }) {
     <div className="flex h-full flex-col gap-2">
       <Link
         href={`/posts/${post.slug}`}
-        className="group block flex-1 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="group block flex-1 rounded-[var(--radius-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
         <article
-          className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] transition-all duration-150
+          className="flex h-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] transition-all duration-150
           group-hover:-translate-y-0.5 group-hover:shadow-sm
           motion-reduce:transition-none motion-reduce:group-hover:translate-y-0
           dark:group-hover:shadow-none dark:group-hover:border-[var(--muted-foreground)]/30"

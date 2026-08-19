@@ -398,7 +398,7 @@ function ToolbarButton({
       <Icon
         size={16}
         strokeWidth={2}
-        className={spinning ? "animate-spin" : undefined}
+        className={spinning ? "animate-spin motion-reduce:animate-none" : undefined}
         aria-hidden
       />
     </button>

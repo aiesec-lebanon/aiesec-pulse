@@ -10,7 +10,7 @@ export default function FeedLoading() {
       aria-label="Loading feed"
     >
       {/* ── PRIMARY ROW ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 animate-pulse">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 animate-pulse motion-reduce:animate-none">
         {/* HERO SKELETON — 8 cols */}
         <div className="lg:col-span-8 space-y-0">
           {/* Image */}
@@ -62,7 +62,7 @@ export default function FeedLoading() {
       </div>
 
       {/* ── SECONDARY ROW — 3 cards ──────────────────────────────────────────── */}
-      <section className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-pulse">
+      <section className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-pulse motion-reduce:animate-none">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
@@ -85,7 +85,7 @@ export default function FeedLoading() {
       </section>
 
       {/* ── TRENDING AUTHORS STRIP ───────────────────────────────────────────── */}
-      <section className="mt-12 animate-pulse">
+      <section className="mt-12 animate-pulse motion-reduce:animate-none">
         <Bone className="mb-4 h-4 w-40" />
         <div className="flex gap-4 overflow-hidden pb-3">
           {[0, 1, 2, 3].map((i) => (
@@ -107,7 +107,7 @@ export default function FeedLoading() {
       </section>
 
       {/* ── LOAD MORE stub ───────────────────────────────────────────────────── */}
-      <div className="mt-12 flex justify-center animate-pulse">
+      <div className="mt-12 flex justify-center animate-pulse motion-reduce:animate-none">
         <Bone className="h-10 w-28 rounded-[var(--radius-sm)]" />
       </div>
     </main>

@@ -21,12 +21,12 @@ export function TrendingAuthorCard({ author }: TrendingAuthorCardProps) {
   const mono = initials(author.fullName);
 
   return (
-    <div className="flex w-80 shrink-0 snap-start flex-col justify-center gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--card)] p-5">
+    <div className="flex w-80 shrink-0 snap-start flex-col justify-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-5">
       {/* Author identity */}
       <div className="flex items-center gap-3">
         <span
           aria-hidden
-          className="flex h-12 w-12 shrink-0 select-none items-center justify-center rounded-full bg-[var(--primary)] text-[14px] font-bold text-[var(--primary-foreground)]"
+          className="flex h-12 w-12 shrink-0 select-none items-center justify-center rounded-full bg-[var(--primary-fill)] text-[14px] font-bold text-[var(--primary-foreground)]"
         >
           {mono}
         </span>

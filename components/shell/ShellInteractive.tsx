@@ -96,7 +96,7 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
   }, [drawerOpen]);
 
   const menuItemClass =
-    "flex w-full min-h-[36px] items-center px-4 py-2 text-left text-[14px] text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)]";
+    "flex w-full min-h-[36px] items-center px-4 py-2 text-left text-[14px] text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]";
 
   return (
     <>
@@ -171,7 +171,7 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
                         href="/profile"
                         role="menuitem"
                         onClick={() => setDropdownOpen(false)}
-                        className="block px-4 py-3 transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)]"
+                        className="block px-4 py-3 transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                       >
                         <p className="text-[14px] font-medium leading-tight text-[var(--foreground)]">
                           {user.fullName}
@@ -281,11 +281,11 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
           className="hidden h-12 items-center border-b border-[var(--border)] bg-[var(--card)] md:flex"
         >
           <div className="mx-auto flex w-full max-w-[1200px] items-center px-6">
-            <div className="flex items-center gap-0.5 rounded-[8px] bg-[var(--muted)] p-1">
+            <div className="flex items-center gap-0.5 rounded-[var(--radius-md)] bg-[var(--muted)] p-1">
               <Link
                 href="/feed"
                 aria-current="page"
-                className="relative min-h-[28px] rounded-[4px] bg-[var(--card)] px-4 py-1 text-[15px] font-bold text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                className="relative min-h-[28px] rounded-[var(--radius-sm)] bg-[var(--card)] px-4 py-1 text-[15px] font-bold text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
                 Latest
                 <span
@@ -396,7 +396,7 @@ function DrawerLink({
       onClick={onNavigate}
       aria-current={current ? "page" : undefined}
       className={[
-        "flex min-h-[44px] items-center rounded-[8px] px-4 py-3 text-[15px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+        "flex min-h-[44px] items-center rounded-[var(--radius-md)] px-4 py-3 text-[15px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
         current
           ? "border-l-2 border-[var(--primary)] bg-[var(--muted)] text-[var(--foreground)]"
           : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",

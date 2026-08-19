@@ -32,7 +32,7 @@ export function SearchResultRow({ hit }: { hit: SearchHit }) {
           part.highlighted ? (
             <mark
               key={i}
-              className="rounded-[2px] bg-[var(--primary)]/10 px-0.5 text-[var(--primary-text)]"
+              className="rounded-[var(--radius-sm)] bg-[var(--primary)]/10 px-0.5 text-[var(--primary-text)]"
             >
               {part.text}
             </mark>

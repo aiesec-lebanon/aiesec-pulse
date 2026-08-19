@@ -137,7 +137,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
       </Link>
 
       {cover && (
-        <div className="mb-8 aspect-video w-full overflow-hidden rounded-2xl">
+        <div className="mb-8 aspect-video w-full overflow-hidden rounded-[var(--radius-lg)]">
           <Image
             src={cover}
             alt={post.cover?.altText ?? ""}

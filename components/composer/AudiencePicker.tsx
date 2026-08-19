@@ -218,7 +218,7 @@ function EntityTypeahead({
             <Loader2
               size={16}
               strokeWidth={2}
-              className="animate-spin text-[var(--muted-foreground)]"
+              className="animate-spin text-[var(--muted-foreground)] motion-reduce:animate-none"
             />
           ) : value.entityId ? (
             <Check size={16} strokeWidth={2.5} className="text-[var(--success-text)]" aria-hidden />
@@ -229,7 +229,7 @@ function EntityTypeahead({
             type="button"
             onClick={clear}
             aria-label="Clear entity selection"
-            className="absolute right-9 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full p-0.5 text-[var(--muted-foreground)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:flex"
+            className="absolute right-8 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full p-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:flex"
           >
             <X size={14} strokeWidth={2} />
           </button>

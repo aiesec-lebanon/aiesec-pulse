@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { rejectPost } from "@/app/actions/posts";
 
@@ -14,6 +14,41 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    dialogRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), textarea, a[href]"
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previousFocus.current?.focus();
+    };
+  }, [open, onClose]);
 
   // Keyed on `open`, so each opening is a fresh mount with empty state.
   if (!open) return null;
@@ -48,7 +83,10 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
 
       {/* Panel */}
-      <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] w-full max-w-md p-6 flex flex-col gap-5 shadow-lg">
+      <div
+        ref={dialogRef}
+        className="relative bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] w-full max-w-md p-6 flex flex-col gap-5 shadow-lg"
+      >
         <h2
           id="reject-modal-title"
           className="text-[20px] font-bold leading-tight text-[var(--foreground)]"
