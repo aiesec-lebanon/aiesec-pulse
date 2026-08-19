@@ -100,6 +100,11 @@ export const cacheKeys = {
   session: (jti: string) => `sess:${jti}`,
   entityTree: () => "org:tree",
   flag: (key: string) => `flag:${key}`,
+  // Keyed by primaryEntityId, not userId: architecture.md §11/§17 — every
+  // member of the same entity shares the same bounded candidate window.
+  // Personal terms (affinity, seen, ack) are layered on at request time,
+  // never cached, so personalisation itself is never flattened by this key.
+  feedRanked: (primaryEntityKey: string) => `feed:ranked:${primaryEntityKey}`,
 };
 
 export async function invalidateUserAuthorisation(userId: string): Promise<void> {
