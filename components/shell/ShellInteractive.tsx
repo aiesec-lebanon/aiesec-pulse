@@ -1,10 +1,13 @@
 "use client";
 
-import { ChevronDown, Menu, Search, X } from "lucide-react";
+import { ChevronDown, Menu, PenLine, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { MotionToggle } from "@/components/motion/MotionToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { buildNavigation, isCurrent, type NavItem } from "@/lib/navigation";
 
 // Capability flags, not roles: hiding a control is a courtesy, never a
 // boundary. The authoritative check stays in the Server Action.
@@ -18,9 +21,17 @@ export type ShellUser = {
   searchEnabled: boolean;
 };
 
+const MENU_ITEM_CLASS =
+  "flex w-full min-h-[36px] items-center rounded-[var(--radius-sm)] px-3 py-2 text-left text-[14px] text-[color:var(--foreground)] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]";
+
 export function ShellInteractive({ user }: { user: ShellUser | null }) {
+  const pathname = usePathname();
+  const nav = buildNavigation(user);
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [condensed, setCondensed] = useState(false);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +46,37 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
         .join("")
         .toUpperCase()
     : "?";
+
+  // Route changes close every transient surface. Without this, tapping a
+  // drawer link navigates but leaves the drawer covering the page it opened.
+  //
+  // Adjusted during render rather than in an effect: React's documented
+  // pattern for deriving state from a changed input, and it closes the drawer
+  // in the same commit as the new route instead of one paint later. An effect
+  // here would also trip `react-hooks/set-state-in-effect`.
+  const [renderedPath, setRenderedPath] = useState(pathname);
+  if (renderedPath !== pathname) {
+    setRenderedPath(pathname);
+    setDrawerOpen(false);
+    setDropdownOpen(false);
+  }
+
+  // The rail tightens once the page has moved beneath it — a small, continuous
+  // signal that the header is floating over content rather than part of it.
+  useEffect(() => {
+    let ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setCondensed(window.scrollY > 12);
+        ticking = false;
+      });
+    }
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -95,215 +137,151 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
     };
   }, [drawerOpen]);
 
-  const menuItemClass =
-    "flex w-full min-h-[36px] items-center px-4 py-2 text-left text-[14px] text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]";
-
   return (
     <>
-      <div className="sticky top-0 z-40">
-        <header className="h-16 border-b border-[var(--border)] bg-[var(--card)]">
-          <div className="mx-auto flex h-full w-full max-w-[1200px] items-center justify-between px-6">
-            <div className="flex items-center gap-1">
-              <button
-                ref={drawerTriggerRef}
-                type="button"
-                aria-label="Open navigation"
-                aria-expanded={drawerOpen}
-                aria-controls="mobile-drawer"
-                onClick={() => setDrawerOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] md:hidden"
-              >
-                <Menu size={18} strokeWidth={2} aria-hidden />
-              </button>
-            </div>
+      <header
+        className={[
+          "pulse-rail sticky top-0 z-40 transition-[height,box-shadow] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]",
+          condensed ? "h-14 shadow-[var(--elev-2)]" : "h-[68px]",
+        ].join(" ")}
+      >
+        <div className="mx-auto flex h-full w-full max-w-[1240px] items-center gap-2 px-4 sm:px-6">
+          <button
+            ref={drawerTriggerRef}
+            type="button"
+            aria-label="Open navigation"
+            aria-expanded={drawerOpen}
+            aria-controls="mobile-drawer"
+            onClick={() => setDrawerOpen(true)}
+            className="-ml-2 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-[color:var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] lg:hidden"
+          >
+            <Menu size={20} strokeWidth={2} aria-hidden />
+          </button>
 
-            <Link
-              href="/feed"
-              className="absolute left-1/2 -translate-x-1/2 select-none whitespace-nowrap rounded-[var(--radius-sm)] text-[20px] font-black uppercase tracking-[0.04em] text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-            >
-              AIESEC Pulse
-            </Link>
+          <Wordmark />
 
-            <div className="flex items-center gap-1">
-              {user?.searchEnabled && (
-                <Link
-                  href="/search"
-                  aria-label="Search posts"
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                >
-                  <Search size={18} strokeWidth={2} aria-hidden />
-                </Link>
-              )}
-              <ThemeToggle />
-              {user && (
-                <div ref={dropdownRef} className="relative ml-1">
-                  <button
-                    ref={triggerRef}
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={dropdownOpen}
-                    aria-label={`Account menu for ${user.fullName}`}
-                    onClick={() => setDropdownOpen((prev) => !prev)}
-                    className="flex min-h-[36px] items-center gap-1.5 rounded-full py-1 pl-1 pr-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                  >
-                    <span
-                      aria-hidden
-                      className="flex h-7 w-7 select-none items-center justify-center rounded-full bg-[var(--primary-fill)] text-[11px] font-bold text-[var(--primary-foreground)]"
-                    >
-                      {initials}
-                    </span>
-                    <ChevronDown
-                      size={13}
-                      strokeWidth={2.5}
-                      aria-hidden
-                      className={`transition-transform duration-200 motion-reduce:transition-none ${dropdownOpen ? "rotate-180" : ""}`}
-                    />
-                  </button>
+          {/* Desktop primary navigation. The only tab-shaped control in the
+              shell — the feed's own Latest/For You switch lives on the feed,
+              where the thing it switches actually is. */}
+          <NavRail items={nav.primary} pathname={pathname} />
 
-                  {dropdownOpen && (
-                    <div
-                      role="menu"
-                      aria-label="Account"
-                      className="absolute right-0 top-full mt-2 w-64 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] py-1"
-                      style={{ boxShadow: "var(--shadow-card)" }}
-                    >
-                      <Link
-                        href="/profile"
-                        role="menuitem"
-                        onClick={() => setDropdownOpen(false)}
-                        className="block px-4 py-3 transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                      >
-                        <p className="text-[14px] font-medium leading-tight text-[var(--foreground)]">
-                          {user.fullName}
-                        </p>
-                        {user.entityName && (
-                          <p className="mt-0.5 text-[12px] text-[var(--muted-foreground)]">
-                            {user.entityName}
-                          </p>
-                        )}
-                      </Link>
-
-                      <div role="separator" className="my-1 border-t border-[var(--border)]" />
-
-                      {user.canPublish && (
-                        <Link
-                          href="/posts/new"
-                          role="menuitem"
-                          onClick={() => setDropdownOpen(false)}
-                          className={menuItemClass}
-                        >
-                          New post
-                        </Link>
-                      )}
-                      {user.canPublish && (
-                        <Link
-                          href="/drafts"
-                          role="menuitem"
-                          onClick={() => setDropdownOpen(false)}
-                          className={menuItemClass}
-                        >
-                          My drafts
-                        </Link>
-                      )}
-                      {user.canModerate && (
-                        <Link
-                          href="/admin/queue"
-                          role="menuitem"
-                          onClick={() => setDropdownOpen(false)}
-                          className={menuItemClass}
-                        >
-                          Moderation queue
-                        </Link>
-                      )}
-                      {user.canAdminister && (
-                        <Link
-                          href="/admin/roles"
-                          role="menuitem"
-                          onClick={() => setDropdownOpen(false)}
-                          className={menuItemClass}
-                        >
-                          Platform administration
-                        </Link>
-                      )}
-
-                      <Link
-                        href="/bookmarks"
-                        role="menuitem"
-                        onClick={() => setDropdownOpen(false)}
-                        className={menuItemClass}
-                      >
-                        Bookmarks
-                      </Link>
-                      <Link
-                        href="/settings/following"
-                        role="menuitem"
-                        onClick={() => setDropdownOpen(false)}
-                        className={menuItemClass}
-                      >
-                        Following
-                      </Link>
-                      <Link
-                        href="/settings/privacy"
-                        role="menuitem"
-                        onClick={() => setDropdownOpen(false)}
-                        className={menuItemClass}
-                      >
-                        Privacy &amp; your data
-                      </Link>
-
-                      <div role="separator" className="my-1 border-t border-[var(--border)]" />
-
-                      {/* Native form POSTs so the 303 lands correctly without JS. */}
-                      <form action="/api/auth/logout" method="post">
-                        <button type="submit" role="menuitem" className={menuItemClass}>
-                          Sign out
-                        </button>
-                      </form>
-                      <form action="/api/auth/logout?everywhere=1" method="post">
-                        <button
-                          type="submit"
-                          role="menuitem"
-                          className={`${menuItemClass} text-[var(--muted-foreground)]`}
-                        >
-                          Sign out everywhere
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        <nav
-          aria-label="Feed"
-          className="hidden h-12 items-center border-b border-[var(--border)] bg-[var(--card)] md:flex"
-        >
-          <div className="mx-auto flex w-full max-w-[1200px] items-center px-6">
-            <div className="flex items-center gap-0.5 rounded-[var(--radius-md)] bg-[var(--muted)] p-1">
+          <div className="ml-auto flex items-center gap-1">
+            {nav.compose && (
               <Link
-                href="/feed"
-                aria-current="page"
-                className="relative min-h-[28px] rounded-[var(--radius-sm)] bg-[var(--card)] px-4 py-1 text-[15px] font-bold text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                href={nav.compose.href}
+                className="group mr-1 hidden min-h-[40px] items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-4 text-[14px] font-bold text-[color:var(--primary-foreground)] shadow-[var(--shadow-button)] transition-[transform,box-shadow] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] hover:-translate-y-[calc(1px*var(--motion-travel))] hover:shadow-[var(--elev-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:inline-flex"
               >
-                Latest
-                <span
+                <PenLine
+                  size={15}
+                  strokeWidth={2.5}
                   aria-hidden
-                  className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-[var(--primary)]"
+                  className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:-rotate-12"
                 />
+                {nav.compose.label}
               </Link>
-            </div>
+            )}
+
+            <MotionToggle />
+            <ThemeToggle />
+
+            {user && (
+              <div ref={dropdownRef} className="relative ml-0.5">
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={dropdownOpen}
+                  aria-label={`Account menu for ${user.fullName}`}
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  className="flex min-h-[44px] items-center gap-1.5 rounded-full py-1 pl-1 pr-2 text-[color:var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                >
+                  <span
+                    aria-hidden
+                    className="flex h-8 w-8 select-none items-center justify-center rounded-full bg-[var(--primary-fill)] text-[11px] font-bold text-[color:var(--primary-foreground)] shadow-[var(--elev-1)]"
+                  >
+                    {initials}
+                  </span>
+                  <ChevronDown
+                    size={13}
+                    strokeWidth={2.5}
+                    aria-hidden
+                    className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]"
+                    style={{ transform: dropdownOpen ? "rotate(180deg)" : undefined }}
+                  />
+                </button>
+
+                {dropdownOpen && (
+                  <div
+                    role="menu"
+                    aria-label="Account"
+                    className="insight-enter absolute right-0 top-full mt-2 w-[264px] origin-top-right rounded-[var(--radius-lg)] border border-[var(--hairline)] bg-[var(--card)] p-1.5 shadow-[var(--elev-4)]"
+                  >
+                    <Link
+                      href="/profile"
+                      role="menuitem"
+                      className="block rounded-[var(--radius-sm)] px-3 py-2.5 transition-colors hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                    >
+                      <p className="text-[14px] font-bold leading-tight text-[color:var(--foreground)]">
+                        {user.fullName}
+                      </p>
+                      {user.entityName && (
+                        <p className="mt-1 truncate text-[12px] text-[color:var(--muted-foreground)]">
+                          {user.entityName}
+                        </p>
+                      )}
+                    </Link>
+
+                    {nav.groups.map((group) => (
+                      <div key={group.id}>
+                        <div
+                          role="separator"
+                          className="my-1.5 border-t border-[var(--hairline)]"
+                        />
+                        <p className="pulse-label px-3 pb-1.5 pt-1 text-[10px]">{group.label}</p>
+                        {group.items.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            role="menuitem"
+                            className={MENU_ITEM_CLASS}
+                          >
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
+
+                    <div role="separator" className="my-1.5 border-t border-[var(--hairline)]" />
+
+                    {/* Native form POSTs so the 303 lands correctly without JS. */}
+                    <form action="/api/auth/logout" method="post">
+                      <button type="submit" role="menuitem" className={MENU_ITEM_CLASS}>
+                        Sign out
+                      </button>
+                    </form>
+                    <form action="/api/auth/logout?everywhere=1" method="post">
+                      <button
+                        type="submit"
+                        role="menuitem"
+                        className={`${MENU_ITEM_CLASS} text-[color:var(--muted-foreground)]`}
+                      >
+                        Sign out everywhere
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        </nav>
-      </div>
+        </div>
+      </header>
 
       <div
         aria-hidden
         onClick={() => setDrawerOpen(false)}
         className={[
-          "fixed inset-0 z-50 bg-black/40 transition-opacity duration-300 motion-reduce:transition-none md:hidden",
-          drawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          "fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] transition-opacity duration-[calc(var(--dur-element)*var(--motion-scale))] lg:hidden",
+          drawerOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         ].join(" ")}
       />
 
@@ -315,13 +293,13 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
         aria-label="Navigation"
         inert={!drawerOpen}
         className={[
-          "fixed left-0 top-0 z-50 flex h-full w-72 flex-col bg-[var(--card)] transition-transform duration-300 ease-in-out motion-reduce:transition-none md:hidden",
+          "fixed left-0 top-0 z-50 flex h-full w-[288px] flex-col overflow-y-auto bg-[var(--card)] shadow-[var(--elev-4)] transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] lg:hidden",
           drawerOpen ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--border)] px-6">
-          <span className="select-none text-[16px] font-black uppercase tracking-[0.04em] text-[var(--foreground)]">
-            AIESEC Pulse
+        <div className="flex h-[68px] shrink-0 items-center justify-between border-b border-[var(--hairline)] px-5">
+          <span className="select-none text-[15px] font-black uppercase tracking-[0.14em] text-[color:var(--foreground)]">
+            Pulse
           </span>
           <button
             type="button"
@@ -330,79 +308,159 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
               setDrawerOpen(false);
               drawerTriggerRef.current?.focus();
             }}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            className="-mr-2 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-[color:var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
           >
-            <X size={18} strokeWidth={2} aria-hidden />
+            <X size={20} strokeWidth={2} aria-hidden />
           </button>
         </div>
 
         <nav aria-label="Sections" className="flex flex-col gap-1 p-4">
-          <DrawerLink href="/feed" onNavigate={() => setDrawerOpen(false)} current>
-            Latest
-          </DrawerLink>
-          {user?.searchEnabled && (
-            <DrawerLink href="/search" onNavigate={() => setDrawerOpen(false)}>
-              Search
-            </DrawerLink>
-          )}
-          {user?.canPublish && (
-            <DrawerLink href="/posts/new" onNavigate={() => setDrawerOpen(false)}>
-              New post
-            </DrawerLink>
-          )}
-          {user?.canPublish && (
-            <DrawerLink href="/drafts" onNavigate={() => setDrawerOpen(false)}>
-              My drafts
-            </DrawerLink>
-          )}
-          {user?.canModerate && (
-            <DrawerLink href="/admin/queue" onNavigate={() => setDrawerOpen(false)}>
-              Moderation queue
-            </DrawerLink>
-          )}
-          {user && (
-            <DrawerLink href="/profile" onNavigate={() => setDrawerOpen(false)}>
-              Your posts
-            </DrawerLink>
-          )}
-          {user && (
-            <DrawerLink href="/bookmarks" onNavigate={() => setDrawerOpen(false)}>
-              Bookmarks
-            </DrawerLink>
-          )}
-          <DrawerLink href="/legal/privacy" onNavigate={() => setDrawerOpen(false)}>
-            Privacy notice
-          </DrawerLink>
+          {nav.primary.map((item) => (
+            <DrawerLink key={item.href} item={item} pathname={pathname} />
+          ))}
+
+          {nav.groups.map((group) => (
+            <div key={group.id} className="mt-4 flex flex-col gap-1">
+              <p className="px-4 pb-1 pulse-label text-[10px]">{group.label}</p>
+              {group.items.map((item) => (
+                <DrawerLink key={item.href} item={item} pathname={pathname} />
+              ))}
+            </div>
+          ))}
+
+          <div className="mt-4 border-t border-[var(--hairline)] pt-4">
+            <DrawerLink
+              item={{ href: "/legal/privacy", label: "Privacy notice" }}
+              pathname={pathname}
+            />
+          </div>
         </nav>
       </div>
     </>
   );
 }
 
-function DrawerLink({
-  href,
-  children,
-  onNavigate,
-  current = false,
-}: {
-  href: string;
-  children: React.ReactNode;
-  onNavigate: () => void;
-  current?: boolean;
-}) {
+function Wordmark() {
   return (
     <Link
-      href={href}
-      onClick={onNavigate}
-      aria-current={current ? "page" : undefined}
+      href="/feed"
+      className="group flex shrink-0 select-none items-center gap-2 rounded-[var(--radius-sm)] pr-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+    >
+      {/* The mark is the product: a pulse trace, drawn once and animated on
+          hover. An emoji or a bare letter would be the placeholder version. */}
+      <span
+        aria-hidden
+        className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-[var(--radius-sm)] bg-[var(--primary-fill)]"
+      >
+        <svg viewBox="0 0 28 28" className="h-full w-full" fill="none" aria-hidden>
+          <path
+            d="M2 15h5.2l2.6-7.4 4.1 12.6 3-8.1 2 2.9H26"
+            stroke="var(--primary-foreground)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            pathLength={1}
+            className="[stroke-dasharray:1] [stroke-dashoffset:0] transition-[stroke-dashoffset] duration-[calc(var(--dur-scene)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:[stroke-dashoffset:2]"
+          />
+        </svg>
+      </span>
+      <span className="whitespace-nowrap text-[15px] font-black uppercase leading-none tracking-[0.16em] text-[color:var(--foreground)]">
+        Pulse
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * The signature interaction: one indicator element that measures the active
+ * item and slides between positions, rather than a border per link. Measured
+ * with a layout effect so the first paint after a route change already has the
+ * indicator in the right place — an indicator that visibly jumps from 0 on
+ * every navigation is worse than no indicator.
+ */
+function NavRail({ items, pathname }: { items: NavItem[]; pathname: string }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [indicator, setIndicator] = useState({ x: 0, w: 0, o: 0 });
+
+  const measure = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const active = list.querySelector<HTMLElement>('[data-active="true"]');
+    if (!active) {
+      setIndicator((prev) => ({ ...prev, o: 0 }));
+      return;
+    }
+    setIndicator({ x: active.offsetLeft, w: active.offsetWidth, o: 1 });
+  }, []);
+
+  useLayoutEffect(() => {
+    measure();
+  }, [measure, pathname, items.length]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    // Font loading and container resizes both move the items after mount.
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [measure]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <nav aria-label="Primary" className="ml-6 hidden lg:block">
+      <ul ref={listRef} className="relative flex items-center gap-1">
+        {items.map((item) => {
+          const active = isCurrent(item, pathname);
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                data-active={active}
+                aria-current={active ? "page" : undefined}
+                className={[
+                  "relative flex min-h-[40px] items-center rounded-[var(--radius-sm)] px-3 text-[15px] font-bold transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+                  active
+                    ? "text-[color:var(--foreground)]"
+                    : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
+                ].join(" ")}
+              >
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+        <span
+          aria-hidden
+          className="pulse-indicator"
+          style={
+            {
+              "--indicator-x": `${indicator.x}px`,
+              "--indicator-w": `${indicator.w}px`,
+              "--indicator-o": indicator.o,
+            } as React.CSSProperties
+          }
+        />
+      </ul>
+    </nav>
+  );
+}
+
+function DrawerLink({ item, pathname }: { item: NavItem; pathname: string }) {
+  const active = isCurrent(item, pathname);
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
       className={[
-        "flex min-h-[44px] items-center rounded-[var(--radius-md)] px-4 py-3 text-[15px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-        current
-          ? "border-l-2 border-[var(--primary)] bg-[var(--muted)] text-[var(--foreground)]"
-          : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+        "flex min-h-[44px] items-center rounded-[var(--radius-md)] px-4 py-3 text-[15px] font-bold transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+        active
+          ? "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[color:var(--primary-text)]"
+          : "text-[color:var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[color:var(--foreground)]",
       ].join(" ")}
     >
-      {children}
+      {item.label}
     </Link>
   );
 }

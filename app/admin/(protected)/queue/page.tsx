@@ -29,15 +29,15 @@ export default async function QueuePage() {
 
   return (
     <main className="mx-auto w-full max-w-[900px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">Approval queue</h1>
-      <p className="mt-1 text-[15px] text-[var(--muted-foreground)]">
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Approval queue</h1>
+      <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
         Posts submitted beyond their author&apos;s weekly allowance. Rejecting never destroys the
         post — the author sees your reason and can edit and resubmit.
       </p>
 
       {posts.length === 0 ? (
         <div className="aiesec-card mt-8 px-8 py-12 text-center">
-          <p className="text-[16px] text-[var(--muted-foreground)]">
+          <p className="text-[16px] text-[color:var(--muted-foreground)]">
             Nothing is waiting for review.
           </p>
         </div>

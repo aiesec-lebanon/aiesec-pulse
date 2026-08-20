@@ -18,34 +18,37 @@ function initials(name: string): string {
 }
 
 export function TrendingAuthorCard({ author }: TrendingAuthorCardProps) {
-  const mono = initials(author.fullName);
-
   return (
-    <div className="flex w-80 shrink-0 snap-start flex-col justify-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-5">
-      {/* Author identity */}
-      <div className="flex items-center gap-3">
-        <span
-          aria-hidden
-          className="flex h-12 w-12 shrink-0 select-none items-center justify-center rounded-full bg-[var(--primary-fill)] text-[14px] font-bold text-[var(--primary-foreground)]"
-        >
-          {mono}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-[15px] font-bold text-[var(--foreground)]">
-            {author.fullName}
-          </p>
-          {author.entityName && (
-            <p className="truncate text-[13px] text-[var(--muted-foreground)]">
-              {author.entityName}
-            </p>
-          )}
-        </div>
-      </div>
+    <div className="pulse-plate group relative flex w-[280px] shrink-0 snap-start items-center gap-4 overflow-hidden p-5">
+      {/* A soft field keyed to the count, so a strip of cards has visible
+          variation rather than reading as one repeated tile. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-[var(--glow-primary)] blur-2xl transition-opacity duration-[calc(var(--dur-element)*var(--motion-scale))] group-hover:opacity-100"
+        style={{ opacity: Math.min(1, 0.35 + author.postCount * 0.12) }}
+      />
 
-      {/* Post-count pill */}
-      <span className="inline-flex w-fit items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1 text-[12px] font-medium text-[var(--muted-foreground)]">
-        {author.postCount} {author.postCount === 1 ? "post" : "posts"} this month
+      <span
+        aria-hidden
+        className="relative flex h-12 w-12 shrink-0 select-none items-center justify-center rounded-full bg-[var(--primary-fill)] text-[14px] font-bold text-[color:var(--primary-foreground)] shadow-[var(--elev-1)]"
+      >
+        {initials(author.fullName)}
       </span>
+
+      <div className="relative min-w-0">
+        <p className="truncate text-[15px] font-bold leading-tight text-[color:var(--foreground)]">
+          {author.fullName}
+        </p>
+        {author.entityName && (
+          <p className="mt-1 truncate text-[13px] text-[color:var(--muted-foreground)]">
+            {author.entityName}
+          </p>
+        )}
+        <p className="tabular mt-2 text-[13px] text-[color:var(--muted-foreground)]">
+          <span className="font-bold text-[color:var(--foreground)]">{author.postCount}</span>{" "}
+          {author.postCount === 1 ? "post" : "posts"} this month
+        </p>
+      </div>
     </div>
   );
 }

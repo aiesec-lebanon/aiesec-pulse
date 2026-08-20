@@ -37,7 +37,7 @@ export function FollowingPanel({ items }: { items: FollowingItem[] }) {
 
   if (items.length === 0) {
     return (
-      <p className="mt-6 text-[15px] leading-[1.6] text-[var(--muted-foreground)]">
+      <p className="mt-6 text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
         You&apos;re not following or muting any topics or entities yet.
       </p>
     );
@@ -62,7 +62,7 @@ export function FollowingPanel({ items }: { items: FollowingItem[] }) {
         />
       )}
       {error && (
-        <p role="alert" className="text-[13px] text-[var(--destructive-text)]">
+        <p role="alert" className="text-[13px] text-[color:var(--destructive-text)]">
           {error}
         </p>
       )}
@@ -83,7 +83,7 @@ function FollowGroup({
 }) {
   return (
     <section aria-label={title}>
-      <h2 className="mb-2 text-[14px] font-bold text-[var(--foreground)]">{title}</h2>
+      <h2 className="mb-2 text-[14px] font-bold text-[color:var(--foreground)]">{title}</h2>
       <div className="flex flex-col gap-2" role="list">
         {items.map((item) => (
           <article
@@ -95,12 +95,12 @@ function FollowGroup({
               {item.href ? (
                 <Link
                   href={item.href}
-                  className="truncate text-[14px] font-medium text-[var(--foreground)] hover:text-[var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  className="truncate text-[14px] font-medium text-[color:var(--foreground)] hover:text-[color:var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                 >
                   {item.name}
                 </Link>
               ) : (
-                <span className="truncate text-[14px] font-medium text-[var(--foreground)]">
+                <span className="truncate text-[14px] font-medium text-[color:var(--foreground)]">
                   {item.name}
                 </span>
               )}
@@ -110,8 +110,8 @@ function FollowGroup({
               className={[
                 "shrink-0 rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium",
                 item.muted
-                  ? "bg-[var(--muted)] text-[var(--muted-foreground)]"
-                  : "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary-text)]",
+                  ? "bg-[var(--muted)] text-[color:var(--muted-foreground)]"
+                  : "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[color:var(--primary-text)]",
               ].join(" ")}
             >
               {item.muted ? "Muted" : "Following"}
@@ -121,7 +121,7 @@ function FollowGroup({
               type="button"
               onClick={() => onRemove(item)}
               disabled={removingId === item.targetId}
-              className="min-h-[36px] shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:border-[var(--destructive)] hover:text-[var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-[36px] shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:border-[var(--destructive)] hover:text-[color:var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {removingId === item.targetId ? "Removing…" : "Remove"}
             </button>

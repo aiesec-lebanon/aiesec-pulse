@@ -89,7 +89,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
       >
         <h2
           id="reject-modal-title"
-          className="text-[20px] font-bold leading-tight text-[var(--foreground)]"
+          className="text-[20px] font-bold leading-tight text-[color:var(--foreground)]"
         >
           Reject this post?
         </h2>
@@ -97,7 +97,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
         <div className="flex flex-col gap-2">
           <label
             htmlFor="reject-reason"
-            className="text-[14px] font-medium text-[var(--muted-foreground)]"
+            className="text-[14px] font-medium text-[color:var(--muted-foreground)]"
           >
             Reason{" "}
             <span className="font-normal">(visible to other moderators in the audit log)</span>
@@ -113,19 +113,19 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
             maxLength={500}
             placeholder="Describe why this post is being rejected…"
             disabled={isPending}
-            className="w-full border border-[var(--border)] rounded-[var(--radius-md)] bg-[var(--background)] text-[var(--foreground)] text-[16px] leading-[1.6] p-3 resize-none focus:outline-none focus:border-[var(--primary)] disabled:opacity-50 transition-colors"
+            className="w-full border border-[var(--border)] rounded-[var(--radius-md)] bg-[var(--background)] text-[color:var(--foreground)] text-[16px] leading-[1.6] p-3 resize-none focus:outline-none focus:border-[var(--primary)] disabled:opacity-50 transition-colors"
           />
           <div className="flex justify-between items-start text-[12px]">
-            <span className="text-[var(--destructive-text)]" role="alert" aria-live="polite">
+            <span className="text-[color:var(--destructive-text)]" role="alert" aria-live="polite">
               {error}
             </span>
-            <span className="text-[var(--muted-foreground)] tabular-nums flex-shrink-0 pl-2">
+            <span className="text-[color:var(--muted-foreground)] tabular-nums flex-shrink-0 pl-2">
               {reason.length}/500
             </span>
           </div>
         </div>
 
-        <p className="text-[14px] text-[var(--muted-foreground)] leading-[1.6]">
+        <p className="text-[14px] text-[color:var(--muted-foreground)] leading-[1.6]">
           This post will be discarded. The MCP will not be notified. Please follow up offline if
           needed.
         </p>
@@ -135,7 +135,7 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="border border-[var(--border)] text-[var(--foreground)] rounded-[var(--radius-sm)] px-5 py-[9px] text-[16px] font-medium hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:opacity-50 transition-colors cursor-pointer"
+            className="border border-[var(--border)] text-[color:var(--foreground)] rounded-[var(--radius-sm)] px-5 py-[9px] text-[16px] font-medium hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] disabled:opacity-50 transition-colors cursor-pointer"
           >
             Cancel
           </button>

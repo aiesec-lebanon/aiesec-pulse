@@ -85,15 +85,18 @@ export default async function AdminRolesPage({
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">Roles &amp; grants</h1>
-      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[var(--muted-foreground)]">
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Roles &amp; grants</h1>
+      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
         Editors, moderators and platform admins are appointed here. Publishers are not — those
         rights come from EXPA positions and are re-derived every time the member signs in. Grants
         expire at the end of the current term ({currentTermLabel()}) unless renewed.
       </p>
 
       <section aria-labelledby="grant-heading" className="mt-8">
-        <h2 id="grant-heading" className="mb-3 text-[16px] font-bold text-[var(--foreground)]">
+        <h2
+          id="grant-heading"
+          className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
+        >
           Grant a role
         </h2>
         <GrantRoleForm
@@ -119,15 +122,18 @@ export default async function AdminRolesPage({
       </section>
 
       <section aria-labelledby="grants-heading" className="mt-10">
-        <h2 id="grants-heading" className="mb-3 text-[16px] font-bold text-[var(--foreground)]">
+        <h2
+          id="grants-heading"
+          className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
+        >
           Active grants
-          <span className="ml-2 text-[14px] font-normal text-[var(--muted-foreground)]">
+          <span className="ml-2 text-[14px] font-normal text-[color:var(--muted-foreground)]">
             ({rows.length})
           </span>
         </h2>
         {rows.length === 0 ? (
           <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[var(--muted-foreground)]">
+            <p className="text-[16px] text-[color:var(--muted-foreground)]">
               No manually granted roles yet.
             </p>
           </div>

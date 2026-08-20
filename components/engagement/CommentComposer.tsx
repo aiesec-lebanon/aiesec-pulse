@@ -23,7 +23,7 @@ function SubmitButton({ empty }: { empty: boolean }) {
     <button
       type="submit"
       disabled={empty || pending}
-      className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 py-2 text-[14px] font-bold text-[var(--primary-foreground)] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-40"
+      className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-40"
     >
       {pending ? "Posting…" : "Post"}
     </button>
@@ -100,14 +100,14 @@ export function CommentComposer({
             rows={2}
             maxLength={MAX_CHARS}
             aria-label="Comment text"
-            className="w-full resize-none overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[15px] leading-[1.5] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus:outline-none"
+            className="w-full resize-none overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[15px] leading-[1.5] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus:outline-none"
           />
           <div className="mt-2 flex items-center justify-between gap-4">
             <span
               className={`text-[12px] tabular-nums ${
                 chars > MAX_CHARS * 0.9
-                  ? "text-[var(--destructive-text)]"
-                  : "text-[var(--muted-foreground)]"
+                  ? "text-[color:var(--destructive-text)]"
+                  : "text-[color:var(--muted-foreground)]"
               }`}
             >
               {chars}/{MAX_CHARS}
@@ -117,7 +117,7 @@ export function CommentComposer({
         </form>
 
         {error && (
-          <p role="alert" className="mt-2 text-[13px] text-[var(--destructive-text)]">
+          <p role="alert" className="mt-2 text-[13px] text-[color:var(--destructive-text)]">
             {error}
           </p>
         )}

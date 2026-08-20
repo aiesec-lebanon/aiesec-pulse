@@ -31,10 +31,14 @@
 
   /* Neutral / muted */
   --muted: #f5f5f5;
-  /* #6b7586 measures 4.65:1 on --card but only 4.23:1 on --background, where
-     most secondary copy sits. #626b7a is the nearest value on the same hue
-     that clears 4.5:1 on both (4.90:1 and 5.39:1). */
-  --muted-foreground: #626b7a;
+  /* Three grounds have to clear 4.5:1 now, not two. #6b7586 managed 4.65:1 on
+     --card but only 4.23:1 on --background; #626b7a fixed that pair (4.90:1
+     and 5.39:1) but v1.3 introduced --stage, a step darker than --background,
+     where it fell to 4.46:1 — and --stage is exactly where the new micro-label
+     register sits. #5d6675 is the nearest value on the same hue that clears
+     all three: 5.83:1 on --card, 5.30:1 on --background/--muted, 4.76:1 on
+     --stage. */
+  --muted-foreground: #5d6675;
 
   /* Structural */
   --border: #e3e5e9;
@@ -59,8 +63,55 @@
   --shadow-card: 0px 2px 0px 0px rgba(29, 33, 41, 0.02);
   --shadow-button: 0px 2px 0px 0px rgba(5, 145, 255, 0.1);
 
-  /* Transition */
+  /* ── Depth scale (§6.2) ────────────────────────────────────────────────
+     Every step carries a real y-offset and a soft blur — a zero-offset halo
+     is decoration, not depth. The ambient (first) layer grounds the plate;
+     the direct (second) layer gives it a contact edge. Dark theme re-states
+     these below rather than dropping them: on a cinematic stage the plates
+     still need to sit above the ground, so dark trades the light-mode
+     black-alpha for a deeper, tighter shadow plus a lit top edge. */
+  --elev-1: 0 1px 2px -1px rgb(29 33 41 / 0.06), 0 2px 8px -2px rgb(29 33 41 / 0.06);
+  --elev-2: 0 2px 4px -2px rgb(29 33 41 / 0.08), 0 8px 20px -6px rgb(29 33 41 / 0.1);
+  --elev-3: 0 4px 8px -4px rgb(29 33 41 / 0.1), 0 18px 40px -12px rgb(29 33 41 / 0.14);
+  --elev-4: 0 8px 16px -8px rgb(29 33 41 / 0.12), 0 32px 72px -20px rgb(29 33 41 / 0.2);
+
+  /* ── Stage & field ─────────────────────────────────────────────────────
+     Derived from the theme tokens, never a new hex. `--stage` is the ground
+     the lifted plates sit on: pulled a step away from `--card` so elevation
+     has something to read against, which flat `--background` on `--card`
+     never gave it. `--scrim` is the sticky-header wash. */
+  /* Deliberately NOT re-declared under .dark: this is the dark ground behind
+     an image scrim, which must stay dark in both themes. Keying it to
+     --foreground inverted it in dark mode and left white overlay text on a
+     near-white field. */
+  --ink: #11141a;
+  --stage: color-mix(in srgb, var(--background) 94%, var(--foreground) 6%);
+  --stage-deep: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
+  --scrim: color-mix(in srgb, var(--card) 78%, transparent);
+  --hairline: color-mix(in srgb, var(--border) 70%, transparent);
+  /* Light thrown by the brand accent, at three intensities. Used as fields
+     and glows, never as text (§3.3). */
+  --glow-primary: color-mix(in srgb, var(--primary) 26%, transparent);
+  --glow-primary-soft: color-mix(in srgb, var(--primary) 12%, transparent);
+  --glow-success: color-mix(in srgb, var(--success) 22%, transparent);
+  --glow-destructive: color-mix(in srgb, var(--destructive) 20%, transparent);
+
+  /* ── Motion grammar (§8) ───────────────────────────────────────────────
+     One easing curve at three durations. `--transition-standard` stays the
+     documented default for colour/border/opacity on interactive elements;
+     these govern movement, reveal, and scene changes. */
   --transition-standard: 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+  --dur-micro: 140ms;
+  --dur-element: 420ms;
+  --dur-scene: 900ms;
+  /* Multiplied into every authored duration so Reduced motion collapses the
+     whole system from one place instead of per-component overrides. */
+  --motion-scale: 1;
+  /* Distance authored motion is allowed to travel. Reduced motion sets this
+     to 0 — elements still fade, they just stop moving. */
+  --motion-travel: 1;
 
   /* Backward-compat aliases (used by existing component classes) */
   --surface: var(--card);
@@ -88,6 +139,25 @@
   --success-text: #0cb9c1; /* on --card 6.7:1 */
   --chart-4: #6b7586;
   --chart-5: #e3e5e9;
+
+  /* On the dark stage the plates are lifted by a deeper cast shadow plus a
+     lit top edge, since black-on-near-black reads as nothing. §6.2's
+     "dark drops shadows" rule assumed a flat card grid; a depth-led
+     composition needs the z-order to survive the theme switch, so dark
+     re-states elevation rather than disabling it. */
+  --elev-1: 0 1px 0 0 rgb(255 255 255 / 0.04), 0 2px 8px -2px rgb(0 0 0 / 0.5);
+  --elev-2: 0 1px 0 0 rgb(255 255 255 / 0.05), 0 10px 24px -6px rgb(0 0 0 / 0.6);
+  --elev-3: 0 1px 0 0 rgb(255 255 255 / 0.06), 0 22px 48px -12px rgb(0 0 0 / 0.7);
+  --elev-4: 0 1px 0 0 rgb(255 255 255 / 0.07), 0 40px 88px -20px rgb(0 0 0 / 0.8);
+
+  --stage: color-mix(in srgb, var(--background) 92%, #000 8%);
+  --stage-deep: color-mix(in srgb, var(--background) 80%, #000 20%);
+  --scrim: color-mix(in srgb, var(--card) 72%, transparent);
+  --hairline: color-mix(in srgb, var(--border) 55%, transparent);
+  --glow-primary: color-mix(in srgb, var(--primary) 30%, transparent);
+  --glow-primary-soft: color-mix(in srgb, var(--primary) 14%, transparent);
+  --glow-success: color-mix(in srgb, var(--success) 24%, transparent);
+  --glow-destructive: color-mix(in srgb, var(--destructive) 22%, transparent);
 }
 
 /* ── Tailwind v4 theme mapping ────────────────────────────────────────────── */
@@ -130,25 +200,34 @@ body {
 }
 
 body {
-  background-color: var(--background);
+  background-color: var(--stage);
   color: var(--foreground);
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-a {
-  color: inherit;
+/* Element resets belong in @layer base. Unlayered, this rule beat *every*
+   Tailwind text-colour utility on an anchor — layered rules always lose to
+   unlayered ones, whatever their specificity — so `text-[color:var(--x)]` on
+   a link silently did nothing app-wide, which is how "Sign in with AIESEC"
+   rendered near-black on the blue CTA and failed axe's contrast check. */
+@layer base {
+  a {
+    color: inherit;
+  }
 }
 
 /* ── Component utility classes ────────────────────────────────────────────── */
 
 /* Card */
 .aiesec-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--card);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--elev-1);
 }
 
 /* Buttons */
@@ -221,7 +300,130 @@ a {
   border-color: rgba(3, 126, 243, 0.18);
 }
 
-/* Subtle float for feed illustration states (empty, error) */
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOTION SYSTEM (§8)
+
+   Motion is a first-class, on-by-default part of this interface, and the
+   preference that governs it is the member's explicit choice — a `Motion`
+   control in the header, persisted alongside the theme — not an inferred OS
+   setting. `data-motion` lands on <html> before first paint (MotionScript),
+   so nothing animates into the wrong state on load.
+
+   Reduced does not mean dead. It collapses `--motion-scale` toward zero and
+   `--motion-travel` to zero: scenes stop moving, parallax and 3-D tilt stop
+   responding, the ambient canvas holds a still frame — while colour, focus,
+   and state transitions survive, because those carry meaning rather than
+   atmosphere. Every authored duration below multiplies by `--motion-scale`,
+   so the whole system collapses from these two declarations.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-motion="reduced"] {
+  --motion-scale: 0;
+  --motion-travel: 0;
+}
+
+/* Ambient loops have no reduced equivalent — a slower drift is still drift —
+   so they are the one thing Reduced stops outright. */
+[data-motion="reduced"] .pulse-ambient {
+  animation: none !important;
+}
+
+/* ── Reveal ────────────────────────────────────────────────────────────────
+   The single entrance grammar. Content is fully visible by default and the
+   `data-reveal` hook is only added by client JS once an observer is live, so
+   a no-JS or pre-hydration render never hides anything.
+
+   Deliberately **no opacity**. An `opacity: 0` wrapper composites its text
+   away, so every automated contrast check reads the text as invisible against
+   its ground and reports a serious violation for content that is perfectly
+   legible the moment a reader reaches it — and that is not purely a tooling
+   artefact: an opacity-hidden element is still in the accessibility tree, so a
+   screen-reader user is read content a sighted user cannot see. Travel and a
+   short blur carry the arrival instead; both leave the text's real colour
+   against its real background at every instant. `.pulse-line-mask` (below)
+   supplies the harder-edged version for headlines, clipping rather than
+   fading. */
+[data-reveal] {
+  transform: translate3d(
+      calc(var(--reveal-x, 0px) * var(--motion-travel)),
+      calc(var(--reveal-y, 24px) * var(--motion-travel)),
+      0
+    )
+    scale(calc(1 - (1 - var(--reveal-scale, 1)) * var(--motion-travel)));
+  filter: blur(calc(var(--reveal-blur, 7px) * var(--motion-travel)));
+  transition:
+    transform calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo)
+      var(--reveal-delay, 0ms),
+    filter calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo)
+      var(--reveal-delay, 0ms);
+  will-change: transform, filter;
+}
+
+[data-reveal="in"] {
+  transform: none;
+  filter: none;
+  will-change: auto;
+}
+
+/* Reduced motion collapses both channels to nothing via --motion-travel; the
+   transition is dropped too so there is no residual fade-of-blur. */
+[data-motion="reduced"] [data-reveal] {
+  transition: none;
+}
+
+/* ── Parallax ──────────────────────────────────────────────────────────────
+   `--parallax` is written by ParallaxLayer's rAF loop as a -1..1 progress
+   value; the depth factor is authored per layer. Reduced motion zeroes the
+   travel, so the layers stack flat without the component needing to know. */
+.pulse-parallax {
+  transform: translate3d(
+      0,
+      calc(var(--parallax, 0) * var(--parallax-depth, 40px) * var(--motion-travel)),
+      0
+    )
+    scale(var(--parallax-scale, 1));
+  will-change: transform;
+}
+
+/* ── 3-D tilt ──────────────────────────────────────────────────────────────
+   Real perspective, not a skew. The pointer writes --tilt-x/--tilt-y; losing
+   the pointer returns them to 0 and the eased transition carries the plate
+   back to rest. */
+.pulse-tilt-scene {
+  perspective: 1200px;
+}
+
+.pulse-tilt {
+  transform: rotateX(calc(var(--tilt-x, 0deg) * var(--motion-travel)))
+    rotateY(calc(var(--tilt-y, 0deg) * var(--motion-travel)))
+    translate3d(0, 0, calc(var(--tilt-z, 0px) * var(--motion-travel)));
+  transform-style: preserve-3d;
+  transition: transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+/* Children lifted off the plate's surface. The depth is the point: a title
+   that floats above its own card is the cheapest honest 3-D cue there is. */
+.pulse-tilt-layer {
+  transform: translate3d(0, 0, calc(var(--layer-z, 20px) * var(--motion-travel)));
+  transition: transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+/* Specular sheen that tracks the pointer across a tilted plate. */
+.pulse-tilt-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: calc(var(--sheen-opacity, 0) * var(--motion-travel));
+  background: radial-gradient(
+    36rem circle at var(--pointer-x, 50%) var(--pointer-y, 50%),
+    color-mix(in srgb, var(--primary) 26%, transparent),
+    transparent 55%
+  );
+  transition: opacity calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+  pointer-events: none;
+}
+
+/* ── Ambient drift ─────────────────────────────────────────────────────── */
 @keyframes float-drift {
   0%,
   100% {
@@ -234,17 +436,41 @@ a {
 .animate-float-drift {
   animation: float-drift 5s ease-in-out infinite;
 }
-@media (prefers-reduced-motion: reduce) {
-  .animate-float-drift {
-    animation: none;
+[data-motion="reduced"] .animate-float-drift {
+  animation: none;
+}
+
+/* Slow orbit for the aurora fields behind the sign-in and feed leads. */
+@keyframes aurora-orbit {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  33% {
+    transform: translate3d(6%, -4%, 0) rotate(120deg) scale(1.12);
+  }
+  66% {
+    transform: translate3d(-5%, 5%, 0) rotate(240deg) scale(0.94);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(360deg) scale(1);
   }
 }
 
-/* Staggered entrance animation */
+/* Sweep used by skeletons and the sign-in mark. */
+@keyframes sheen-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+/* Staggered entrance animation (legacy alias — Reveal is the general case) */
 @keyframes insight-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(calc(8px * var(--motion-travel)));
   }
   to {
     opacity: 1;
@@ -253,7 +479,267 @@ a {
 }
 
 .insight-enter {
-  animation: insight-enter 0.35s var(--transition-standard) both;
+  animation: insight-enter calc(350ms * var(--motion-scale)) var(--ease-out-expo) both;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CINEMATIC SURFACES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* The ground every page sits on. Two very wide, very soft brand-light fields
+   anchored off-canvas, so the stage is lit rather than flat — the whole
+   reason plates read as lifted. Fixed, so scrolling moves content through
+   the light instead of dragging the light along. */
+.pulse-stage {
+  position: relative;
+  background-color: var(--stage);
+}
+
+.pulse-stage::before {
+  content: "";
+  position: fixed;
+  inset: -25% -15% auto -15%;
+  height: 78vh;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 46% at 16% 6%, var(--glow-primary), transparent 68%),
+    radial-gradient(38% 42% at 84% 0%, var(--glow-success), transparent 70%);
+  filter: blur(30px);
+  opacity: 0.55;
+}
+
+.dark .pulse-stage::before {
+  opacity: 0.85;
+}
+
+/* Header scrim: a specific effect (content passing beneath a fixed rail),
+   not decorative glass. Falls back to an opaque surface where backdrop-filter
+   is unsupported, so the header never becomes unreadable. */
+.pulse-rail {
+  background-color: var(--card);
+  border-bottom: 1px solid var(--hairline);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .pulse-rail {
+    background-color: var(--scrim);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    backdrop-filter: blur(16px) saturate(1.6);
+  }
+}
+
+/* Lifted plate — the card, re-specified with real depth. */
+.pulse-plate {
+  position: relative;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--elev-1);
+  transition:
+    box-shadow calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo),
+    border-color var(--transition-standard),
+    transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.pulse-plate-interactive:hover,
+.pulse-plate-interactive:focus-within {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  box-shadow: var(--elev-3);
+  transform: translate3d(0, calc(-4px * var(--motion-travel)), 0);
+}
+
+/* The nav rail's active indicator: one element that slides and resizes
+   between items rather than a per-item border. The FLIP measurement lives in
+   NavRail; this is only the paint. */
+.pulse-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+  transform: translate3d(var(--indicator-x, 0px), 0, 0);
+  width: var(--indicator-w, 0px);
+  opacity: var(--indicator-o, 0);
+  transition:
+    transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo),
+    width calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo),
+    opacity var(--transition-standard);
+  pointer-events: none;
+}
+
+/* Inline link inside running text. Underlined at rest — colour alone must
+   never be the only cue that a run of body copy is a link — with the
+   underline thickening and the offset closing on hover. */
+.pulse-link {
+  color: var(--primary-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--primary-text) 45%, transparent);
+  transition:
+    text-decoration-color var(--transition-standard),
+    text-underline-offset calc(var(--dur-micro) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.pulse-link:hover,
+.pulse-link:focus-visible {
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+/* Underline that grows from the cursor's side on hover. For standalone
+   controls (breadcrumbs, nav), never for a link inside a paragraph. */
+.pulse-underline {
+  background-image: linear-gradient(var(--primary-text), var(--primary-text));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.pulse-underline:hover,
+.pulse-underline:focus-visible {
+  background-size: 100% 1px;
+}
+
+/* Media that drifts within its frame as the frame scrolls past. */
+.pulse-media-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--stage-deep);
+}
+
+.pulse-media-frame > .pulse-media {
+  transition: transform calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.group:hover .pulse-media-frame > .pulse-media {
+  transform: scale(calc(1 + 0.04 * var(--motion-travel)));
+}
+
+/* Scrim beneath a headline sitting on an image — a real vertical ramp, not a
+   flat 50% black wash, so the image survives underneath it. */
+.pulse-image-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, #000 82%, transparent) 0%,
+    color-mix(in srgb, #000 58%, transparent) 28%,
+    color-mix(in srgb, #000 18%, transparent) 58%,
+    transparent 80%
+  );
+}
+
+/* ── Display type register (§4.4) ──────────────────────────────────────────
+   Lato 900 at cinematic scale. Tracking tightens as size grows, which is what
+   keeps a 900-weight face from reading as a wall at large sizes. Capped at
+   96px: past that the measure breaks before the drama pays off. */
+.pulse-display {
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.pulse-display-xl {
+  font-size: clamp(40px, 8.5vw, 96px);
+}
+.pulse-display-lg {
+  font-size: clamp(34px, 5.5vw, 64px);
+}
+.pulse-display-md {
+  font-size: clamp(28px, 3.6vw, 44px);
+  letter-spacing: -0.028em;
+  line-height: 1.05;
+}
+
+/* Tracked micro-label. The one register the old system lacked, and the reason
+   metadata rows read as debris: at 12px/500 with wide tracking and uppercase,
+   a label stops competing with the content it labels. */
+.pulse-label {
+  font-size: 12px;
+  font-weight: 700;
+  /* Not 1: a label long enough to wrap (a breadcrumb on a narrow viewport, a
+     multi-part metadata rule) collided with its own next line. */
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Per-line masked headline reveal. The mask is the effect — the line rises
+   out of its own bounding box rather than fading in place. */
+.pulse-line-mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+.pulse-line-mask > span {
+  display: block;
+  transform: translate3d(0, calc(110% * var(--motion-travel)), 0);
+  transition: transform calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo)
+    var(--reveal-delay, 0ms);
+}
+
+[data-reveal="in"] .pulse-line-mask > span,
+.pulse-line-mask[data-reveal="in"] > span {
+  transform: none;
+}
+
+/* ── Browser surfaces ──────────────────────────────────────────────────────
+   Selection, caret, scrollbar and focus ring all ship with defaults that
+   belong to no design system. Themed from the palette. */
+::selection {
+  background: color-mix(in srgb, var(--primary) 26%, transparent);
+  color: var(--foreground);
+}
+
+html {
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+}
+
+/* `data-motion` sits on <html> itself, so this element *is* the root. */
+html[data-motion="reduced"],
+html[data-motion="reduced"] * {
+  scroll-behavior: auto;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--border);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
+input,
+textarea,
+[contenteditable] {
+  caret-color: var(--primary);
+}
+
+/* Tabular figures wherever numbers are compared down a column. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Legal & policy prose ──────────────────────────────────────────────────
@@ -321,10 +807,19 @@ a {
 .legal-prose li {
   margin-bottom: 8px;
 }
-.legal-prose a {
+.legal-prose a,
+.pulse-editor-prose a {
   color: var(--primary-text);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--primary-text) 45%, transparent);
+  transition: text-decoration-color var(--transition-standard);
+}
+
+.legal-prose a:hover,
+.pulse-editor-prose a:hover {
+  text-decoration-color: currentColor;
 }
 .legal-prose code {
   border-radius: var(--radius-sm);
@@ -433,11 +928,6 @@ a {
   background: var(--muted);
   padding: 2px 6px;
   font-size: 0.9em;
-}
-.pulse-editor-prose a {
-  color: var(--primary-text);
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 .pulse-editor-prose img {
   max-width: 100%;

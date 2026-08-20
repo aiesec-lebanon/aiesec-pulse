@@ -119,8 +119,8 @@ export default async function AdminPostsPage({
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">All posts</h1>
-      <p className="mt-1 text-[15px] text-[var(--muted-foreground)]">
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">All posts</h1>
+      <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
         {scope.kind === "all"
           ? "Every post across the network."
           : "Posts published by entities in your moderation scope."}
@@ -139,8 +139,8 @@ export default async function AdminPostsPage({
               className={[
                 "min-h-[28px] rounded-[4px] px-3 py-1 text-[14px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
                 statusParam === option.value
-                  ? "bg-[var(--card)] text-[var(--foreground)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                  ? "bg-[var(--card)] text-[color:var(--foreground)]"
+                  : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
               ].join(" ")}
             >
               {option.label}
@@ -153,14 +153,14 @@ export default async function AdminPostsPage({
         </div>
       </div>
 
-      <p className="mt-4 text-[13px] text-[var(--muted-foreground)]" role="status">
+      <p className="mt-4 text-[13px] text-[color:var(--muted-foreground)]" role="status">
         {total} {total === 1 ? "post" : "posts"}
       </p>
 
       <div className="mt-3">
         {rows.length === 0 ? (
           <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[var(--muted-foreground)]">
+            <p className="text-[16px] text-[color:var(--muted-foreground)]">
               No posts match those filters.
             </p>
           </div>
@@ -176,7 +176,7 @@ export default async function AdminPostsPage({
               Previous
             </Link>
           )}
-          <span className="text-[14px] tabular-nums text-[var(--muted-foreground)]">
+          <span className="text-[14px] tabular-nums text-[color:var(--muted-foreground)]">
             Page {page} of {totalPages}
           </span>
           {page < totalPages && (

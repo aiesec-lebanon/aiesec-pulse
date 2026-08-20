@@ -84,23 +84,23 @@ export function HideContentModal({
         aria-labelledby="hide-modal-title"
         className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-6"
       >
-        <h2 id="hide-modal-title" className="text-[18px] font-bold text-[var(--foreground)]">
+        <h2 id="hide-modal-title" className="text-[18px] font-bold text-[color:var(--foreground)]">
           {title}
         </h2>
-        <p className="mt-2 text-[14px] leading-[1.5] text-[var(--muted-foreground)]">
+        <p className="mt-2 text-[14px] leading-[1.5] text-[color:var(--muted-foreground)]">
           {description}
         </p>
-        <p className="mt-3 truncate rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-2 text-[14px] font-medium text-[var(--foreground)]">
+        <p className="mt-3 truncate rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-2 text-[14px] font-medium text-[color:var(--foreground)]">
           {targetLabel}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4">
           <label
             htmlFor="hide-reason"
-            className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
             Reason{" "}
-            <span aria-hidden className="text-[var(--destructive-text)]">
+            <span aria-hidden className="text-[color:var(--destructive-text)]">
               *
             </span>
           </label>
@@ -113,13 +113,13 @@ export function HideContentModal({
             required
             aria-describedby={error ? "hide-reason-error" : undefined}
             aria-invalid={error ? true : undefined}
-            className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+            className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
           />
           {error && (
             <p
               id="hide-reason-error"
               role="alert"
-              className="mt-1 text-[13px] text-[var(--destructive-text)]"
+              className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
             >
               {error}
             </p>
@@ -130,7 +130,7 @@ export function HideContentModal({
               type="button"
               onClick={onClose}
               disabled={pending}
-              className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             >
               Cancel
             </button>

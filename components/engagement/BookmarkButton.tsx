@@ -63,8 +63,8 @@ export function BookmarkButton({ postId, initialBookmarked }: Props) {
           "flex min-h-[36px] min-w-[44px] items-center justify-center rounded-[var(--radius-sm)] px-1 transition-colors",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
           bookmarked
-            ? "text-[var(--primary-text)]"
-            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+            ? "text-[color:var(--primary-text)]"
+            : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
         ].join(" ")}
       >
         <Bookmark
@@ -82,7 +82,7 @@ export function BookmarkButton({ postId, initialBookmarked }: Props) {
       {error && (
         <div
           role="alert"
-          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-[var(--radius-sm)] bg-[var(--foreground)] px-3 py-1.5 text-[12px] font-medium text-[var(--card)]"
+          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-[var(--radius-sm)] bg-[var(--foreground)] px-3 py-1.5 text-[12px] font-medium text-[color:var(--card)]"
         >
           {error}
         </div>

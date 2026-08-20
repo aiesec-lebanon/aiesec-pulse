@@ -122,7 +122,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
       <div
         role="status"
         aria-live="polite"
-        className="mt-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--success)_10%,var(--card))] border border-[var(--success)]/30 px-4 py-3 text-[14px] text-[var(--success-text)]"
+        className="mt-2 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--success)_10%,var(--card))] border border-[var(--success)]/30 px-4 py-3 text-[14px] text-[color:var(--success-text)]"
       >
         {successMsg}
       </div>
@@ -134,13 +134,13 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex min-h-[36px] items-center gap-1.5 text-[13px] font-medium text-[var(--destructive-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="flex min-h-[36px] items-center gap-1.5 text-[13px] font-medium text-[color:var(--destructive-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         aria-expanded={open}
       >
         <ChevronDown
           size={14}
           strokeWidth={2.5}
-          className={`transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           aria-hidden
         />
         {open ? "Close review" : "Review & edit"}
@@ -151,10 +151,10 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
           {/* Rejection reason */}
           {post.rejectionReason && (
             <div className="mb-5 rounded-[var(--radius-md)] border border-[var(--destructive)]/30 bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))] px-4 py-3">
-              <p className="text-[12px] font-medium uppercase tracking-wide text-[var(--destructive-text)]">
+              <p className="text-[12px] font-medium uppercase tracking-wide text-[color:var(--destructive-text)]">
                 Moderator&apos;s reason
               </p>
-              <p className="mt-1 text-[14px] leading-[1.5] text-[var(--foreground)]">
+              <p className="mt-1 text-[14px] leading-[1.5] text-[color:var(--foreground)]">
                 {post.rejectionReason}
               </p>
             </div>
@@ -165,10 +165,10 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
             <div>
               <label
                 htmlFor={`edit-title-${post.id}`}
-                className="mb-1 block text-[13px] font-medium text-[var(--foreground)]"
+                className="mb-1 block text-[13px] font-medium text-[color:var(--foreground)]"
               >
                 Title{" "}
-                <span aria-hidden className="text-[var(--destructive-text)]">
+                <span aria-hidden className="text-[color:var(--destructive-text)]">
                   *
                 </span>
               </label>
@@ -180,12 +180,12 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className={[
-                  "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 text-[14px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+                  "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 text-[14px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
                   fieldErrors.title ? "border-[var(--destructive)]" : "border-[var(--border)]",
                 ].join(" ")}
               />
               {fieldErrors.title && (
-                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive-text)]">
+                <p role="alert" className="mt-1 text-[12px] text-[color:var(--destructive-text)]">
                   {fieldErrors.title}
                 </p>
               )}
@@ -195,10 +195,10 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
             <div>
               <label
                 htmlFor={`edit-content-${post.id}`}
-                className="mb-1 block text-[13px] font-medium text-[var(--foreground)]"
+                className="mb-1 block text-[13px] font-medium text-[color:var(--foreground)]"
               >
                 Content{" "}
-                <span aria-hidden className="text-[var(--destructive-text)]">
+                <span aria-hidden className="text-[color:var(--destructive-text)]">
                   *
                 </span>
               </label>
@@ -215,7 +215,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
                 <p
                   id={`edit-content-${post.id}-error`}
                   role="alert"
-                  className="mt-1 text-[12px] text-[var(--destructive-text)]"
+                  className="mt-1 text-[12px] text-[color:var(--destructive-text)]"
                 >
                   {fieldErrors.bodyJson}
                 </p>
@@ -226,10 +226,10 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
             <div>
               <label
                 htmlFor={`edit-link-${post.id}`}
-                className="mb-1 block text-[13px] font-medium text-[var(--foreground)]"
+                className="mb-1 block text-[13px] font-medium text-[color:var(--foreground)]"
               >
                 External link{" "}
-                <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
+                <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
               </label>
               <input
                 id={`edit-link-${post.id}`}
@@ -238,17 +238,17 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder="https://…"
                 className={[
-                  "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 text-[14px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+                  "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 text-[14px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
                   linkIsInvalid ? "border-[var(--destructive)]" : "border-[var(--border)]",
                 ].join(" ")}
               />
               {linkIsInvalid && (
-                <p role="alert" className="mt-1 text-[12px] text-[var(--destructive-text)]">
+                <p role="alert" className="mt-1 text-[12px] text-[color:var(--destructive-text)]">
                   Please enter a valid URL including https://.
                 </p>
               )}
               {linkIsValid && (
-                <div className="mt-1 flex items-center gap-1 text-[12px] text-[var(--muted-foreground)]">
+                <div className="mt-1 flex items-center gap-1 text-[12px] text-[color:var(--muted-foreground)]">
                   <ExternalLink size={11} strokeWidth={2} aria-hidden />
                   <span>{linkDomain}</span>
                 </div>
@@ -267,7 +267,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
             {serverError && (
               <div
                 role="alert"
-                className="rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-4 py-3 text-[13px] text-[var(--destructive-text)]"
+                className="rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-4 py-3 text-[13px] text-[color:var(--destructive-text)]"
               >
                 {serverError}
               </div>
@@ -277,13 +277,13 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 py-2 text-[14px] font-bold text-[var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting && (
                   <Loader2
                     size={14}
                     strokeWidth={2}
-                    className="animate-spin motion-reduce:animate-none"
+                    className="animate-spin pulse-ambient"
                     aria-hidden
                   />
                 )}
@@ -293,7 +293,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={isSubmitting}
-                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2 text-[14px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2 text-[14px] font-bold text-[color:var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>

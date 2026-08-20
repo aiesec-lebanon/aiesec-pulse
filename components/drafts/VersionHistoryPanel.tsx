@@ -42,7 +42,10 @@ export function VersionHistoryPanel({
 
   return (
     <section className="mt-10" aria-labelledby="version-history-heading">
-      <h2 id="version-history-heading" className="text-[20px] font-bold text-[var(--foreground)]">
+      <h2
+        id="version-history-heading"
+        className="text-[20px] font-bold text-[color:var(--foreground)]"
+      >
         Version history
       </h2>
       <div className="mt-3 flex flex-col gap-2" role="list" aria-label="Versions">
@@ -57,7 +60,7 @@ export function VersionHistoryPanel({
               <div className="min-w-0 flex-1">
                 <time
                   dateTime={entry.createdAt}
-                  className="block text-[14px] text-[var(--muted-foreground)]"
+                  className="block text-[14px] text-[color:var(--muted-foreground)]"
                 >
                   {new Date(entry.createdAt).toLocaleString("en-GB", {
                     day: "numeric",
@@ -67,13 +70,13 @@ export function VersionHistoryPanel({
                     minute: "2-digit",
                   })}
                 </time>
-                <p className="truncate text-[14px] text-[var(--foreground)]">
+                <p className="truncate text-[14px] text-[color:var(--foreground)]">
                   {entry.changeNote ?? entry.title}
                 </p>
               </div>
 
               {isCurrent ? (
-                <span className="shrink-0 rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[var(--muted-foreground)]">
+                <span className="shrink-0 rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--muted-foreground)]">
                   Current
                 </span>
               ) : (
@@ -82,7 +85,7 @@ export function VersionHistoryPanel({
                   onClick={() => void handleRestore(entry.version)}
                   disabled={restoringVersion !== null}
                   aria-label={`Restore version from ${new Date(entry.createdAt).toLocaleString("en-GB")}`}
-                  className="min-h-[36px] shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-[36px] shrink-0 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {restoringVersion === entry.version ? "Restoring…" : "Restore"}
                 </button>
@@ -92,7 +95,7 @@ export function VersionHistoryPanel({
         })}
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-[13px] text-[var(--destructive-text)]">
+        <p role="alert" className="mt-2 text-[13px] text-[color:var(--destructive-text)]">
           {error}
         </p>
       )}

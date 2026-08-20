@@ -52,8 +52,8 @@ export function WhyThisAppeared({ breakdown }: { breakdown: ScoredPost }) {
     <details className="group mt-6 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)]">
       <summary
         className={[
-          "flex min-h-[36px] cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-[14px] font-bold text-[var(--muted-foreground)]",
-          "transition-colors hover:text-[var(--foreground)]",
+          "flex min-h-[36px] cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-[14px] font-bold text-[color:var(--muted-foreground)]",
+          "transition-colors hover:text-[color:var(--foreground)]",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
           "[&::-webkit-details-marker]:hidden",
         ].join(" ")}
@@ -62,12 +62,12 @@ export function WhyThisAppeared({ breakdown }: { breakdown: ScoredPost }) {
           size={16}
           strokeWidth={2}
           aria-hidden
-          className="shrink-0 transition-transform duration-200 motion-reduce:transition-none group-open:rotate-180"
+          className="shrink-0 transition-transform duration-200 group-open:rotate-180"
         />
         Why am I seeing this?
       </summary>
 
-      <ul className="flex flex-col gap-1.5 border-t border-[var(--border)] px-4 py-3 text-[13px] text-[var(--muted-foreground)]">
+      <ul className="flex flex-col gap-1.5 border-t border-[var(--border)] px-4 py-3 text-[13px] text-[color:var(--muted-foreground)]">
         {reasons.map((reason) => (
           <li key={reason} className="flex items-start gap-2">
             <span

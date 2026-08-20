@@ -28,16 +28,19 @@ export default async function AdminFlagsPage() {
 
   return (
     <main className="mx-auto w-full max-w-[900px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">Feature flags</h1>
-      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[var(--muted-foreground)]">
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Feature flags</h1>
+      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
         Every Phase 1 feature ships behind a flag, off by default. Toggling one here takes effect
         for all users within about 15 seconds — no deploy required.
       </p>
 
       <section aria-labelledby="flags-heading" className="mt-8">
-        <h2 id="flags-heading" className="mb-3 text-[16px] font-bold text-[var(--foreground)]">
+        <h2
+          id="flags-heading"
+          className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
+        >
           Flags
-          <span className="ml-2 text-[14px] font-normal text-[var(--muted-foreground)]">
+          <span className="ml-2 text-[14px] font-normal text-[color:var(--muted-foreground)]">
             ({rows.length})
           </span>
         </h2>

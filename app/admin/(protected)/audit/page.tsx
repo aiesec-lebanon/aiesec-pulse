@@ -117,8 +117,8 @@ export default async function AdminAuditPage({
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">Audit log</h1>
-      <p className="mt-1 text-[15px] text-[var(--muted-foreground)]">
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Audit log</h1>
+      <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
         Append-only. Entries are never edited or deleted — GDPR erasure removes the person, not the
         event.
       </p>
@@ -136,8 +136,8 @@ export default async function AdminAuditPage({
               className={[
                 "min-h-[28px] rounded-[4px] px-3 py-1 text-[14px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
                 actor === option.value
-                  ? "bg-[var(--card)] text-[var(--foreground)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                  ? "bg-[var(--card)] text-[color:var(--foreground)]"
+                  : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
               ].join(" ")}
             >
               {option.label}
@@ -155,7 +155,7 @@ export default async function AdminAuditPage({
             type="search"
             defaultValue={action}
             placeholder="Action, e.g. post.hidden"
-            className="min-h-[36px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[14px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+            className="min-h-[36px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[14px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
           />
           {actor && <input type="hidden" name="actor" value={actor} />}
           <input type="hidden" name="limit" value={limit} />
@@ -169,14 +169,14 @@ export default async function AdminAuditPage({
         </div>
       </div>
 
-      <p className="mt-4 text-[13px] text-[var(--muted-foreground)]" role="status">
+      <p className="mt-4 text-[13px] text-[color:var(--muted-foreground)]" role="status">
         {total} {total === 1 ? "entry" : "entries"}
       </p>
 
       <div className="mt-3">
         {rows.length === 0 ? (
           <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[var(--muted-foreground)]">
+            <p className="text-[16px] text-[color:var(--muted-foreground)]">
               No entries match those filters.
             </p>
           </div>
@@ -192,7 +192,7 @@ export default async function AdminAuditPage({
               Previous
             </Link>
           )}
-          <span className="text-[14px] tabular-nums text-[var(--muted-foreground)]">
+          <span className="text-[14px] tabular-nums text-[color:var(--muted-foreground)]">
             Page {page} of {totalPages}
           </span>
           {page < totalPages && (

@@ -275,10 +275,10 @@ export function PostComposer({
       <div>
         <label
           htmlFor="title"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+          className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
         >
           Title{" "}
-          <span aria-hidden className="text-[var(--destructive-text)]">
+          <span aria-hidden className="text-[color:var(--destructive-text)]">
             *
           </span>
         </label>
@@ -296,20 +296,24 @@ export function PostComposer({
           placeholder="What's the update about?"
           aria-describedby={fieldErrors.title ? "title-error" : undefined}
           className={[
-            "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+            "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
             fieldErrors.title ? "border-[var(--destructive)]" : "border-[var(--border)]",
           ].join(" ")}
         />
         <div className="mt-1 flex items-start justify-between gap-2">
           {fieldErrors.title ? (
-            <p id="title-error" role="alert" className="text-[13px] text-[var(--destructive-text)]">
+            <p
+              id="title-error"
+              role="alert"
+              className="text-[13px] text-[color:var(--destructive-text)]"
+            >
               {fieldErrors.title}
             </p>
           ) : (
             <span />
           )}
           {titleFocused && (
-            <span className="shrink-0 text-[12px] text-[var(--muted-foreground)]">
+            <span className="shrink-0 text-[12px] text-[color:var(--muted-foreground)]">
               {title.length}/200
             </span>
           )}
@@ -320,10 +324,10 @@ export function PostComposer({
       <div>
         <label
           htmlFor="content"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+          className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
         >
           Content{" "}
-          <span aria-hidden className="text-[var(--destructive-text)]">
+          <span aria-hidden className="text-[color:var(--destructive-text)]">
             *
           </span>
         </label>
@@ -341,14 +345,14 @@ export function PostComposer({
             <p
               id="content-error"
               role="alert"
-              className="text-[13px] text-[var(--destructive-text)]"
+              className="text-[13px] text-[color:var(--destructive-text)]"
             >
               {fieldErrors.bodyJson}
             </p>
           ) : (
             <span />
           )}
-          <span className="shrink-0 text-[12px] text-[var(--muted-foreground)]">
+          <span className="shrink-0 text-[12px] text-[color:var(--muted-foreground)]">
             {bodyText.length.toLocaleString()}/50,000
           </span>
         </div>
@@ -356,8 +360,8 @@ export function PostComposer({
 
       {/* ── Image ── */}
       <div>
-        <p className="mb-1.5 text-[14px] font-medium text-[var(--foreground)]">
-          Image <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
+        <p className="mb-1.5 text-[14px] font-medium text-[color:var(--foreground)]">
+          Image <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
         </p>
 
         {imagePreview ? (
@@ -374,7 +378,7 @@ export function PostComposer({
                 <Loader2
                   size={28}
                   strokeWidth={2}
-                  className="animate-spin text-[var(--primary-text)] motion-reduce:animate-none"
+                  className="animate-spin pulse-ambient text-[color:var(--primary-text)]"
                   aria-label="Uploading image…"
                 />
               </div>
@@ -416,14 +420,16 @@ export function PostComposer({
             <ImageIcon
               size={32}
               strokeWidth={1.5}
-              className="text-[var(--muted-foreground)]"
+              className="text-[color:var(--muted-foreground)]"
               aria-hidden
             />
-            <p className="text-[15px] text-[var(--muted-foreground)]">
+            <p className="text-[15px] text-[color:var(--muted-foreground)]">
               Drop an image here or{" "}
-              <span className="font-medium text-[var(--primary-text)]">click to browse</span>
+              <span className="font-medium text-[color:var(--primary-text)]">click to browse</span>
             </p>
-            <p className="text-[13px] text-[var(--muted-foreground)]">PNG, JPG, WEBP up to 5 MB</p>
+            <p className="text-[13px] text-[color:var(--muted-foreground)]">
+              PNG, JPG, WEBP up to 5 MB
+            </p>
           </div>
         )}
 
@@ -431,10 +437,10 @@ export function PostComposer({
           <div className="mt-3">
             <label
               htmlFor="mediaAlt"
-              className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+              className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
             >
               Describe the image{" "}
-              <span aria-hidden className="text-[var(--destructive-text)]">
+              <span aria-hidden className="text-[color:var(--destructive-text)]">
                 *
               </span>
             </label>
@@ -450,7 +456,7 @@ export function PostComposer({
               aria-invalid={fieldErrors.mediaAlt ? true : undefined}
               placeholder="e.g. Delegates on stage at the closing plenary"
               className={[
-                "w-full rounded-[var(--radius-md)] border bg-[var(--card)] px-4 py-2.5 text-[15px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none",
+                "w-full rounded-[var(--radius-md)] border bg-[var(--card)] px-4 py-2.5 text-[15px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none",
                 fieldErrors.mediaAlt ? "border-[var(--destructive)]" : "border-[var(--border)]",
               ].join(" ")}
             />
@@ -458,12 +464,15 @@ export function PostComposer({
               <p
                 id="mediaAlt-error"
                 role="alert"
-                className="mt-1 text-[13px] text-[var(--destructive-text)]"
+                className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
               >
                 {fieldErrors.mediaAlt}
               </p>
             ) : (
-              <p id="mediaAlt-hint" className="mt-1 text-[13px] text-[var(--muted-foreground)]">
+              <p
+                id="mediaAlt-hint"
+                className="mt-1 text-[13px] text-[color:var(--muted-foreground)]"
+              >
                 Read aloud to members using a screen reader. Say what the image shows, not that it
                 is an image.
               </p>
@@ -472,7 +481,7 @@ export function PostComposer({
         )}
 
         {imageError && (
-          <p role="alert" className="mt-1 text-[13px] text-[var(--destructive-text)]">
+          <p role="alert" className="mt-1 text-[13px] text-[color:var(--destructive-text)]">
             {imageError}
           </p>
         )}
@@ -495,10 +504,10 @@ export function PostComposer({
       <div>
         <label
           htmlFor="linkUrl"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+          className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
         >
           External link{" "}
-          <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
+          <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
         </label>
         <input
           id="linkUrl"
@@ -509,7 +518,7 @@ export function PostComposer({
           placeholder="https://…"
           aria-describedby={linkIsInvalid ? "link-error" : undefined}
           className={[
-            "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+            "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
             linkIsInvalid ? "border-[var(--destructive)]" : "border-[var(--border)]",
           ].join(" ")}
         />
@@ -517,13 +526,13 @@ export function PostComposer({
           <p
             id="link-error"
             role="alert"
-            className="mt-1 text-[13px] text-[var(--destructive-text)]"
+            className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
           >
             Please enter a valid URL including https://.
           </p>
         )}
         {linkIsValid && (
-          <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-[var(--muted-foreground)]">
+          <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-[color:var(--muted-foreground)]">
             <ExternalLink size={12} strokeWidth={2} aria-hidden />
             <span>{linkDomain}</span>
           </div>
@@ -545,9 +554,10 @@ export function PostComposer({
         <div>
           <label
             htmlFor="scheduledAt"
-            className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
-            Schedule <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
+            Schedule{" "}
+            <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
           </label>
           <input
             id="scheduledAt"
@@ -559,7 +569,7 @@ export function PostComposer({
             aria-describedby={fieldErrors.scheduledAt ? "scheduledAt-error" : "scheduledAt-hint"}
             aria-invalid={fieldErrors.scheduledAt ? true : undefined}
             className={[
-              "h-11 w-full max-w-[280px] rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[var(--foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+              "h-11 w-full max-w-[280px] rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
               fieldErrors.scheduledAt ? "border-[var(--destructive)]" : "border-[var(--border)]",
             ].join(" ")}
           />
@@ -567,12 +577,15 @@ export function PostComposer({
             <p
               id="scheduledAt-error"
               role="alert"
-              className="mt-1 text-[13px] text-[var(--destructive-text)]"
+              className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
             >
               {fieldErrors.scheduledAt}
             </p>
           ) : (
-            <p id="scheduledAt-hint" className="mt-1 text-[13px] text-[var(--muted-foreground)]">
+            <p
+              id="scheduledAt-hint"
+              className="mt-1 text-[13px] text-[color:var(--muted-foreground)]"
+            >
               Leave blank to publish immediately. Times use your profile timezone ({timezone},{" "}
               {timeZoneOffsetLabel(timezone)}).
             </p>
@@ -595,7 +608,7 @@ export function PostComposer({
       {serverError && (
         <div
           role="alert"
-          className="rounded-[var(--radius-md)] bg-[var(--destructive)]/10 px-4 py-3 text-[14px] text-[var(--destructive-text)]"
+          className="rounded-[var(--radius-md)] bg-[var(--destructive)]/10 px-4 py-3 text-[14px] text-[color:var(--destructive-text)]"
         >
           {serverError}
         </div>
@@ -607,15 +620,10 @@ export function PostComposer({
           type="submit"
           disabled={submitBlocked}
           aria-disabled={submitBlocked}
-          className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-6 py-3 text-[16px] font-bold text-[var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-6 py-3 text-[16px] font-bold text-[color:var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {(isSubmitting || isUploading) && (
-            <Loader2
-              size={16}
-              strokeWidth={2}
-              className="animate-spin motion-reduce:animate-none"
-              aria-hidden
-            />
+            <Loader2 size={16} strokeWidth={2} className="animate-spin pulse-ambient" aria-hidden />
           )}
           {isUploading
             ? "Uploading…"
@@ -632,7 +640,7 @@ export function PostComposer({
           type="button"
           onClick={() => void runSave()}
           disabled={submitBlocked || saveStatus === "saving"}
-          className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[color:var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saveStatus === "saving" ? "Saving…" : "Save draft"}
         </button>
@@ -641,7 +649,7 @@ export function PostComposer({
           type="button"
           onClick={handleCancel}
           disabled={submitBlocked}
-          className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[color:var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancel
         </button>
@@ -649,7 +657,7 @@ export function PostComposer({
         <span
           aria-live="polite"
           role="status"
-          className="text-[13px] text-[var(--muted-foreground)]"
+          className="text-[13px] text-[color:var(--muted-foreground)]"
         >
           {saveStatus === "saving" && "Saving…"}
           {saveStatus === "saved" && "Saved"}

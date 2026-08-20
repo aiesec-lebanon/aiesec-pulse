@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 
 import { setFeedMode } from "@/app/actions/feed-preferences";
 import type { FeedMode } from "@/lib/feed-mode";
@@ -23,10 +23,34 @@ const TABS: Array<{ key: FeedMode; label: string }> = [
  * Setting the cookie inside setFeedMode (a Server Action invoked via this
  * client transition) re-renders the current route in the same response —
  * no separate router.refresh() needed, same as QueueCard's handleApprove.
+ *
+ * The active state is a single measured pill that slides between the two tabs,
+ * matching the shell's primary-nav indicator, so "this is currently on" moves
+ * the same way everywhere in the product. Nothing about the ARIA contract
+ * changes: the pill is `aria-hidden` paint over unchanged tab semantics.
  */
 export function FeedModeToggle({ mode }: { mode: FeedMode }) {
   const [isPending, startTransition] = useTransition();
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState({ x: 0, w: 0 });
+
+  const measure = useCallback(() => {
+    const index = TABS.findIndex((tab) => tab.key === mode);
+    const el = tabRefs.current[index];
+    if (!el) return;
+    setPill({ x: el.offsetLeft, w: el.offsetWidth });
+  }, [mode]);
+
+  useLayoutEffect(measure, [measure]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [measure]);
 
   function selectMode(next: FeedMode) {
     if (next === mode || isPending) return;
@@ -51,13 +75,20 @@ export function FeedModeToggle({ mode }: { mode: FeedMode }) {
 
   return (
     <div
+      ref={listRef}
       role="tablist"
       aria-label="Feed order"
       className={[
-        "inline-flex gap-1 rounded-[var(--radius-md)] bg-[var(--muted)] p-1 transition-opacity",
+        "relative inline-flex gap-1 rounded-[var(--radius-md)] border border-[var(--hairline)] bg-[var(--card)] p-1 shadow-[var(--elev-1)] transition-opacity",
         isPending ? "opacity-70" : "",
       ].join(" ")}
     >
+      <span
+        aria-hidden
+        className="absolute bottom-1 top-1 rounded-[var(--radius-sm)] bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--primary)_28%,transparent)] transition-[transform,width] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]"
+        style={{ transform: `translateX(${pill.x - 4}px)`, width: `${pill.w}px` }}
+      />
+
       {TABS.map((tab, index) => {
         const active = tab.key === mode;
         return (
@@ -74,12 +105,12 @@ export function FeedModeToggle({ mode }: { mode: FeedMode }) {
             onClick={() => selectMode(tab.key)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={[
-              "relative min-h-[36px] rounded-[var(--radius-sm)] px-4 text-[15px] font-bold transition-colors",
+              "relative z-10 min-h-[38px] rounded-[var(--radius-sm)] px-4 text-[15px] font-bold transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))]",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
               "disabled:cursor-not-allowed",
               active
-                ? "bg-[var(--card)] text-[var(--foreground)] after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-[var(--primary)]"
-                : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                ? "text-[color:var(--primary-text)]"
+                : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
             ].join(" ")}
           >
             {tab.label}

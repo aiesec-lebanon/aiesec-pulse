@@ -1,4 +1,5 @@
 import { type FollowingItem, FollowingPanel } from "@/components/settings/FollowingPanel";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/rbac/guards";
 
@@ -62,13 +63,16 @@ export default async function FollowingSettingsPage() {
     .filter((item): item is FollowingItem => item !== null);
 
   return (
-    <main className="mx-auto w-full max-w-[720px] px-6 py-10">
-      <h1 className="text-[32px] font-black leading-tight text-[var(--foreground)]">Following</h1>
-      <p className="mt-2 text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-        Topics and entities you follow or mute. This shapes what feels relevant in your feed.
-      </p>
+    <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24">
+      <PageHeader
+        title="Following"
+        standfirst="Topics and entities you follow or mute. This shapes what feels relevant in your feed."
+        breadcrumb={[{ href: "/feed", label: "Feed" }, { label: "Following" }]}
+      />
 
-      <FollowingPanel items={items} />
+      <div className="mt-10">
+        <FollowingPanel items={items} />
+      </div>
     </main>
   );
 }

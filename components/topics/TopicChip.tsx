@@ -10,7 +10,7 @@ export function TopicChip({ slug, name }: { slug: string; name: string }) {
   return (
     <Link
       href={`/topics/${slug}`}
-      className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-2 py-0.5 text-[12px] font-medium text-[var(--primary-text)] transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+      className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--primary-text)] transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
     >
       {name}
     </Link>

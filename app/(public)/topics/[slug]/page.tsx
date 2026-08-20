@@ -1,12 +1,13 @@
-import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { type FollowState } from "@/app/actions/follows";
 import { FollowTarget } from "@/app/generated/prisma/enums";
 import { FollowButton } from "@/components/engagement/FollowButton";
-import { FeedIllustration } from "@/components/feed/FeedIllustration";
 import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
+import { Reveal } from "@/components/motion/Reveal";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
 import { db } from "@/lib/db";
 import { getTopicFeed } from "@/lib/feed";
 import { requireSession } from "@/lib/rbac/guards";
@@ -57,84 +58,68 @@ export default async function TopicArchivePage({
   const followState: FollowState = follow ? (follow.muted ? "muted" : "following") : "none";
 
   return (
-    <main className="w-full max-w-[1200px] flex-1 mx-auto px-6 py-10">
-      <Link
-        href="/feed"
-        className="mb-6 inline-flex min-h-[24px] items-center gap-1.5 rounded-[var(--radius-sm)] text-[14px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-      >
-        <ArrowLeft size={14} strokeWidth={2} aria-hidden />
-        Back to feed
-      </Link>
+    <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-24">
+      <header className="border-b border-[var(--hairline)] pb-8 pt-12 sm:pt-16">
+        <Reveal y={16}>
+          <p className="pulse-label">
+            <Link
+              href="/feed"
+              className="pulse-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              Feed
+            </Link>
+            <span aria-hidden className="px-2">
+              /
+            </span>
+            <span className="text-[color:var(--foreground)]">Topic</span>
+          </p>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-[32px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-          {topic.name}
-        </h1>
-        <FollowButton
-          targetType={FollowTarget.TOPIC}
-          targetId={topic.id}
-          initialState={followState}
-          label={topic.name}
-        />
-      </div>
-      {topic.description && (
-        <p className="mt-2 max-w-[60ch] text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-          {topic.description}
-        </p>
-      )}
+          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <h1 className="pulse-display pulse-display-md text-[color:var(--foreground)]">
+              {topic.name}
+            </h1>
+            <FollowButton
+              targetType={FollowTarget.TOPIC}
+              targetId={topic.id}
+              initialState={followState}
+              label={topic.name}
+            />
+          </div>
+
+          {topic.description && (
+            <p className="mt-4 max-w-[62ch] text-[17px] leading-[1.6] text-[color:var(--muted-foreground)]">
+              {topic.description}
+            </p>
+          )}
+        </Reveal>
+      </header>
 
       {posts.length === 0 ? (
-        <div className="mx-auto mt-16 flex max-w-sm flex-col items-center gap-6 text-center">
-          <div
-            className="text-[var(--muted-foreground)] opacity-60 animate-float-drift"
-            aria-hidden="true"
-          >
-            <FeedIllustration className="h-auto w-36" />
-          </div>
-          <div className="flex flex-col gap-3">
-            <h2 className="text-[20px] font-bold text-[var(--foreground)]">
-              Nothing tagged {topic.name} yet.
-            </h2>
-            <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-              When a post is tagged with this topic, it will appear here.
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          heading={`Nothing tagged ${topic.name} yet.`}
+          body="When a post is tagged with this topic, it will appear here."
+        />
       ) : (
-        <section aria-label={`Posts about ${topic.name}`} className="mt-8">
+        <section aria-label={`Posts about ${topic.name}`} className="mt-12">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post) => (
-              <SecondaryPostCard key={post.id} post={post} />
+            {posts.map((post, i) => (
+              <Reveal key={post.id} y={28} delay={(i % 3) * 80} className="h-full">
+                <SecondaryPostCard post={post} />
+              </Reveal>
             ))}
           </div>
         </section>
       )}
 
-      {(posts.length > 0 || page > 1) && (
-        <nav aria-label="Topic pagination" className="mt-12 flex items-center justify-center gap-4">
-          {page > 1 && (
-            <a
-              href={page === 2 ? `/topics/${slug}` : `/topics/${slug}?page=${page - 1}`}
-              className="min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              <span aria-hidden>←</span> Newer
-            </a>
-          )}
-          {posts.length > 0 && (
-            <span className="select-none text-[14px] tabular-nums text-[var(--muted-foreground)]">
-              Page {page}
-            </span>
-          )}
-          {hasNext && (
-            <a
-              href={`/topics/${slug}?page=${page + 1}`}
-              className="min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              Older <span aria-hidden>→</span>
-            </a>
-          )}
-        </nav>
-      )}
+      <Pagination
+        label="Topic pagination"
+        page={page}
+        hasNext={hasNext}
+        previousHref={
+          page > 1 ? (page === 2 ? `/topics/${slug}` : `/topics/${slug}?page=${page - 1}`) : null
+        }
+        nextHref={`/topics/${slug}?page=${page + 1}`}
+      />
     </main>
   );
 }

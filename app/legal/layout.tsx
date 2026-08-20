@@ -9,32 +9,32 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         <div className="mx-auto flex h-16 w-full max-w-[720px] items-center justify-between px-6">
           <Link
             href="/feed"
-            className="text-[18px] font-black uppercase tracking-[0.04em] text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+            className="text-[18px] font-black uppercase tracking-[0.04em] text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
           >
             AIESEC Pulse
           </Link>
           <nav aria-label="Legal" className="flex gap-4 text-[14px]">
             <Link
               href="/legal/privacy"
-              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              className="text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]"
             >
               Privacy
             </Link>
             <Link
               href="/legal/cookies"
-              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              className="text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]"
             >
               Cookies
             </Link>
             <Link
               href="/legal/terms"
-              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              className="text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]"
             >
               Terms
             </Link>
             <Link
               href="/legal/content-policy"
-              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              className="text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]"
             >
               Content policy
             </Link>

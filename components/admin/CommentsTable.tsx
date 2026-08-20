@@ -32,7 +32,7 @@ export function CommentsTable({ rows }: { rows: CommentRow[] }) {
             className="aiesec-card flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] text-[var(--muted-foreground)]">
+              <p className="text-[13px] text-[color:var(--muted-foreground)]">
                 {row.authorName}
                 {row.authorEntity ? ` · ${row.authorEntity}` : ""} ·{" "}
                 <time dateTime={row.createdAt}>
@@ -45,24 +45,24 @@ export function CommentsTable({ rows }: { rows: CommentRow[] }) {
                 · on{" "}
                 <Link
                   href={`/posts/${row.postSlug}`}
-                  className="text-[var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  className="text-[color:var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                 >
                   {row.postTitle}
                 </Link>
               </p>
 
               {row.status === "DELETED" ? (
-                <p className="mt-1.5 text-[15px] italic text-[var(--muted-foreground)]">
+                <p className="mt-1.5 text-[15px] italic text-[color:var(--muted-foreground)]">
                   Deleted by its author.
                 </p>
               ) : (
-                <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-[1.5] text-[var(--foreground)]">
+                <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-[1.5] text-[color:var(--foreground)]">
                   {row.body}
                 </p>
               )}
 
               {row.status === "HIDDEN" && (
-                <p className="mt-1.5 text-[13px] text-[var(--destructive-text)]">
+                <p className="mt-1.5 text-[13px] text-[color:var(--destructive-text)]">
                   Hidden{row.hiddenReason ? `: ${row.hiddenReason}` : ""}
                 </p>
               )}
@@ -74,7 +74,7 @@ export function CommentsTable({ rows }: { rows: CommentRow[] }) {
                   <form action={async () => restoreComment(row.id).then(() => undefined)}>
                     <button
                       type="submit"
-                      className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:border-[var(--success)] hover:text-[var(--success-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                      className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:border-[var(--success)] hover:text-[color:var(--success-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                     >
                       Restore
                     </button>
@@ -83,7 +83,7 @@ export function CommentsTable({ rows }: { rows: CommentRow[] }) {
                   <button
                     type="button"
                     onClick={() => setHideTarget({ id: row.id, excerpt: row.body.slice(0, 80) })}
-                    className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:border-[var(--destructive)] hover:text-[var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                    className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:border-[var(--destructive)] hover:text-[color:var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                   >
                     Hide
                   </button>

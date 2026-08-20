@@ -1,8 +1,9 @@
-import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 import { listMyDrafts } from "@/app/actions/drafts";
 import { DeleteDraftButton } from "@/components/drafts/DeleteDraftButton";
+import { Reveal } from "@/components/motion/Reveal";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { requirePermission } from "@/lib/rbac/guards";
 import { relativeTime } from "@/lib/relative-time";
 
@@ -11,56 +12,55 @@ export default async function DraftsPage() {
   const drafts = await listMyDrafts();
 
   return (
-    <main className="mx-auto w-full max-w-[1200px] px-6 py-10">
-      <Link
-        href="/profile"
-        className="mb-8 inline-flex min-h-[24px] items-center gap-1.5 rounded-[var(--radius-sm)] text-[14px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-      >
-        <ArrowLeft size={14} strokeWidth={2} aria-hidden />
-        Back to your posts
-      </Link>
-
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-[24px] font-black leading-tight text-[var(--foreground)]">
-          My drafts
-          <span className="ml-2 text-[16px] font-normal text-[var(--muted-foreground)]">
-            ({drafts.length})
-          </span>
-        </h1>
-        <Link href="/posts/new" className="aiesec-btn-primary shrink-0">
-          New post
-        </Link>
-      </div>
+    <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-24">
+      <PageHeader
+        title="Drafts"
+        count={drafts.length}
+        standfirst="Saved automatically as you write. Nothing here is visible to anyone else yet."
+        breadcrumb={[
+          { href: "/feed", label: "Feed" },
+          { href: "/profile", label: "Your posts" },
+          { label: "Drafts" },
+        ]}
+        actions={
+          <Link href="/posts/new" className="aiesec-btn-primary">
+            New post
+          </Link>
+        }
+      />
 
       {drafts.length === 0 ? (
         <DraftsEmptyState />
       ) : (
-        <ul className="flex flex-col gap-2">
-          {drafts.map((draft) => (
-            <li
+        <ul className="mt-10 flex flex-col gap-3">
+          {drafts.map((draft, i) => (
+            <Reveal
+              as="li"
               key={draft.id}
-              className="aiesec-card flex flex-wrap items-center justify-between gap-3 p-4"
+              y={18}
+              delay={Math.min(i, 8) * 55}
+              className="pulse-plate pulse-plate-interactive flex flex-wrap items-center justify-between gap-3 p-5"
             >
               <Link
                 href={`/posts/${draft.slug}/edit`}
                 className="min-w-0 flex-1 rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
-                <p className="truncate text-[15px] font-bold leading-snug text-[var(--foreground)] transition-colors hover:text-[var(--primary-text)]">
+                <p className="truncate text-[15px] font-bold leading-snug text-[color:var(--foreground)] transition-colors hover:text-[color:var(--primary-text)]">
                   {draft.title || "Untitled draft"}
                 </p>
-                <p className="mt-1 line-clamp-1 text-[13px] leading-[1.5] text-[var(--muted-foreground)]">
+                <p className="mt-1 line-clamp-1 text-[13px] leading-[1.5] text-[color:var(--muted-foreground)]">
                   {draft.summary || draft.bodyText || "No content yet."}
                 </p>
                 <time
                   dateTime={draft.updatedAt.toISOString()}
-                  className="mt-1 block text-[12px] text-[var(--muted-foreground)]"
+                  className="mt-1 block text-[12px] text-[color:var(--muted-foreground)]"
                 >
                   Last saved {relativeTime(draft.updatedAt)}
                 </time>
               </Link>
 
               <DeleteDraftButton postId={draft.id} title={draft.title} />
-            </li>
+            </Reveal>
           ))}
         </ul>
       )}
@@ -70,17 +70,17 @@ export default async function DraftsPage() {
 
 function DraftsEmptyState() {
   return (
-    <div className="aiesec-card flex flex-col items-center gap-6 px-8 py-16 text-center">
+    <div className="pulse-plate mt-10 flex flex-col items-center gap-7 px-8 py-20 text-center">
       <div
-        className="text-[var(--muted-foreground)] opacity-60 animate-float-drift"
+        className="animate-float-drift pulse-ambient text-[color:var(--muted-foreground)] opacity-60"
         aria-hidden="true"
       >
         <DraftIllustration className="h-auto w-28" />
       </div>
 
       <div className="flex max-w-sm flex-col gap-3">
-        <h2 className="text-[20px] font-bold text-[var(--foreground)]">No drafts yet.</h2>
-        <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
+        <h2 className="text-[20px] font-bold text-[color:var(--foreground)]">No drafts yet.</h2>
+        <p className="text-[16px] leading-[1.6] text-[color:var(--muted-foreground)]">
           Start writing an update — it&apos;s saved automatically as you go, so you can leave and
           pick it back up anytime.
         </p>

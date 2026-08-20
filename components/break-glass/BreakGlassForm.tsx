@@ -29,14 +29,14 @@ export function BreakGlassForm() {
   const [state, formAction] = useActionState<BreakGlassState, FormData>(breakGlassSignIn, null);
 
   const inputClass =
-    "w-full min-h-[40px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none";
+    "w-full min-h-[40px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none";
 
   return (
     <form action={formAction} className="aiesec-card flex flex-col gap-4 p-6">
       <div>
         <label
           htmlFor="bg-email"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+          className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
         >
           Email
         </label>
@@ -53,7 +53,7 @@ export function BreakGlassForm() {
       <div>
         <label
           htmlFor="bg-password"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+          className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
         >
           Password
         </label>
@@ -71,7 +71,7 @@ export function BreakGlassForm() {
       <div>
         <label
           htmlFor="bg-totp"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+          className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
         >
           Authenticator code
         </label>
@@ -87,13 +87,13 @@ export function BreakGlassForm() {
           aria-describedby="bg-totp-hint"
           className={`${inputClass} tracking-[0.4em]`}
         />
-        <p id="bg-totp-hint" className="mt-1 text-[13px] text-[var(--muted-foreground)]">
+        <p id="bg-totp-hint" className="mt-1 text-[13px] text-[color:var(--muted-foreground)]">
           Six digits from the authenticator enrolled for this account.
         </p>
       </div>
 
       {state?.error && (
-        <p role="alert" className="text-[14px] text-[var(--destructive-text)]">
+        <p role="alert" className="text-[14px] text-[color:var(--destructive-text)]">
           {state.error}
         </p>
       )}

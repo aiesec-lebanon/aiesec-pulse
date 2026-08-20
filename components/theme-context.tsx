@@ -43,7 +43,7 @@ function applyClass(resolved: Resolved) {
 
 // useSyncExternalStore rather than mirroring into useState: both sources of
 // truth live outside React, and copying them in an effect renders twice.
-// First paint is set by ThemeScript before hydration, which prevents the flash.
+// First paint is set by BootScript before hydration, which prevents the flash.
 function subscribeToStored(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
   window.addEventListener(LOCAL_CHANGE_EVENT, onChange);

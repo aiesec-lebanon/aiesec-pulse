@@ -1,4 +1,5 @@
 import { PostComposer } from "@/components/PostComposer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { listActiveTopics } from "@/lib/content/topics";
 import { isEnabled } from "@/lib/flags";
 import { availableAudiencesFor, publishingRoleKeyFor } from "@/lib/org/scope";
@@ -21,19 +22,23 @@ export default async function NewPostPage() {
       : undefined;
 
   return (
-    <main className="mx-auto w-full max-w-[720px] px-6 py-10">
-      <h1 className="text-[36px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-        Share an update
-      </h1>
-      <p className="mt-2 text-[16px] text-[var(--muted-foreground)]">
-        Your post will reach AIESEC members worldwide.
-      </p>
+    <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24">
+      <PageHeader
+        title="Share an update"
+        standfirst="Your post will reach AIESEC members worldwide."
+        breadcrumb={[
+          { href: "/feed", label: "Feed" },
+          { href: "/drafts", label: "Drafts" },
+          { label: "New post" },
+        ]}
+        bordered={false}
+      />
 
-      <div className="mt-5 mb-8">
+      <div className="mb-10 mt-2">
         {quota.atLimit ? (
           <span
             role="status"
-            className="inline-flex items-center rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-3 py-1.5 text-[13px] font-medium text-[var(--destructive-text)]"
+            className="inline-flex items-center rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-3 py-1.5 text-[13px] font-medium text-[color:var(--destructive-text)]"
           >
             You&apos;ve used your {quota.max} {quota.max === 1 ? "post" : "posts"} for this week.
             The next one goes to the approval queue.
@@ -41,7 +46,7 @@ export default async function NewPostPage() {
         ) : (
           <span
             role="status"
-            className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1.5 text-[13px] font-medium text-[var(--muted-foreground)]"
+            className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1.5 text-[13px] font-medium text-[color:var(--muted-foreground)]"
           >
             Posts this week: {quota.used} of {quota.max}
           </span>

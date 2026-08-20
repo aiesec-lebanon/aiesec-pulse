@@ -5,6 +5,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CommentStatus, PostStatus } from "@/app/generated/prisma/enums";
+import { Parallax } from "@/components/motion/Parallax";
+import { Reveal } from "@/components/motion/Reveal";
 import { CommentsSection } from "@/components/post-detail/CommentsSection";
 import { DocumentRenderer, type MediaLookup } from "@/components/post-detail/DocumentRenderer";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
@@ -124,116 +126,161 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   const cover = mediaUrl(post.cover);
 
   return (
-    // pb-24 on mobile leaves room for the sticky engagement bar (~52px).
-    <main className="mx-auto w-full max-w-[720px] px-6 py-8 pb-24 md:pb-16">
+    <main className="pb-24 md:pb-16">
       <ReadingProgress />
 
-      <Link
-        href="/feed"
-        className="mb-8 inline-flex min-h-[24px] items-center gap-1.5 rounded-[var(--radius-sm)] text-[14px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-      >
-        <ArrowLeft size={14} strokeWidth={2} aria-hidden />
-        Back to feed
-      </Link>
+      {/* The cover breaks the reading measure deliberately: it is the one
+          cinematic beat on a page whose job is otherwise to get out of the
+          way. It drifts against the scroll inside a fixed frame, so the
+          headline below rises past a moving image rather than a static one. */}
+      {cover ? (
+        <header className="relative">
+          <div className="pulse-media-frame relative aspect-[4/3] w-full overflow-hidden rounded-none sm:aspect-[16/9] lg:aspect-[21/9]">
+            <Parallax depth={-70} scale={1.18} className="absolute inset-0">
+              <Image
+                src={cover}
+                alt={post.cover?.altText ?? ""}
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover"
+              />
+            </Parallax>
+            <span aria-hidden className="pulse-image-scrim" />
+          </div>
 
-      {cover && (
-        <div className="mb-8 aspect-video w-full overflow-hidden rounded-[var(--radius-lg)]">
-          <Image
-            src={cover}
-            alt={post.cover?.altText ?? ""}
-            width={720}
-            height={405}
-            priority
-            className="h-full w-full object-cover"
-          />
-        </div>
+          <div className="mx-auto -mt-24 w-full max-w-[760px] px-6 sm:-mt-28">
+            <Reveal y={24} className="pulse-plate p-7 shadow-[var(--elev-4)] sm:p-10">
+              <PostHeading title={post.title} />
+            </Reveal>
+          </div>
+        </header>
+      ) : (
+        <header className="mx-auto w-full max-w-[760px] px-6 pt-16">
+          <Reveal y={24}>
+            <PostHeading title={post.title} />
+          </Reveal>
+        </header>
       )}
 
-      <h1 className="break-words text-[32px] font-black leading-[1.1] tracking-tight text-[var(--foreground)] md:text-[40px]">
-        {post.title}
-      </h1>
+      <div className="mx-auto w-full max-w-[760px] px-6">
+        <Reveal y={20} delay={80}>
+          <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-3 border-y border-[var(--hairline)] py-5">
+            <PostAvatar
+              fullName={post.author.fullName}
+              avatarUrl={post.author.avatarUrl}
+              size="md"
+            />
+            <div className="min-w-0">
+              <p className="text-[15px] font-bold leading-tight text-[color:var(--foreground)]">
+                {post.author.fullName}
+              </p>
+              <p className="mt-0.5 text-[13px] text-[color:var(--muted-foreground)]">
+                {post.publisher.name}
+              </p>
+            </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <PostAvatar fullName={post.author.fullName} avatarUrl={post.author.avatarUrl} size="lg" />
-        <div className="min-w-0">
-          <p className="text-[15px] font-bold leading-tight text-[var(--foreground)]">
-            {post.author.fullName}
-          </p>
-          <p className="text-[13px] text-[var(--muted-foreground)]">{post.publisher.name}</p>
-        </div>
-        <span aria-hidden className="text-[var(--muted-foreground)]">
-          ·
-        </span>
-        <time
-          dateTime={publishedAt.toISOString()}
-          className="shrink-0 text-[13px] text-[var(--muted-foreground)]"
-        >
-          {relativeTime(publishedAt)}
-        </time>
-        <span aria-hidden className="text-[var(--muted-foreground)]">
-          ·
-        </span>
-        <span className="shrink-0 text-[13px] text-[var(--muted-foreground)]">
-          {post.readingMinutes} min read
-        </span>
-      </div>
-
-      {post.topics.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {post.topics.map(({ topic }) => (
-            <TopicChip key={topic.slug} slug={topic.slug} name={topic.name} />
-          ))}
-        </div>
-      )}
-
-      {/* ~70ch keeps line length in the comfortable reading range. */}
-      <div className="mt-8 max-w-[70ch]">
-        <DocumentRenderer doc={post.bodyJson} media={bodyMedia} />
-      </div>
-
-      {post.linkUrl && (
-        <a
-          href={post.linkUrl}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-          className="mt-8 flex items-center justify-between gap-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] px-5 py-4 transition-colors hover:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-        >
-          <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold text-[var(--foreground)]">
-              {extractDomain(post.linkUrl)}
-            </p>
-            <p className="mt-0.5 truncate text-[13px] text-[var(--muted-foreground)]">
-              {post.linkUrl}
+            <p className="pulse-label ml-auto flex shrink-0 items-center gap-3 text-[10px]">
+              <time dateTime={publishedAt.toISOString()} className="tracking-[0.12em]">
+                {relativeTime(publishedAt)}
+              </time>
+              <span aria-hidden>/</span>
+              <span className="tracking-[0.12em]">{post.readingMinutes} min read</span>
             </p>
           </div>
-          <ExternalLink
-            size={16}
-            strokeWidth={2}
-            className="shrink-0 text-[var(--muted-foreground)]"
-            aria-hidden
-          />
-          <span className="sr-only">Opens in a new tab</span>
-        </a>
-      )}
+        </Reveal>
 
-      <EngagementBar
-        postId={post.id}
-        initialReacted={post.reactions.length > 0}
-        initialReactionCount={post.reactionCount}
-        initialBookmarked={post.bookmarks.length > 0}
-        commentCount={post.commentCount}
-      />
+        {post.topics.length > 0 && (
+          <Reveal y={16} delay={140}>
+            <div className="mt-5 flex flex-wrap gap-1.5">
+              {post.topics.map(({ topic }) => (
+                <TopicChip key={topic.slug} slug={topic.slug} name={topic.name} />
+              ))}
+            </div>
+          </Reveal>
+        )}
 
-      {rankingBreakdown && <WhyThisAppeared breakdown={rankingBreakdown} />}
+        {/* ~70ch keeps line length in the comfortable reading range. */}
+        <Reveal y={20} delay={180} className="mt-10 max-w-[70ch]">
+          <DocumentRenderer doc={post.bodyJson} media={bodyMedia} />
+        </Reveal>
 
-      <RelatedPosts posts={relatedPosts} />
+        {post.linkUrl && (
+          <Reveal y={16}>
+            <a
+              href={post.linkUrl}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="pulse-plate pulse-plate-interactive mt-10 flex items-center justify-between gap-4 px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              <div className="min-w-0">
+                <p className="pulse-label text-[10px]">Source</p>
+                <p className="mt-1.5 truncate text-[15px] font-bold text-[color:var(--foreground)]">
+                  {extractDomain(post.linkUrl)}
+                </p>
+                <p className="mt-0.5 truncate text-[13px] text-[color:var(--muted-foreground)]">
+                  {post.linkUrl}
+                </p>
+              </div>
+              <ExternalLink
+                size={16}
+                strokeWidth={2}
+                className="shrink-0 text-[color:var(--muted-foreground)]"
+                aria-hidden
+              />
+              <span className="sr-only">Opens in a new tab</span>
+            </a>
+          </Reveal>
+        )}
 
-      <CommentsSection
-        postId={post.id}
-        totalCount={post.commentCount}
-        initialComments={initialComments.map(toCommentDto)}
-        currentUserName={user.fullName}
-      />
+        <EngagementBar
+          postId={post.id}
+          initialReacted={post.reactions.length > 0}
+          initialReactionCount={post.reactionCount}
+          initialBookmarked={post.bookmarks.length > 0}
+          commentCount={post.commentCount}
+        />
+
+        {rankingBreakdown && <WhyThisAppeared breakdown={rankingBreakdown} />}
+
+        <RelatedPosts posts={relatedPosts} />
+
+        <CommentsSection
+          postId={post.id}
+          totalCount={post.commentCount}
+          initialComments={initialComments.map(toCommentDto)}
+          currentUserName={user.fullName}
+        />
+      </div>
+
+      <div className="mx-auto mt-16 w-full max-w-[1240px] px-6">
+        <BackToFeed />
+      </div>
     </main>
+  );
+}
+
+function PostHeading({ title }: { title: string }) {
+  return (
+    <h1 className="pulse-display pulse-display-md break-words text-[color:var(--foreground)]">
+      {title}
+    </h1>
+  );
+}
+
+function BackToFeed() {
+  return (
+    <Link
+      href="/feed"
+      className="group inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-sm)] text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+    >
+      <ArrowLeft
+        size={15}
+        strokeWidth={2.5}
+        aria-hidden
+        className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:-translate-x-[calc(3px*var(--motion-travel))]"
+      />
+      Back to feed
+    </Link>
   );
 }

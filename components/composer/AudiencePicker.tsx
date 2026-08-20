@@ -50,10 +50,10 @@ export function AudiencePicker({ options, value, onChange, error, disabled }: Pr
   if (options.kind === "fixed") {
     return (
       <div>
-        <p className="mb-1.5 text-[14px] font-medium text-[var(--foreground)]">Audience</p>
-        <p className="text-[15px] text-[var(--muted-foreground)]">
+        <p className="mb-1.5 text-[14px] font-medium text-[color:var(--foreground)]">Audience</p>
+        <p className="text-[15px] text-[color:var(--muted-foreground)]">
           This post will reach{" "}
-          <span className="font-medium text-[var(--foreground)]">{options.label}</span>.
+          <span className="font-medium text-[color:var(--foreground)]">{options.label}</span>.
         </p>
       </div>
     );
@@ -61,7 +61,7 @@ export function AudiencePicker({ options, value, onChange, error, disabled }: Pr
 
   return (
     <div>
-      <p className="mb-1.5 text-[14px] font-medium text-[var(--foreground)]">Audience</p>
+      <p className="mb-1.5 text-[14px] font-medium text-[color:var(--foreground)]">Audience</p>
 
       <div
         aria-label="Audience scope"
@@ -79,8 +79,8 @@ export function AudiencePicker({ options, value, onChange, error, disabled }: Pr
               className={[
                 "rounded-[var(--radius-sm)] px-3 py-1.5 text-[14px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50",
                 active
-                  ? "bg-[var(--card)] text-[var(--foreground)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                  ? "bg-[var(--card)] text-[color:var(--foreground)]"
+                  : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
               ].join(" ")}
             >
               {scope.label}
@@ -104,7 +104,7 @@ export function AudiencePicker({ options, value, onChange, error, disabled }: Pr
             }}
             aria-label="Choose a region"
             aria-describedby={error ? "audience-error" : undefined}
-            className="h-11 w-full max-w-[320px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 text-[16px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-11 w-full max-w-[320px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="" disabled>
               {options.regions.length === 0 ? "No regions available yet" : "Select a region…"}
@@ -133,7 +133,7 @@ export function AudiencePicker({ options, value, onChange, error, disabled }: Pr
         <p
           id="audience-error"
           role="alert"
-          className="mt-1.5 text-[13px] text-[var(--destructive-text)]"
+          className="mt-1.5 text-[13px] text-[color:var(--destructive-text)]"
         >
           {error}
         </p>
@@ -211,17 +211,22 @@ function EntityTypeahead({
           aria-label="Search for an entity"
           aria-describedby={describedBy}
           autoComplete="off"
-          className="h-11 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 pr-9 text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-11 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 pr-9 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
           {isSearching ? (
             <Loader2
               size={16}
               strokeWidth={2}
-              className="animate-spin text-[var(--muted-foreground)] motion-reduce:animate-none"
+              className="animate-spin pulse-ambient text-[color:var(--muted-foreground)]"
             />
           ) : value.entityId ? (
-            <Check size={16} strokeWidth={2.5} className="text-[var(--success-text)]" aria-hidden />
+            <Check
+              size={16}
+              strokeWidth={2.5}
+              className="text-[color:var(--success-text)]"
+              aria-hidden
+            />
           ) : null}
         </span>
         {query && !disabled && (
@@ -229,7 +234,7 @@ function EntityTypeahead({
             type="button"
             onClick={clear}
             aria-label="Clear entity selection"
-            className="absolute right-8 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full p-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:flex"
+            className="absolute right-8 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full p-2 text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:flex"
           >
             <X size={14} strokeWidth={2} />
           </button>
@@ -243,11 +248,11 @@ function EntityTypeahead({
               <button
                 type="button"
                 onClick={() => pick(entity)}
-                className="flex w-full min-h-[36px] items-center justify-between gap-2 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left text-[14px] text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                className="flex w-full min-h-[36px] items-center justify-between gap-2 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-left text-[14px] text-[color:var(--foreground)] transition-colors hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
                 <span className="truncate">{entity.name}</span>
                 {entity.tag && (
-                  <span className="shrink-0 text-[12px] text-[var(--muted-foreground)]">
+                  <span className="shrink-0 text-[12px] text-[color:var(--muted-foreground)]">
                     {entity.tag}
                   </span>
                 )}
@@ -258,7 +263,7 @@ function EntityTypeahead({
       )}
 
       {query.trim().length >= 2 && !isSearching && results.length === 0 && !value.entityId && (
-        <p className="mt-1.5 text-[13px] text-[var(--muted-foreground)]">
+        <p className="mt-1.5 text-[13px] text-[color:var(--muted-foreground)]">
           No matching entity found.
         </p>
       )}

@@ -39,10 +39,10 @@ export default async function BreakGlassConsole() {
   return (
     <main className="mx-auto w-full max-w-[900px] px-6 py-10">
       <div className="mb-6 rounded-[var(--radius-lg)] border border-[var(--destructive)]/40 bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))] px-5 py-4">
-        <p className="text-[14px] font-bold text-[var(--destructive-text)]">
+        <p className="text-[14px] font-bold text-[color:var(--destructive-text)]">
           Break-glass session · {session.email} · expires in {expiresIn} minutes
         </p>
-        <p className="mt-1 text-[14px] text-[var(--foreground)]">
+        <p className="mt-1 text-[14px] text-[color:var(--foreground)]">
           This session cannot be renewed. Return to the normal admin area at{" "}
           <Link href="/admin/queue" className="underline">
             /admin
@@ -51,7 +51,7 @@ export default async function BreakGlassConsole() {
         </p>
       </div>
 
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">Platform status</h1>
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Platform status</h1>
 
       <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Stat label="Active members" value={userCount} />
@@ -61,39 +61,39 @@ export default async function BreakGlassConsole() {
       </div>
 
       <section aria-labelledby="sync-heading" className="mt-8">
-        <h2 id="sync-heading" className="mb-2 text-[16px] font-bold text-[var(--foreground)]">
+        <h2 id="sync-heading" className="mb-2 text-[16px] font-bold text-[color:var(--foreground)]">
           Last sync run
         </h2>
         {lastSync ? (
-          <p className="text-[15px] text-[var(--muted-foreground)]">
+          <p className="text-[15px] text-[color:var(--muted-foreground)]">
             {lastSync.kind} · {lastSync.status} · {lastSync.processed} processed, {lastSync.failed}{" "}
             failed · started {lastSync.startedAt.toISOString()}
             {lastSync.error ? ` · ${lastSync.error}` : ""}
           </p>
         ) : (
-          <p className="text-[15px] text-[var(--muted-foreground)]">No sync has run yet.</p>
+          <p className="text-[15px] text-[color:var(--muted-foreground)]">No sync has run yet.</p>
         )}
       </section>
 
       <section aria-labelledby="bg-history" className="mt-8">
-        <h2 id="bg-history" className="mb-2 text-[16px] font-bold text-[var(--foreground)]">
+        <h2 id="bg-history" className="mb-2 text-[16px] font-bold text-[color:var(--foreground)]">
           Recent break-glass activity
         </h2>
         {recentBreakGlass.length === 0 ? (
-          <p className="text-[15px] text-[var(--muted-foreground)]">Nothing recorded.</p>
+          <p className="text-[15px] text-[color:var(--muted-foreground)]">Nothing recorded.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {recentBreakGlass.map((event) => (
               <li key={event.id} className="aiesec-card flex flex-wrap items-center gap-3 p-3">
-                <span className="text-[14px] font-medium text-[var(--foreground)]">
+                <span className="text-[14px] font-medium text-[color:var(--foreground)]">
                   {event.action}
                 </span>
-                <span className="text-[14px] text-[var(--muted-foreground)]">
+                <span className="text-[14px] text-[color:var(--muted-foreground)]">
                   {event.actorLabel}
                 </span>
                 <time
                   dateTime={event.createdAt.toISOString()}
-                  className="ml-auto text-[13px] tabular-nums text-[var(--muted-foreground)]"
+                  className="ml-auto text-[13px] tabular-nums text-[color:var(--muted-foreground)]"
                 >
                   {event.createdAt.toISOString()}
                 </time>
@@ -115,8 +115,8 @@ export default async function BreakGlassConsole() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="aiesec-card px-5 py-4">
-      <p className="text-[28px] font-bold text-[var(--foreground)]">{value}</p>
-      <p className="mt-0.5 text-[13px] text-[var(--muted-foreground)]">{label}</p>
+      <p className="text-[28px] font-bold text-[color:var(--foreground)]">{value}</p>
+      <p className="mt-0.5 text-[13px] text-[color:var(--muted-foreground)]">{label}</p>
     </div>
   );
 }

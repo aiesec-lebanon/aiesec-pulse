@@ -136,7 +136,7 @@ export function RichTextEditor({
         {isEmpty && (
           <p
             aria-hidden
-            className="pointer-events-none absolute left-4 top-3 text-[18px] text-[var(--muted-foreground)]"
+            className="pointer-events-none absolute left-4 top-3 text-[18px] text-[color:var(--muted-foreground)]"
           >
             {placeholder}
           </p>
@@ -389,16 +389,16 @@ function ToolbarButton({
         "flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
         disabled
-          ? "cursor-not-allowed text-[var(--muted-foreground)] opacity-40"
+          ? "cursor-not-allowed text-[color:var(--muted-foreground)] opacity-40"
           : active
-            ? "bg-[var(--primary)]/10 text-[var(--primary-text)]"
-            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+            ? "bg-[var(--primary)]/10 text-[color:var(--primary-text)]"
+            : "text-[color:var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[color:var(--foreground)]",
       ].join(" ")}
     >
       <Icon
         size={16}
         strokeWidth={2}
-        className={spinning ? "animate-spin motion-reduce:animate-none" : undefined}
+        className={spinning ? "animate-spin pulse-ambient" : undefined}
         aria-hidden
       />
     </button>

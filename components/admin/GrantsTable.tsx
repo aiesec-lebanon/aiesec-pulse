@@ -61,37 +61,37 @@ export function GrantsTable({ rows }: { rows: GrantRow[] }) {
             <tr className="border-b border-[var(--border)]">
               <th
                 scope="col"
-                className="px-4 py-3 text-[14px] font-medium text-[var(--muted-foreground)]"
+                className="px-4 py-3 text-[14px] font-medium text-[color:var(--muted-foreground)]"
               >
                 Member
               </th>
               <th
                 scope="col"
-                className="px-4 py-3 text-[14px] font-medium text-[var(--muted-foreground)]"
+                className="px-4 py-3 text-[14px] font-medium text-[color:var(--muted-foreground)]"
               >
                 Role
               </th>
               <th
                 scope="col"
-                className="px-4 py-3 text-[14px] font-medium text-[var(--muted-foreground)]"
+                className="px-4 py-3 text-[14px] font-medium text-[color:var(--muted-foreground)]"
               >
                 Scope
               </th>
               <th
                 scope="col"
-                className="px-4 py-3 text-[14px] font-medium text-[var(--muted-foreground)]"
+                className="px-4 py-3 text-[14px] font-medium text-[color:var(--muted-foreground)]"
               >
                 Term
               </th>
               <th
                 scope="col"
-                className="px-4 py-3 text-[14px] font-medium text-[var(--muted-foreground)]"
+                className="px-4 py-3 text-[14px] font-medium text-[color:var(--muted-foreground)]"
               >
                 Ends
               </th>
               <th
                 scope="col"
-                className="px-4 py-3 text-right text-[14px] font-medium text-[var(--muted-foreground)]"
+                className="px-4 py-3 text-right text-[14px] font-medium text-[color:var(--muted-foreground)]"
               >
                 <span className="sr-only">Actions</span>
               </th>
@@ -101,19 +101,23 @@ export function GrantsTable({ rows }: { rows: GrantRow[] }) {
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-[var(--border)] last:border-0">
                 <td className="px-4 py-3">
-                  <p className="text-[15px] text-[var(--foreground)]">{row.memberName}</p>
+                  <p className="text-[15px] text-[color:var(--foreground)]">{row.memberName}</p>
                   {row.memberEmail && (
-                    <p className="text-[13px] text-[var(--muted-foreground)]">{row.memberEmail}</p>
+                    <p className="text-[13px] text-[color:var(--muted-foreground)]">
+                      {row.memberEmail}
+                    </p>
                   )}
                 </td>
-                <td className="px-4 py-3 text-[14px] text-[var(--foreground)]">{row.roleName}</td>
-                <td className="px-4 py-3 text-[14px] text-[var(--muted-foreground)]">
+                <td className="px-4 py-3 text-[14px] text-[color:var(--foreground)]">
+                  {row.roleName}
+                </td>
+                <td className="px-4 py-3 text-[14px] text-[color:var(--muted-foreground)]">
                   {row.scopeName}
                 </td>
-                <td className="px-4 py-3 text-[14px] tabular-nums text-[var(--muted-foreground)]">
+                <td className="px-4 py-3 text-[14px] tabular-nums text-[color:var(--muted-foreground)]">
                   {row.termLabel ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-[14px] text-[var(--muted-foreground)]">
+                <td className="px-4 py-3 text-[14px] text-[color:var(--muted-foreground)]">
                   {formatDate(row.endsAt)}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -124,7 +128,7 @@ export function GrantsTable({ rows }: { rows: GrantRow[] }) {
                       setReason("");
                       setError(null);
                     }}
-                    className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:border-[var(--destructive)] hover:text-[var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                    className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:border-[var(--destructive)] hover:text-[color:var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                   >
                     Revoke
                     <span className="sr-only">
@@ -147,20 +151,20 @@ export function GrantsTable({ rows }: { rows: GrantRow[] }) {
             aria-labelledby="revoke-title"
             className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-6"
           >
-            <h2 id="revoke-title" className="text-[18px] font-bold text-[var(--foreground)]">
+            <h2 id="revoke-title" className="text-[18px] font-bold text-[color:var(--foreground)]">
               Revoke {target.roleName}?
             </h2>
-            <p className="mt-2 text-[14px] leading-[1.5] text-[var(--muted-foreground)]">
+            <p className="mt-2 text-[14px] leading-[1.5] text-[color:var(--muted-foreground)]">
               {target.memberName} loses this role within a minute. The grant is kept in the record
               as revoked, not deleted.
             </p>
 
             <label
               htmlFor="revoke-reason"
-              className="mb-1.5 mt-4 block text-[14px] font-medium text-[var(--foreground)]"
+              className="mb-1.5 mt-4 block text-[14px] font-medium text-[color:var(--foreground)]"
             >
               Reason{" "}
-              <span aria-hidden className="text-[var(--destructive-text)]">
+              <span aria-hidden className="text-[color:var(--destructive-text)]">
                 *
               </span>
             </label>
@@ -170,10 +174,10 @@ export function GrantsTable({ rows }: { rows: GrantRow[] }) {
               onChange={(e) => setReason(e.target.value)}
               rows={3}
               maxLength={500}
-              className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+              className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
             />
             {error && (
-              <p role="alert" className="mt-1 text-[13px] text-[var(--destructive-text)]">
+              <p role="alert" className="mt-1 text-[13px] text-[color:var(--destructive-text)]">
                 {error}
               </p>
             )}

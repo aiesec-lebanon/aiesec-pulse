@@ -61,3 +61,6 @@ context.md
 literature-review.md
 PRODUCT.md
 /docs/
+
+# Impeccable design-review artefacts (screenshots, local config) — local only
+/.impeccable

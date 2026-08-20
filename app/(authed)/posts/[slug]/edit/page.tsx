@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { VersionHistoryPanel } from "@/components/drafts/VersionHistoryPanel";
 import { PostComposer } from "@/components/PostComposer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { sanitiseDocument } from "@/lib/content/document";
 import { listActiveTopics } from "@/lib/content/topics";
 import { db } from "@/lib/db";
@@ -54,19 +55,23 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
     : undefined;
 
   return (
-    <main className="mx-auto w-full max-w-[720px] px-6 py-10">
-      <h1 className="text-[36px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-        Edit your draft
-      </h1>
-      <p className="mt-2 text-[16px] text-[var(--muted-foreground)]">
-        Your changes save automatically as you go.
-      </p>
+    <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24">
+      <PageHeader
+        title="Edit your draft"
+        standfirst="Your changes save automatically as you go."
+        breadcrumb={[
+          { href: "/feed", label: "Feed" },
+          { href: "/drafts", label: "Drafts" },
+          { label: "Edit" },
+        ]}
+        bordered={false}
+      />
 
-      <div className="mt-5 mb-8">
+      <div className="mb-10 mt-2">
         {quota.atLimit ? (
           <span
             role="status"
-            className="inline-flex items-center rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-3 py-1.5 text-[13px] font-medium text-[var(--destructive-text)]"
+            className="inline-flex items-center rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-3 py-1.5 text-[13px] font-medium text-[color:var(--destructive-text)]"
           >
             You&apos;ve used your {quota.max} {quota.max === 1 ? "post" : "posts"} for this week.
             Publishing this one will send it to the approval queue.
@@ -74,7 +79,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
         ) : (
           <span
             role="status"
-            className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1.5 text-[13px] font-medium text-[var(--muted-foreground)]"
+            className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1.5 text-[13px] font-medium text-[color:var(--muted-foreground)]"
           >
             Posts this week: {quota.used} of {quota.max}
           </span>

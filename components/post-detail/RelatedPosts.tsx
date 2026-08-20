@@ -1,4 +1,5 @@
 import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
+import { Reveal } from "@/components/motion/Reveal";
 import type { FeedPost } from "@/types/feed";
 
 // Design Guidelines §10.11: no new visual treatment — the same
@@ -10,14 +11,16 @@ export function RelatedPosts({ posts }: { posts: FeedPost[] }) {
   return (
     <section
       aria-labelledby="related-posts-heading"
-      className="mt-12 border-t border-[var(--border)] pt-8"
+      className="mt-16 border-t border-[var(--hairline)] pt-10"
     >
-      <h2 id="related-posts-heading" className="text-[20px] font-bold text-[var(--foreground)]">
+      <h2 id="related-posts-heading" className="pulse-label">
         Related posts
       </h2>
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {posts.map((post) => (
-          <SecondaryPostCard key={post.id} post={post} />
+      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+        {posts.map((post, i) => (
+          <Reveal key={post.id} y={24} delay={(i % 2) * 70} className="h-full">
+            <SecondaryPostCard post={post} />
+          </Reveal>
         ))}
       </div>
     </section>

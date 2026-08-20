@@ -69,8 +69,8 @@ export default async function AdminActivityPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">Publishing activity</h1>
-      <p className="mt-1 text-[15px] text-[var(--muted-foreground)]">
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Publishing activity</h1>
+      <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
         {network ? "Across the whole network." : "Across the entities you administer."} Reach and
         read rate arrive once the read beacon is collecting.
       </p>
@@ -87,12 +87,17 @@ export default async function AdminActivityPage() {
       </div>
 
       <section aria-labelledby="top-publishers">
-        <h2 id="top-publishers" className="mb-3 text-[16px] font-bold text-[var(--foreground)]">
+        <h2
+          id="top-publishers"
+          className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
+        >
           Most active publishers
         </h2>
         {publishers.length === 0 ? (
           <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[var(--muted-foreground)]">Nothing published yet.</p>
+            <p className="text-[16px] text-[color:var(--muted-foreground)]">
+              Nothing published yet.
+            </p>
           </div>
         ) : (
           <div className="aiesec-card overflow-x-auto p-0">
@@ -102,19 +107,19 @@ export default async function AdminActivityPage() {
                 <tr className="border-b border-[var(--border)]">
                   <th
                     scope="col"
-                    className="px-4 py-3 text-[14px] font-medium text-[var(--muted-foreground)]"
+                    className="px-4 py-3 text-[14px] font-medium text-[color:var(--muted-foreground)]"
                   >
                     Publisher
                   </th>
                   <th
                     scope="col"
-                    className="px-4 py-3 text-[14px] font-medium text-[var(--muted-foreground)]"
+                    className="px-4 py-3 text-[14px] font-medium text-[color:var(--muted-foreground)]"
                   >
                     Entity
                   </th>
                   <th
                     scope="col"
-                    className="px-4 py-3 text-right text-[14px] font-medium text-[var(--muted-foreground)]"
+                    className="px-4 py-3 text-right text-[14px] font-medium text-[color:var(--muted-foreground)]"
                   >
                     Published
                   </th>
@@ -128,13 +133,13 @@ export default async function AdminActivityPage() {
                       key={row.authorId}
                       className="border-b border-[var(--border)] last:border-0"
                     >
-                      <td className="px-4 py-3 text-[15px] text-[var(--foreground)]">
+                      <td className="px-4 py-3 text-[15px] text-[color:var(--foreground)]">
                         {author?.fullName ?? "Former member"}
                       </td>
-                      <td className="px-4 py-3 text-[14px] text-[var(--muted-foreground)]">
+                      <td className="px-4 py-3 text-[14px] text-[color:var(--muted-foreground)]">
                         {author?.primaryEntity?.name ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-right text-[15px] tabular-nums text-[var(--foreground)]">
+                      <td className="px-4 py-3 text-right text-[15px] tabular-nums text-[color:var(--foreground)]">
                         {row._count._all}
                       </td>
                     </tr>
@@ -152,8 +157,8 @@ export default async function AdminActivityPage() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="aiesec-card px-5 py-4">
-      <p className="text-[28px] font-bold text-[var(--foreground)]">{value}</p>
-      <p className="mt-0.5 text-[13px] text-[var(--muted-foreground)]">{label}</p>
+      <p className="text-[28px] font-bold text-[color:var(--foreground)]">{value}</p>
+      <p className="mt-0.5 text-[13px] text-[color:var(--muted-foreground)]">{label}</p>
     </div>
   );
 }

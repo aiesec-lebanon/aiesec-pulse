@@ -52,7 +52,7 @@ export function EngagementBar({
 
       <a
         href="#comments"
-        className="flex min-h-[36px] items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-[15px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="flex min-h-[36px] items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-[15px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
         <MessageCircle size={18} strokeWidth={2} aria-hidden />
         <span>{commentCount}</span>
@@ -62,12 +62,17 @@ export function EngagementBar({
       <button
         type="button"
         onClick={handleShare}
-        className="flex min-h-[36px] items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-[15px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="flex min-h-[36px] items-center gap-1.5 rounded-[var(--radius-sm)] px-1 text-[15px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
         {copied ? (
           <>
-            <Check size={18} strokeWidth={2} className="text-[var(--success-text)]" aria-hidden />
-            <span className="text-[var(--success-text)]">Copied</span>
+            <Check
+              size={18}
+              strokeWidth={2}
+              className="text-[color:var(--success-text)]"
+              aria-hidden
+            />
+            <span className="text-[color:var(--success-text)]">Copied</span>
           </>
         ) : (
           <>

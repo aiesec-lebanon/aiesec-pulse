@@ -1,6 +1,8 @@
-import { FeedIllustration } from "@/components/feed/FeedIllustration";
+import { Reveal } from "@/components/motion/Reveal";
 import { SearchForm, type SearchFormInitial } from "@/components/search/SearchForm";
 import { SearchResultRow } from "@/components/search/SearchResultRow";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
 import { listActiveTopics } from "@/lib/content/topics";
 import { requireSession } from "@/lib/rbac/guards";
 import { listFilterableEntities, parseSearchFilters, searchPosts } from "@/lib/search";
@@ -69,14 +71,20 @@ export default async function SearchPage({
   };
 
   return (
-    <main className="mx-auto w-full max-w-[900px] flex-1 px-6 py-10">
-      <h1 className="text-[32px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-        Search
-      </h1>
+    <main className="mx-auto w-full max-w-[940px] flex-1 px-6 pb-24">
+      <header className="pb-8 pt-12 sm:pt-16">
+        <Reveal y={16}>
+          <h1 className="pulse-display pulse-display-md text-[color:var(--foreground)]">Search</h1>
+          <p className="mt-3 max-w-[52ch] text-[17px] leading-[1.55] text-[color:var(--muted-foreground)]">
+            Everything published across the network, by keyword — then narrowed by topic, entity,
+            type or date.
+          </p>
+        </Reveal>
+      </header>
 
-      <div className="mt-6">
+      <Reveal y={16} delay={80}>
         <SearchForm topics={topics} entities={entities} initial={initial} />
-      </div>
+      </Reveal>
 
       {!filters.query ? (
         <EmptyState
@@ -89,60 +97,29 @@ export default async function SearchPage({
           body="Try a different keyword, or loosen a filter."
         />
       ) : (
-        <section aria-label={`Results for ${filters.query}`} className="mt-8">
-          <div role="list" className="flex flex-col gap-4">
-            {results.map((hit) => (
-              <SearchResultRow key={hit.id} hit={hit} />
+        <section aria-label={`Results for ${filters.query}`} className="mt-12">
+          <p className="pulse-label mb-5 border-b border-[var(--hairline)] pb-4">
+            {results.length} {results.length === 1 ? "result" : "results"} on this page
+          </p>
+          <div role="list" className="flex flex-col">
+            {results.map((hit, i) => (
+              <Reveal key={hit.id} y={18} delay={Math.min(i, 6) * 55}>
+                <SearchResultRow hit={hit} />
+              </Reveal>
             ))}
           </div>
         </section>
       )}
 
       {filters.query && (results.length > 0 || filters.page > 1) && (
-        <nav
-          aria-label="Search pagination"
-          className="mt-12 flex items-center justify-center gap-4"
-        >
-          {filters.page > 1 && (
-            <a
-              href={paginationHref(params, filters.page - 1)}
-              className="min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              <span aria-hidden>←</span> Newer
-            </a>
-          )}
-          {results.length > 0 && (
-            <span className="select-none text-[14px] tabular-nums text-[var(--muted-foreground)]">
-              Page {filters.page}
-            </span>
-          )}
-          {hasNext && (
-            <a
-              href={paginationHref(params, filters.page + 1)}
-              className="min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              Older <span aria-hidden>→</span>
-            </a>
-          )}
-        </nav>
+        <Pagination
+          label="Search pagination"
+          page={filters.page}
+          hasNext={hasNext}
+          previousHref={filters.page > 1 ? paginationHref(params, filters.page - 1) : null}
+          nextHref={paginationHref(params, filters.page + 1)}
+        />
       )}
     </main>
-  );
-}
-
-function EmptyState({ heading, body }: { heading: string; body: string }) {
-  return (
-    <div className="mx-auto mt-16 flex max-w-sm flex-col items-center gap-6 text-center">
-      <div
-        className="text-[var(--muted-foreground)] opacity-60 animate-float-drift"
-        aria-hidden="true"
-      >
-        <FeedIllustration className="h-auto w-36" />
-      </div>
-      <div className="flex flex-col gap-3">
-        <h2 className="text-[20px] font-bold text-[var(--foreground)]">{heading}</h2>
-        <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">{body}</p>
-      </div>
-    </div>
   );
 }

@@ -32,13 +32,13 @@ export function DeleteDraftButton({ postId, title }: { postId: string; title: st
         onClick={() => void handleDelete()}
         disabled={isDeleting}
         aria-label={title ? `Delete draft: ${title}` : "Delete draft"}
-        className="flex min-h-[36px] items-center gap-1.5 rounded-[var(--radius-sm)] px-3 text-[13px] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex min-h-[36px] items-center gap-1.5 rounded-[var(--radius-sm)] px-3 text-[13px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--destructive-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Trash2 size={14} strokeWidth={2} aria-hidden />
         {isDeleting ? "Deleting…" : "Delete"}
       </button>
       {error && (
-        <p role="alert" className="text-[12px] text-[var(--destructive-text)]">
+        <p role="alert" className="text-[12px] text-[color:var(--destructive-text)]">
           {error}
         </p>
       )}

@@ -76,10 +76,13 @@ export function PrivacyControls({
   return (
     <>
       <section aria-labelledby="export-heading" className="mt-10">
-        <h2 id="export-heading" className="mb-3 text-[20px] font-bold text-[var(--foreground)]">
+        <h2
+          id="export-heading"
+          className="mb-3 text-[20px] font-bold text-[color:var(--foreground)]"
+        >
           Download your data
         </h2>
-        <p className="text-[15px] leading-[1.6] text-[var(--muted-foreground)]">
+        <p className="text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
           A machine-readable copy of your profile, posts, comments, reactions, bookmarks, reading
           history, notifications and sessions.
         </p>
@@ -94,10 +97,13 @@ export function PrivacyControls({
       </section>
 
       <section aria-labelledby="request-heading" className="mt-10">
-        <h2 id="request-heading" className="mb-3 text-[20px] font-bold text-[var(--foreground)]">
+        <h2
+          id="request-heading"
+          className="mb-3 text-[20px] font-bold text-[color:var(--foreground)]"
+        >
           Make a request
         </h2>
-        <p className="text-[15px] leading-[1.6] text-[var(--muted-foreground)]">
+        <p className="text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
           Requests are handled by AIESEC International as data controller, within {slaDays} days.
         </p>
 
@@ -105,13 +111,13 @@ export function PrivacyControls({
           <ul className="mt-4 flex flex-col gap-2">
             {openRequests.map((request) => (
               <li key={request.id} className="aiesec-card flex flex-wrap items-center gap-3 p-3">
-                <span className="rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[var(--muted-foreground)]">
+                <span className="rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--muted-foreground)]">
                   {request.kind.toLowerCase()}
                 </span>
-                <span className="text-[14px] text-[var(--foreground)]">
+                <span className="text-[14px] text-[color:var(--foreground)]">
                   {request.status.replace("_", " ").toLowerCase()}
                 </span>
-                <span className="ml-auto text-[13px] text-[var(--muted-foreground)]">
+                <span className="ml-auto text-[13px] text-[color:var(--muted-foreground)]">
                   Due{" "}
                   {new Date(request.dueAt).toLocaleDateString("en-GB", {
                     day: "numeric",
@@ -128,7 +134,7 @@ export function PrivacyControls({
           <div>
             <label
               htmlFor="dsr-kind"
-              className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+              className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
             >
               What would you like to do?
             </label>
@@ -136,7 +142,7 @@ export function PrivacyControls({
               id="dsr-kind"
               value={kind}
               onChange={(e) => setKind(e.target.value)}
-              className="w-full min-h-[36px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+              className="w-full min-h-[36px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
             >
               {REQUEST_KINDS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -149,10 +155,10 @@ export function PrivacyControls({
           <div>
             <label
               htmlFor="dsr-notes"
-              className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+              className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
             >
               Anything we should know?{" "}
-              <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
+              <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
             </label>
             <textarea
               id="dsr-notes"
@@ -160,12 +166,12 @@ export function PrivacyControls({
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               maxLength={2000}
-              className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+              className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
             />
           </div>
 
           {kind === "ERASURE" && (
-            <p className="rounded-[var(--radius-md)] border border-[var(--destructive)]/30 bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))] px-4 py-3 text-[14px] leading-[1.5] text-[var(--destructive-text)]">
+            <p className="rounded-[var(--radius-md)] border border-[var(--destructive)]/30 bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))] px-4 py-3 text-[14px] leading-[1.5] text-[color:var(--destructive-text)]">
               Erasure is permanent. You&apos;ll be asked whether your posts and comments should stay
               published under &ldquo;Former member&rdquo; or be removed. Records of moderation
               decisions are kept for seven years with your identity removed.
@@ -177,8 +183,8 @@ export function PrivacyControls({
               role="alert"
               className={`text-[14px] ${
                 message.tone === "ok"
-                  ? "text-[var(--success-text)]"
-                  : "text-[var(--destructive-text)]"
+                  ? "text-[color:var(--success-text)]"
+                  : "text-[color:var(--destructive-text)]"
               }`}
             >
               {message.text}

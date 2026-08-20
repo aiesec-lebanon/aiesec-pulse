@@ -53,7 +53,7 @@ export function GrantRoleForm({
   }
 
   const inputClass =
-    "w-full min-h-[36px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none";
+    "w-full min-h-[36px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none";
 
   return (
     <div className="aiesec-card p-5">
@@ -62,7 +62,7 @@ export function GrantRoleForm({
         <div className="min-w-[240px] flex-1">
           <label
             htmlFor="member-search"
-            className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
             Find a member
           </label>
@@ -84,10 +84,10 @@ export function GrantRoleForm({
         <div>
           <label
             htmlFor="grant-member"
-            className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
             Member{" "}
-            <span aria-hidden className="text-[var(--destructive-text)]">
+            <span aria-hidden className="text-[color:var(--destructive-text)]">
               *
             </span>
           </label>
@@ -109,7 +109,10 @@ export function GrantRoleForm({
               </option>
             ))}
           </select>
-          <p id="grant-member-hint" className="mt-1 text-[13px] text-[var(--muted-foreground)]">
+          <p
+            id="grant-member-hint"
+            className="mt-1 text-[13px] text-[color:var(--muted-foreground)]"
+          >
             Members appear once they have signed in at least once.
           </p>
         </div>
@@ -117,10 +120,10 @@ export function GrantRoleForm({
         <div>
           <label
             htmlFor="grant-role"
-            className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
             Role{" "}
-            <span aria-hidden className="text-[var(--destructive-text)]">
+            <span aria-hidden className="text-[color:var(--destructive-text)]">
               *
             </span>
           </label>
@@ -138,7 +141,7 @@ export function GrantRoleForm({
               </option>
             ))}
           </select>
-          <p id="grant-role-hint" className="mt-1 text-[13px] text-[var(--muted-foreground)]">
+          <p id="grant-role-hint" className="mt-1 text-[13px] text-[color:var(--muted-foreground)]">
             {selectedRole?.description}
           </p>
         </div>
@@ -147,10 +150,10 @@ export function GrantRoleForm({
           <div>
             <label
               htmlFor="grant-entity"
-              className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+              className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
             >
               Entity{" "}
-              <span aria-hidden className="text-[var(--destructive-text)]">
+              <span aria-hidden className="text-[color:var(--destructive-text)]">
                 *
               </span>
             </label>
@@ -169,7 +172,10 @@ export function GrantRoleForm({
                 </option>
               ))}
             </select>
-            <p id="grant-entity-hint" className="mt-1 text-[13px] text-[var(--muted-foreground)]">
+            <p
+              id="grant-entity-hint"
+              className="mt-1 text-[13px] text-[color:var(--muted-foreground)]"
+            >
               The grant covers this entity and everything beneath it in the tree.
             </p>
           </div>
@@ -178,10 +184,10 @@ export function GrantRoleForm({
         <div>
           <label
             htmlFor="grant-reason"
-            className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
             Reason{" "}
-            <span aria-hidden className="text-[var(--destructive-text)]">
+            <span aria-hidden className="text-[color:var(--destructive-text)]">
               *
             </span>
           </label>
@@ -201,7 +207,7 @@ export function GrantRoleForm({
         {message && (
           <p
             role="alert"
-            className={`text-[14px] ${message.tone === "ok" ? "text-[var(--success-text)]" : "text-[var(--destructive-text)]"}`}
+            className={`text-[14px] ${message.tone === "ok" ? "text-[color:var(--success-text)]" : "text-[color:var(--destructive-text)]"}`}
           >
             {message.text}
           </p>

@@ -49,8 +49,10 @@ export default async function AdminPrivacyPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">Data subject requests</h1>
-      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[var(--muted-foreground)]">
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">
+        Data subject requests
+      </h1>
+      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
         Statutory deadline is {DSR_SLA_DAYS} days from receipt. Erasure is irreversible and is the
         only path in Pulse that destroys personal data — verify the requester&apos;s identity and
         record the content election before executing one.
@@ -69,7 +71,9 @@ export default async function AdminPrivacyPage() {
       <div className="mt-8">
         {rows.length === 0 ? (
           <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[var(--muted-foreground)]">No requests on record.</p>
+            <p className="text-[16px] text-[color:var(--muted-foreground)]">
+              No requests on record.
+            </p>
           </div>
         ) : (
           <DsrQueue rows={rows} />
@@ -92,12 +96,14 @@ function Stat({
     <div className="aiesec-card px-5 py-4">
       <p
         className={`text-[28px] font-bold ${
-          tone === "alert" ? "text-[var(--destructive-text)]" : "text-[var(--foreground)]"
+          tone === "alert"
+            ? "text-[color:var(--destructive-text)]"
+            : "text-[color:var(--foreground)]"
         }`}
       >
         {value}
       </p>
-      <p className="mt-0.5 text-[13px] text-[var(--muted-foreground)]">{label}</p>
+      <p className="mt-0.5 text-[13px] text-[color:var(--muted-foreground)]">{label}</p>
     </div>
   );
 }
