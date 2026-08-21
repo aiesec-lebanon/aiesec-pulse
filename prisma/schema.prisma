@@ -731,6 +731,7 @@ enum AppealStatus {
 enum ActorType {
   USER
   SYSTEM
+  ADMIN
 }
 
 model Report {

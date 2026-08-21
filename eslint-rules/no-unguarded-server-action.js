@@ -24,10 +24,16 @@ const GUARD_NAMES = new Set([
 
 /**
  * Files exempt from the rule, each with the reason.
- * Keep this short — every entry is a hole in the enforcement. Empty since M17
- * removed break-glass, which was the only action module that ever claimed one.
+ * Keep this short — every entry is a hole in the enforcement.
  */
-const ALLOWLIST = new Map();
+const ALLOWLIST = new Map([
+  [
+    "admin-auth.ts",
+    "The admin sign-in and sign-out actions: there is no session to guard on " +
+      "the way in, and signing out without one is a no-op. This file must " +
+      "contain nothing but those two actions.",
+  ],
+]);
 
 /** Unwraps `await x`, `foo()`, `a.b()` to the callee identifier name. */
 function calleeName(node) {

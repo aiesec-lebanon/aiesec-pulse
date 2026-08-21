@@ -87,6 +87,10 @@ export function userActor(user: { id: string; fullName: string }): AuditActor {
   return { type: ActorType.USER, id: user.id, label: user.fullName };
 }
 
+export function adminActor(admin: { email: string }): AuditActor {
+  return { type: ActorType.ADMIN, id: null, label: admin.email };
+}
+
 export function systemActor(label: string): AuditActor {
   return { type: ActorType.SYSTEM, id: null, label };
 }

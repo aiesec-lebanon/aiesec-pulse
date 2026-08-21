@@ -3,7 +3,7 @@ import Link from "next/link";
 export type AuditRow = {
   id: string;
   actorLabel: string;
-  actorType: "USER" | "SYSTEM";
+  actorType: "USER" | "SYSTEM" | "ADMIN";
   action: string;
   targetType: string;
   targetHref: string | null;
@@ -22,6 +22,11 @@ const ACTOR_BADGE: Record<AuditRow["actorType"], { label: string; className: str
   SYSTEM: {
     label: "System",
     className: "bg-[var(--muted)] text-[color:var(--muted-foreground)]",
+  },
+  ADMIN: {
+    label: "Admin",
+    className:
+      "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[color:var(--destructive-text)]",
   },
 };
 
