@@ -13,7 +13,7 @@ test.describe("a member", () => {
     await expect(page).toHaveURL(/\/unauthorized/);
   });
 
-  test("cannot reach role management", async ({ page, signInAs }) => {
+  test("cannot reach the permission matrix", async ({ page, signInAs }) => {
     await signInAs("member");
     await page.goto("/admin/roles");
     await expect(page).toHaveURL(/\/unauthorized/);
@@ -84,7 +84,10 @@ test.describe("an MC vice president", () => {
     await expect(page.getByRole("heading", { name: /approval queue/i })).toBeVisible();
   });
 
-  test("cannot reach position management or execute data requests", async ({ page, signInAs }) => {
+  test("cannot reach the permission matrix or execute data requests", async ({
+    page,
+    signInAs,
+  }) => {
     await signInAs("mc_vp");
     await page.goto("/admin/roles");
     await expect(page).toHaveURL(/\/unauthorized/);
@@ -94,19 +97,24 @@ test.describe("an MC vice president", () => {
 });
 
 test.describe("the PAI", () => {
-  test("reaches position management, which offers no way to grant a position", async ({
-    page,
-    signInAs,
-  }) => {
+  test("edits what a class may do, and cannot edit who holds one", async ({ page, signInAs }) => {
     await signInAs("pai");
     await page.goto("/admin/roles");
-    await expect(page.getByRole("heading", { name: /^positions$/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /active positions/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^permissions$/i })).toBeVisible();
 
     // Authority is whatever GIS says it is, so there is deliberately nothing
-    // here that confers one - not for an admin either.
+    // here that confers a position - not for an admin either.
     await expect(page.locator("#grant-role")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^grant$/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^revoke$/i })).toHaveCount(0);
+
+    // The matrix itself is editable, except for the two locked classes.
+    await expect(
+      page.getByRole("checkbox", { name: /publish within quota for MCVP/i })
+    ).toBeEnabled();
+    await expect(
+      page.getByRole("checkbox", { name: /publish within quota for PAI/i })
+    ).toBeDisabled();
   });
 
   test("reaches the data request queue", async ({ page, signInAs }) => {

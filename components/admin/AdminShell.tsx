@@ -26,7 +26,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { href: "/admin/comments", label: "Comments", section: "comments" },
   { href: "/admin/activity", label: "Publishing activity", section: "activity" },
   { href: "/admin/audit", label: "Audit log", section: "audit" },
-  { href: "/admin/roles", label: "Roles & grants", section: "roles" },
+  { href: "/admin/roles", label: "Permissions", section: "roles" },
   { href: "/admin/privacy", label: "Data requests", section: "privacy" },
   { href: "/admin/flags", label: "Feature flags", section: "flags" },
 ];

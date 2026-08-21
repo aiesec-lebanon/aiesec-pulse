@@ -1,111 +1,59 @@
-import { type GrantRow, GrantsTable } from "@/components/admin/GrantsTable";
-import { db } from "@/lib/db";
+import { type MatrixCell, PermissionMatrix } from "@/components/admin/PermissionMatrix";
+import { ROLE_DESCRIPTIONS, ROLE_KEYS, ROLE_NAMES } from "@/lib/rbac/catalogue";
 import { requirePermission } from "@/lib/rbac/guards";
-import { currentTermLabel } from "@/lib/term";
+import { permissionMatrix } from "@/lib/rbac/matrix";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminRolesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
+export default async function AdminRolesPage() {
   await requirePermission("admin.configure_roles");
-  const { q } = await searchParams;
-  const query = q?.trim() ?? "";
 
-  const grants = await db.roleGrant.findMany({
-    where: {
-      revokedAt: null,
-      OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
-      ...(query
-        ? {
-            user: {
-              OR: [
-                { fullName: { contains: query, mode: "insensitive" as const } },
-                { email: { contains: query, mode: "insensitive" as const } },
-              ],
-            },
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    select: {
-      id: true,
-      termLabel: true,
-      startsAt: true,
-      endsAt: true,
-      user: { select: { id: true, fullName: true, email: true } },
-      role: { select: { key: true, name: true } },
-      scope: { select: { name: true, path: true } },
-    },
-  });
-
-  const rows: GrantRow[] = grants.map((g) => ({
-    id: g.id,
-    memberName: g.user.fullName,
-    memberEmail: g.user.email,
-    roleKey: g.role.key,
-    roleName: g.role.name,
-    scopeName: g.scope?.name ?? "Global",
-    termLabel: g.termLabel,
-    startsAt: g.startsAt.toISOString(),
-    endsAt: g.endsAt?.toISOString() ?? null,
-  }));
+  const matrix = await permissionMatrix();
+  const allowed = ROLE_KEYS.flatMap((role) =>
+    matrix[role].map((permission): MatrixCell => `${role}:${permission}`)
+  );
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Positions</h1>
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Permissions</h1>
       <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
-        Nobody is appointed here. Every position below was read from the member&apos;s current EXPA
-        positions and is re-derived each time they sign in — revoking one is a containment measure
-        for a grant that looks wrong, not a way to change who holds what. Positions expire at the
-        end of the current term ({currentTermLabel()}) unless EXPA still lists them.
+        Who holds which position is not decided here. Every position is read from the member&apos;s
+        current EXPA positions and re-derived each time they sign in. What is decided here is what
+        each position may do — a change takes effect for everyone within a minute, with no deploy.
       </p>
 
-      {/* Server-rendered, so the page still filters with scripting disabled. */}
-      <form method="get" action="/admin/roles" className="mt-6 flex flex-wrap items-end gap-2">
-        <div className="min-w-[240px] flex-1">
-          <label
-            htmlFor="grant-search"
-            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
-          >
-            Find a member
-          </label>
-          <input
-            id="grant-search"
-            name="q"
-            type="search"
-            defaultValue={query}
-            placeholder="Name or email"
-            className="min-h-[36px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[14px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
-          />
-        </div>
-        <button type="submit" className="aiesec-btn-secondary min-h-[36px]">
-          Search
-        </button>
-      </form>
-
-      <section aria-labelledby="grants-heading" className="mt-10">
+      <section aria-labelledby="matrix-heading" className="mt-8">
         <h2
-          id="grants-heading"
+          id="matrix-heading"
           className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
         >
-          Active positions
-          <span className="ml-2 text-[14px] font-normal text-[color:var(--muted-foreground)]">
-            ({rows.length})
-          </span>
+          Position classes
         </h2>
-        {rows.length === 0 ? (
-          <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[color:var(--muted-foreground)]">
-              {query ? "No positions match that search." : "No active positions yet."}
-            </p>
-          </div>
-        ) : (
-          <GrantsTable rows={rows} />
-        )}
+        <PermissionMatrix allowed={allowed} />
+      </section>
+
+      <section aria-labelledby="classes-heading" className="mt-10">
+        <h2
+          id="classes-heading"
+          className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
+        >
+          What each class is
+        </h2>
+        <dl className="flex flex-col gap-2">
+          {ROLE_KEYS.map((role) => (
+            <div
+              key={role}
+              className="aiesec-card flex flex-wrap items-baseline gap-x-3 gap-y-1 p-4"
+            >
+              <dt className="text-[15px] font-bold text-[color:var(--foreground)]">
+                {ROLE_NAMES[role]}
+              </dt>
+              <dd className="min-w-[240px] flex-1 text-[14px] leading-[1.6] text-[color:var(--muted-foreground)]">
+                {ROLE_DESCRIPTIONS[role]}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </section>
     </main>
   );
