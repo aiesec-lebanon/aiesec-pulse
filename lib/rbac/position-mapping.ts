@@ -31,9 +31,6 @@ export type PositionClass = {
   authority: "GLOBAL" | "OFFICE";
 };
 
-// Closed list. New titles are added here by a maintainer, deliberately — never
-// inferred from live data, and never pattern-matched into existence. Ordered
-// most senior first: `choosePrimaryOfficeId` reads the order as precedence.
 export const POSITION_CLASSES: readonly PositionClass[] = [
   { role: "pai", title: "pai", requiredTag: "AI", authority: "GLOBAL" },
   { role: "ai_vp", title: "aivp", requiredTag: "AI", authority: "GLOBAL" },
@@ -42,7 +39,7 @@ export const POSITION_CLASSES: readonly PositionClass[] = [
   { role: "mc_vp", title: "mcvp", requiredTag: "MC", authority: "OFFICE" },
   { role: "lc_president", title: "lcp", requiredTag: "LC", authority: "OFFICE" },
   { role: "lc_vp", title: "lcvp", requiredTag: "LC", authority: "OFFICE" },
-  { role: "member", title: "member", requiredTag: null, authority: "GLOBAL" },
+  { role: "member", title: "member", requiredTag: null, authority: "OFFICE" },
 ];
 
 export type DerivedGrant = {
