@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 import {
   isLockedFullAccess,
   PERMISSION_KEYS,
-  permissionsForRole,
   PUBLISHING_TIERS,
   ROLE_KEYS,
   rolePermissionPairs,
+  seededPermissionsFor,
 } from "@/lib/rbac/catalogue";
 
 // The catalogue lives in the module, in the migrations and in the seed. A role
@@ -87,7 +87,7 @@ describe("position classes", () => {
 
   it("grants pai, ai_vp and ai_manager every permission", () => {
     for (const role of ["pai", "ai_vp", "ai_manager"] as const) {
-      expect(permissionsForRole(role), `role ${role}`).toHaveLength(PERMISSION_KEYS.length);
+      expect(seededPermissionsFor(role), `role ${role}`).toHaveLength(PERMISSION_KEYS.length);
     }
   });
 
@@ -102,8 +102,8 @@ describe("position classes", () => {
 });
 
 describe("default permission matrix — what each class must NOT hold", () => {
-  const holds = (role: Parameters<typeof permissionsForRole>[0], permission: string) =>
-    (permissionsForRole(role) as readonly string[]).includes(permission);
+  const holds = (role: Parameters<typeof seededPermissionsFor>[0], permission: string) =>
+    (seededPermissionsFor(role) as readonly string[]).includes(permission);
 
   it("a member cannot publish, approve, moderate or administer", () => {
     expect(holds("member", "post.publish")).toBe(false);
@@ -167,7 +167,7 @@ describe("default permission matrix — what each class must NOT hold", () => {
 describe("publishing tiers", () => {
   it("covers every class that may publish, most permissive first", () => {
     const publishers = ROLE_KEYS.filter((role) =>
-      (permissionsForRole(role) as readonly string[]).includes("post.publish")
+      (seededPermissionsFor(role) as readonly string[]).includes("post.publish")
     );
     expect([...PUBLISHING_TIERS].sort()).toEqual([...publishers].sort());
     expect(PUBLISHING_TIERS[0]).toBe("pai");

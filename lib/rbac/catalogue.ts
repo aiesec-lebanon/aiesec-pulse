@@ -130,10 +130,11 @@ export const PUBLISHING_TIERS: readonly RoleKey[] = [
 /** The narrowest publishing allowance — the safe default when no tier matches. */
 export const NARROWEST_PUBLISHING_TIER: RoleKey = "lc_vp";
 
-// The seeded default of context.md §7.3 — a starting point an AI-level admin
-// re-assigns at runtime (`admin.configure_roles`), never a hard-coded rule.
-// From M18 the live answer comes from the `RolePermission` table; this stays
-// the seed and the reset point.
+// Seed data, and only seed data. The live answer to "what may this class do"
+// is the `RolePermission` table, read by `lib/rbac/matrix.ts` and re-assignable
+// at runtime by an AI-level admin (`admin.configure_roles`). What follows is
+// the starting point that table is seeded with and the state a reset returns
+// it to — never consult it to authorise anything.
 const DEFAULT_ROLE_PERMISSIONS: Record<
   Exclude<RoleKey, "pai" | "ai_vp" | "ai_manager">,
   readonly PermissionKey[]
@@ -212,13 +213,13 @@ const DEFAULT_ROLE_PERMISSIONS: Record<
 // `ai_manager` starts at full access like the two locked classes, but is an
 // ordinary editable row — an AI Manager can be scoped down without touching
 // the lockout guarantee.
-export function permissionsForRole(role: RoleKey): readonly PermissionKey[] {
+export function seededPermissionsFor(role: RoleKey): readonly PermissionKey[] {
   if (isLockedFullAccess(role) || role === "ai_manager") return PERMISSION_KEYS;
   return DEFAULT_ROLE_PERMISSIONS[role];
 }
 
 export function rolePermissionPairs(): Array<{ role: RoleKey; permission: PermissionKey }> {
   return ROLE_KEYS.flatMap((role) =>
-    permissionsForRole(role).map((permission) => ({ role, permission }))
+    seededPermissionsFor(role).map((permission) => ({ role, permission }))
   );
 }

@@ -95,7 +95,11 @@ export async function cached<T>(
 }
 
 export const cacheKeys = {
-  permissions: (userId: string) => `perm:${userId}`,
+  // Which classes a person holds and where — not what those classes may do.
+  // The two are cached apart so that editing the permission matrix busts one
+  // shared key instead of every member's entry (lib/rbac/matrix.ts).
+  roleGrants: (userId: string) => `grants:${userId}`,
+  permissionMatrix: () => "rbac:matrix",
   scopeSet: (userId: string) => `scope:${userId}`,
   session: (jti: string) => `sess:${jti}`,
   entityTree: () => "org:tree",
@@ -108,7 +112,7 @@ export const cacheKeys = {
 };
 
 export async function invalidateUserAuthorisation(userId: string): Promise<void> {
-  await cacheDelete(cacheKeys.permissions(userId), cacheKeys.scopeSet(userId));
+  await cacheDelete(cacheKeys.roleGrants(userId), cacheKeys.scopeSet(userId));
 }
 
 export function __clearLocalCache(): void {
