@@ -2,7 +2,12 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { isInSubtree } from "@/lib/org/path";
-import type { PermissionKey, RoleKey } from "@/lib/rbac/catalogue";
+import {
+  LOCKED_FULL_ACCESS_ROLES,
+  PERMISSION_KEYS,
+  type PermissionKey,
+  type RoleKey,
+} from "@/lib/rbac/catalogue";
 import { cached, cacheKeys } from "@/lib/redis";
 
 // Each active grant expands to an entity subtree by Entity.path prefix match.
@@ -49,11 +54,21 @@ async function resolve(userId: string): Promise<ResolvedAuthorisation> {
 
     const seen = new Set<string>();
     const permissions: ResolvedPermission[] = [];
-    const roleKeys = new Set<string>();
+    const roleKeys = new Set(grants.map((g) => g.role.key));
+
+    // The anti-lockout floor (architecture.md §7.1). Read off the position
+    // class itself, before a single RolePermission row is consulted, so no
+    // state of the editable matrix - and no row someone deleted by hand - can
+    // leave the platform with nobody able to administer it. Scope is `null`,
+    // meaning everywhere.
+    if (LOCKED_FULL_ACCESS_ROLES.some((locked) => roleKeys.has(locked))) {
+      return {
+        permissions: PERMISSION_KEYS.map((permission) => ({ permission, scopePath: null })),
+        roleKeys: [...roleKeys],
+      };
+    }
 
     for (const grant of grants) {
-      roleKeys.add(grant.role.key);
-
       // A scoped grant whose entity has gone missing resolves to no coverage
       // rather than to global — fail closed.
       const scopePath = grant.scopeType === "GLOBAL" ? null : (grant.scope?.path ?? undefined);
