@@ -217,18 +217,6 @@ model OauthToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-/// Emergency local credentials only. Not the normal admin path — platform admins
-/// authenticate via AIESEC OAuth and hold the `platform_admin` role.
-model BreakGlassAdmin {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String
-  totpSecretEnc Bytes?
-  isActive      Boolean   @default(true)
-  lastUsedAt    DateTime?
-  createdAt     DateTime  @default(now())
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. Content
 // ─────────────────────────────────────────────────────────────────────────────
@@ -743,7 +731,6 @@ enum AppealStatus {
 enum ActorType {
   USER
   SYSTEM
-  BREAK_GLASS
 }
 
 model Report {

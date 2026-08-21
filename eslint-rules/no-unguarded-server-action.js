@@ -17,20 +17,15 @@ const GUARD_NAMES = new Set([
   "requireSession",
   "requirePermission",
   "requireSelfOrPermission",
-  "requireBreakGlass",
   "checkPermission",
 ]);
 
 /**
  * Files exempt from the rule, each with the reason.
- * Keep this short — every entry is a hole in the enforcement.
+ * Keep this short — every entry is a hole in the enforcement. Empty since M17
+ * removed break-glass, which was the only action module that ever claimed one.
  */
-const ALLOWLIST = new Map([
-  [
-    "break-glass.ts",
-    "Break-glass exists for when the RBAC path (AIESEC OAuth + GIS) is unavailable; guarding it with the system it replaces would make it useless in the only case it is for. It is protected by password + TOTP, a fail-closed rate limit, a CRITICAL alert and an audit row on every attempt.",
-  ],
-]);
+const ALLOWLIST = new Map();
 
 /** Unwraps `await x`, `foo()`, `a.b()` to the callee identifier name. */
 function calleeName(node) {

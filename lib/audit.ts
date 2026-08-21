@@ -90,7 +90,3 @@ export function userActor(user: { id: string; fullName: string }): AuditActor {
 export function systemActor(label: string): AuditActor {
   return { type: ActorType.SYSTEM, id: null, label };
 }
-
-export function breakGlassActor(session: { adminId: string; email: string }): AuditActor {
-  return { type: ActorType.BREAK_GLASS, id: session.adminId, label: session.email };
-}

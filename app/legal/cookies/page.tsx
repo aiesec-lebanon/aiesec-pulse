@@ -67,16 +67,6 @@ export default function CookiesPage() {
           </tr>
           <tr>
             <td>
-              <code>pulse_break_glass</code>
-            </td>
-            <td>
-              Emergency administration session. Only ever set for the two or three named people who
-              hold emergency credentials.
-            </td>
-            <td>60 minutes, no renewal</td>
-          </tr>
-          <tr>
-            <td>
               <code>theme</code> (local storage)
             </td>
             <td>

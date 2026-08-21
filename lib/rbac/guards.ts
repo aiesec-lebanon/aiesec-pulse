@@ -3,7 +3,6 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import type { User } from "@/app/generated/prisma/client";
-import { type BreakGlassSession, getBreakGlassSession } from "@/lib/auth/break-glass";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { logger } from "@/lib/logger";
 import { can, GLOBAL_SCOPE, type ScopeRef } from "@/lib/rbac/can";
@@ -53,12 +52,6 @@ export async function requireSelfOrPermission(
     permission,
   });
   redirect("/unauthorized");
-}
-
-export async function requireBreakGlass(): Promise<BreakGlassSession> {
-  const session = await getBreakGlassSession();
-  if (!session) redirect("/break-glass");
-  return session;
 }
 
 export type AuthzFailure = { ok: false; error: string; code: "unauthenticated" | "forbidden" };

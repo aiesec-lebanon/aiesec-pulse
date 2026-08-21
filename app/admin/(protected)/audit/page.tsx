@@ -14,7 +14,6 @@ const ACTOR_OPTIONS = [
   { label: "All", value: "" },
   { label: "Members", value: "USER" },
   { label: "System", value: "SYSTEM" },
-  { label: "Break-glass", value: "BREAK_GLASS" },
 ] as const;
 
 function clampLimit(raw: string | undefined): number {
@@ -50,7 +49,7 @@ export default async function AdminAuditPage({
 
   const where: Prisma.AuditEventWhereInput = {
     ...entityScope,
-    ...(actor ? { actorType: actor as "USER" | "SYSTEM" | "BREAK_GLASS" } : {}),
+    ...(actor ? { actorType: actor as "USER" | "SYSTEM" } : {}),
     ...(action ? { action: { contains: action, mode: "insensitive" as const } } : {}),
   };
 

@@ -9,7 +9,6 @@ const PUBLIC_PREFIXES = [
   "/login",
   "/unauthorized",
   "/legal",
-  "/break-glass",
   "/api/auth",
   "/api/health",
   "/api/inngest",

@@ -45,18 +45,20 @@ Authorization is **data, not code**. Roles, permissions, scopes, and quotas live
 
 A permission check answers one question: _does this user hold a role granting permission `P` at a scope covering entity `E`?_ Grants expand to an entity subtree via a materialised `Entity.path`, so a grant at `/ai/mena/lb` covers every entity beneath it.
 
-| Role                | Granted by                  | Scope                 |
-| ------------------- | --------------------------- | --------------------- |
-| `member`            | Automatic on first sign-in  | Global                |
-| `entity_publisher`  | Derived from EXPA positions | Their entity          |
-| `entity_editor`     | Manually                    | Their entity          |
-| `entity_moderator`  | Manually                    | Their entity          |
-| `global_publisher`  | Derived from EXPA positions | Global                |
-| `global_moderator`  | Manually                    | Global                |
-| `platform_admin`    | Manually                    | Global                |
-| `break_glass_admin` | Provisioning script         | Emergency access only |
+Roles are the eight AIESEC position titles, a closed list. Nothing in Pulse confers one: a role is derived from a GIS position whose `role.name` matches the class exactly **and** whose `office.tag` is the level that class requires. The two axes disagreeing denies the position rather than guessing which to trust.
 
-Publishing roles are reconciled from EXPA on every sign-in and nightly. Trust-and-safety roles are granted by a human and never derived from a free-text position title.
+| Role           | GIS title    | Required `office.tag` | Scope            |
+| -------------- | ------------ | --------------------- | ---------------- |
+| `pai`          | `PAI`        | `AI`                  | Global           |
+| `ai_vp`        | `AIVP`       | `AI`                  | Global           |
+| `ai_manager`   | `AI Manager` | `AI`                  | Global           |
+| `mc_president` | `MCP`        | `MC`                  | Their MC subtree |
+| `mc_vp`        | `MCVP`       | `MC`                  | Their MC subtree |
+| `lc_president` | `LCP`        | `LC`                  | Their LC         |
+| `lc_vp`        | `LCVP`       | `LC`                  | Their LC         |
+| `member`       | `Member`     | any                   | Their office     |
+
+Grants are reconciled from GIS on every sign-in and nightly, and expire rather than being deleted so past attribution survives a handover. A person for whom no position resolves cannot sign in — there is no implicit `member` fallback.
 
 Three layers enforce this, and only the second is authoritative:
 
@@ -76,7 +78,7 @@ Members sign in through AIESEC OAuth. Pulse is the relying party and issues its 
 - The session JWT carries only `{ sub, jti, iat, exp }`. Permissions are resolved per request, so a revoked grant takes effect within the minute rather than at next login.
 - `Session.revokedAt` makes "sign out everywhere" real, and gives the platform team an offboarding lever.
 
-Break-glass is a separate, deliberately loud path for when OAuth or GIS is unavailable. It requires a password plus TOTP, is rate limited, raises a critical alert on **every** attempt, and expires after 60 minutes with no renewal. It is not the normal admin path — platform admins sign in with AIESEC OAuth.
+There is no second way in. No local credentials, no break-glass console, no mock provider. AIESEC OAuth is the sole identity authority for every AIESEC platform, so a parallel path would be a bypass of the only authority Pulse recognises and would have no offboarding story when a term ends. If AIESEC auth is down, Pulse is down; that availability ceiling is accepted deliberately (architecture.md ADR-027).
 
 ---
 
@@ -99,7 +101,6 @@ aiesec-pulse/
 │   │   ├── activity/             # Publishing analytics
 │   │   ├── audit/                # Audit log (read-only)
 │   │   └── privacy/              # Data subject request queue
-│   ├── break-glass/              # Emergency console
 │   ├── legal/                    # Privacy notice, content policy, terms
 │   ├── api/
 │   │   ├── auth/                 # start, callback, logout, mock
@@ -110,7 +111,7 @@ aiesec-pulse/
 │
 ├── lib/
 │   ├── rbac/                     # can(), guards, catalogue, position mapping
-│   ├── auth/                     # session, oauth, tokens, identity, break-glass
+│   ├── auth/                     # session, oauth, tokens, identity
 │   ├── org/                      # entity tree, materialised paths, scope sets
 │   ├── content/                  # document sanitisation, slugs
 │   ├── privacy/                  # data subject requests
@@ -192,9 +193,6 @@ INNGEST_SIGNING_KEY=
 SENTRY_DSN=
 OTEL_EXPORTER_OTLP_ENDPOINT=
 
-# Webhook that receives break-glass alerts
-BREAK_GLASS_ALERT_WEBHOOK=
-
 # Declares a non-Vercel host as the live deployment. Vercel sets VERCEL_ENV
 # itself, so this is only needed elsewhere.
 PULSE_DEPLOYMENT=
@@ -234,14 +232,6 @@ OAuth credentials take time to be issued. In the meantime, set `PULSE_E2E_MOCK_A
 ```
 
 Personas are `member`, `publisher`, `editor`, `moderator`, and `admin`. Mock auth requires both the explicit flag **and** a non-production deployment; it refuses to run on production and logs the attempt as a security event.
-
-### Provisioning a break-glass account
-
-```bash
-npm run break-glass:enrol
-```
-
-Run this interactively on a trusted machine. The generated password is printed once and never stored in plaintext.
 
 ---
 
@@ -300,8 +290,7 @@ Background jobs run through Inngest, triggered by cron. Cron only triggers a job
 - [ ] `SESSION_SECRET` and `TOKEN_ENCRYPTION_KEY` at least 32 characters, stored in a secret manager
 - [ ] Redis, Sentry, and Inngest configured
 - [ ] AIESEC OAuth client registered with the production redirect URI
-- [ ] `BREAK_GLASS_ALERT_WEBHOOK` pointed at a channel someone actually watches
-- [ ] At least one break-glass account enrolled with TOTP
+- [ ] Every intended administrator holds an AI-level GIS position — there is no other way to grant admin access
 - [ ] Smoke test: sign in → publish → approve → react → comment → check the audit log
 
 ---
@@ -354,14 +343,14 @@ The full schema is in [`prisma/schema.prisma`](prisma/schema.prisma). The main t
 ## Security Notes
 
 - Nonce-based CSP with `strict-dynamic` and no `unsafe-inline` in production; `frame-ancestors 'none'`.
-- Cookies are `httpOnly`, `Secure` in production, and `SameSite=Lax` — `Strict` on the break-glass path.
+- Cookies are `httpOnly`, `Secure` in production, and `SameSite=Lax` — `Lax`, not `Strict`, because the OAuth callback is a cross-site top-level navigation and `Strict` would withhold the cookie exactly when it is needed.
 - OAuth `state` is verified before the authorization code is spent, which is what stops login-CSRF.
 - OAuth tokens are encrypted at rest and never leave the server. Token material is redacted by field name at the logging sink, so a careless log line added later is contained by default.
 - Client IPs are stored as a keyed HMAC, never raw.
 - Post bodies are stored as structured JSON and rendered through a node allowlist. No `dangerouslySetInnerHTML`, no raw HTML ingestion. The document is re-sanitised on read as well as on write.
 - Every Server Action input is validated with Zod. Prisma parameterizes all queries.
 - Mutating Route Handlers are POST-only with an origin check, which Server Actions get from the framework.
-- Rate limits are distributed via Redis and use a sliding window. Auth and break-glass fail closed; everything else fails open, so a limiter outage degrades throttling rather than signing everyone out.
+- Rate limits are distributed via Redis and use a sliding window. Auth fails closed; everything else fails open, so a limiter outage degrades throttling rather than signing everyone out.
 - Erasure removes the person from the append-only audit log without removing the events: `actorId` is nulled and `actorLabel` becomes a salted pseudonym.
 
 ---

@@ -151,15 +151,6 @@ export const hideContentSchema = z.object({
     .max(500, "Reasons are limited to 500 characters"),
 });
 
-export const breakGlassLoginSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(12, "Break-glass passwords are at least 12 characters"),
-  totp: z
-    .string()
-    .trim()
-    .regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator"),
-});
-
 export const dataSubjectRequestSchema = z.object({
   kind: z.enum(["ACCESS", "EXPORT", "RECTIFICATION", "ERASURE", "OBJECTION"]),
   notes: z.string().trim().max(2_000).optional(),

@@ -11,7 +11,6 @@ import { redis } from "@/lib/redis";
 
 export type LimitName =
   | "auth"
-  | "breakGlass"
   | "postSubmit"
   | "draftAutosave"
   | "comment"
@@ -21,7 +20,6 @@ export type LimitName =
 
 const LIMITS: Record<LimitName, { max: number; windowSeconds: number; by: "ip" | "user" }> = {
   auth: { max: 10, windowSeconds: 15 * 60, by: "ip" },
-  breakGlass: { max: 5, windowSeconds: 15 * 60, by: "ip" },
   postSubmit: { max: 5, windowSeconds: 60, by: "user" },
   // The composer autosaves on a 5-second debounce (architecture.md §8.1), so
   // postSubmit's 5/minute budget would be exhausted by normal typing. Headroom
@@ -81,9 +79,9 @@ function localCheck(name: LimitName, key: string): RateLimitResult {
   };
 }
 
-// Fails open on a Redis error, except auth and break-glass: a limiter outage
-// should degrade throttling, not sign everyone out, but an unbounded
-// credential-stuffing window is worse than a brief lockout.
+// Fails open on a Redis error, except auth: a limiter outage should degrade
+// throttling, not sign everyone out, but an unbounded window in front of the
+// only door into the platform is worse than a brief lockout.
 export async function checkRateLimit(
   name: LimitName,
   identifier: string
@@ -95,7 +93,7 @@ export async function checkRateLimit(
     const { success, remaining, reset } = await rl.limit(identifier);
     return { allowed: success, remaining, resetAt: reset };
   } catch (error) {
-    const failClosed = name === "auth" || name === "breakGlass";
+    const failClosed = name === "auth";
     logger.error("Rate limiter unavailable", { limit: name, failClosed, error });
     return failClosed
       ? { allowed: false, remaining: 0, resetAt: Date.now() + LIMITS[name].windowSeconds * 1000 }

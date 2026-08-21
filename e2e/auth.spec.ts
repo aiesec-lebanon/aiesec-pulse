@@ -130,24 +130,18 @@ test.describe("security headers", () => {
   });
 });
 
-test.describe("break-glass", () => {
-  test("is reachable, warns loudly, and rejects bad credentials uniformly", async ({ page }) => {
-    await page.goto("/break-glass");
-    await expect(page.getByRole("heading", { name: /emergency access/i })).toBeVisible();
-    await expect(page.getByText(/CRITICAL alert/i)).toBeVisible();
+test.describe("no bypass of AIESEC sign-in", () => {
+  // AIESEC OAuth is the sole identity authority (architecture.md ADR-027), so
+  // the emergency local-credential path is gone rather than merely disabled.
+  // Signed in first on purpose: an unauthenticated request would be sent to
+  // /login by the proxy either way, which proves nothing about whether the
+  // route still exists.
+  test("the break-glass routes are gone, not merely unreachable", async ({ page, signInAs }) => {
+    await signInAs("member");
 
-    await page.getByLabel("Email").fill("nobody@example.invalid");
-    await page.getByLabel("Password").fill("not-the-right-password");
-    await page.getByLabel("Authenticator code").fill("000000");
-    await page.getByRole("button", { name: /sign in/i }).click();
-
-    // Uniform copy — distinguishing "no such account" from "wrong code" turns
-    // this form into an account enumerator.
-    await expect(alertText(page)).toContainText("Invalid credentials.");
-  });
-
-  test("the console is unreachable without a break-glass session", async ({ page }) => {
-    await page.goto("/break-glass/console");
-    await expect(page).toHaveURL(/\/break-glass$/);
+    for (const path of ["/break-glass", "/break-glass/console"]) {
+      const response = await page.goto(path);
+      expect(response!.status(), `${path} should not exist`).toBe(404);
+    }
   });
 });

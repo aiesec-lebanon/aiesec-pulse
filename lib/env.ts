@@ -54,7 +54,6 @@ const serverSchema = z.object({
   INNGEST_SIGNING_KEY: blankAsAbsent(nonEmpty),
   SENTRY_DSN: blankAsAbsent(nonEmpty),
   OTEL_EXPORTER_OTLP_ENDPOINT: blankAsAbsent(url),
-  BREAK_GLASS_ALERT_WEBHOOK: blankAsAbsent(url),
 
   // Declares a non-Vercel host as the live deployment (see isProductionDeployment).
   PULSE_DEPLOYMENT: blankAsAbsent(nonEmpty),
@@ -96,7 +95,6 @@ export const has = {
       process.env.SUPABASE_S3_ACCESS_KEY_ID &&
       process.env.SUPABASE_S3_SECRET_ACCESS_KEY
     ),
-  breakGlassAlerting: () => Boolean(process.env.BREAK_GLASS_ALERT_WEBHOOK),
 };
 
 // NODE_ENV cannot answer this: `next start` sets it to "production"

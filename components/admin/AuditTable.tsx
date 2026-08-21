@@ -3,7 +3,7 @@ import Link from "next/link";
 export type AuditRow = {
   id: string;
   actorLabel: string;
-  actorType: "USER" | "SYSTEM" | "BREAK_GLASS";
+  actorType: "USER" | "SYSTEM";
   action: string;
   targetType: string;
   targetHref: string | null;
@@ -23,11 +23,6 @@ const ACTOR_BADGE: Record<AuditRow["actorType"], { label: string; className: str
     label: "System",
     className: "bg-[var(--muted)] text-[color:var(--muted-foreground)]",
   },
-  BREAK_GLASS: {
-    label: "Break-glass",
-    className:
-      "bg-[color-mix(in_srgb,var(--destructive)_16%,transparent)] text-[color:var(--destructive-text)] font-bold",
-  },
 };
 
 function actionClass(action: string): string {
@@ -37,6 +32,9 @@ function actionClass(action: string): string {
   if (action.includes("reject") || action.includes("hidden") || action.includes("restrict")) {
     return "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[color:var(--destructive-text)]";
   }
+  // `break_glass.*` actions can no longer be written — M17 deleted that path —
+  // but rows from before it was removed are retained, and they are exactly the
+  // rows a reader should not have to hunt for.
   if (action.includes("erase") || action.includes("break_glass")) {
     return "bg-[color-mix(in_srgb,var(--destructive)_18%,transparent)] text-[color:var(--destructive-text)]";
   }

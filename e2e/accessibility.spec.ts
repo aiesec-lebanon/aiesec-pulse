@@ -71,11 +71,6 @@ test.describe("axe-core, WCAG 2.2 AA", () => {
     await page.goto("/admin/roles");
     await expectNoA11yViolations(page, "/admin/roles");
   });
-
-  test("emergency console sign-in", async ({ page }) => {
-    await page.goto("/break-glass");
-    await expectNoA11yViolations(page, "/break-glass");
-  });
 });
 
 test.describe("keyboard operation", () => {
@@ -144,19 +139,6 @@ test.describe("keyboard operation", () => {
     });
 
     expect(undersized).toEqual([]);
-  });
-
-  test("3.3.8 — the emergency sign-in form allows paste and password managers", async ({
-    page,
-  }) => {
-    await page.goto("/break-glass");
-    const password = page.getByLabel("Password");
-
-    // `autocomplete="off"` and paste-blocking both defeat password managers,
-    // which is precisely who should be using this credential.
-    await expect(password).toHaveAttribute("autocomplete", "current-password");
-    await password.fill("pasted-value-should-stick");
-    await expect(password).toHaveValue("pasted-value-should-stick");
   });
 });
 
