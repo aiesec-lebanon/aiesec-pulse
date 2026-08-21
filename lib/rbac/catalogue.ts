@@ -105,10 +105,12 @@ export const PERMISSION_NAMES: Record<PermissionKey, string> = {
 // nobody able to administer it (architecture.md §7.1). `lib/rbac/can.ts`
 // enforces the same floor ahead of the database lookup; these constants only
 // describe it for the seed and for read-only UI.
-export const LOCKED_FULL_ACCESS_ROLES: readonly RoleKey[] = ["pai", "ai_vp"];
+export type LockedRoleKey = "pai" | "ai_vp";
 
-export function isLockedFullAccess(role: RoleKey): boolean {
-  return LOCKED_FULL_ACCESS_ROLES.includes(role);
+export const LOCKED_FULL_ACCESS_ROLES: readonly LockedRoleKey[] = ["pai", "ai_vp"];
+
+export function isLockedFullAccess(role: RoleKey): role is LockedRoleKey {
+  return (LOCKED_FULL_ACCESS_ROLES as readonly RoleKey[]).includes(role);
 }
 
 // Publishing tiers, most permissive first. A member holding several positions

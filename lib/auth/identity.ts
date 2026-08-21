@@ -5,11 +5,11 @@ import { GrantSource, ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { resolveOfficeEntity, ROOT_ENTITY_ID } from "@/lib/org/entities";
-import { depthOf } from "@/lib/org/path";
 import { upsertRoleGrant } from "@/lib/rbac/grants";
 import {
-  choosePrimaryPosition,
-  derivePublishingGrants,
+  choosePrimaryOfficeId,
+  derivePositionGrants,
+  type PositionDenial,
   type PositionInput,
 } from "@/lib/rbac/position-mapping";
 import { invalidateUserAuthorisation } from "@/lib/redis";
@@ -25,7 +25,7 @@ export type SyncResult = {
   user: User;
   grantsAdded: number;
   grantsExpired: number;
-  unmatchedTitles: string[];
+  denied: PositionDenial[];
 };
 
 async function toPositionInputs(person: GisPerson): Promise<PositionInput[]> {
@@ -34,8 +34,11 @@ async function toPositionInputs(person: GisPerson): Promise<PositionInput[]> {
   for (const position of person.current_positions) {
     if (!position.office?.id) continue;
 
-    // Unknown offices become placeholders rather than failing the login.
-    const entity = await resolveOfficeEntity(position.office);
+    // Unknown offices become placeholders rather than failing the login. The
+    // entity is resolved here and not used for the level check — level comes
+    // from `office.tag`, never from where the tree happens to have parked a
+    // placeholder.
+    await resolveOfficeEntity(position.office);
 
     inputs.push({
       positionId: position.id ?? null,
@@ -43,7 +46,6 @@ async function toPositionInputs(person: GisPerson): Promise<PositionInput[]> {
       officeId: position.office.id,
       officeName: position.office.name,
       officeTag: position.office.tag ?? null,
-      officeDepth: depthOf(entity.path),
     });
   }
 
@@ -55,17 +57,49 @@ async function roleIdByKey(key: string): Promise<string | null> {
   return role?.id ?? null;
 }
 
-/** Manually granted roles are never touched here — see MANUAL_ONLY_ROLES. */
+/**
+ * A denied position means either a title we do not recognise — ordinary, and
+ * the reason the vocabulary is extended from real data by a maintainer — or the
+ * two axes disagreeing, which means our model of GIS is wrong and is worth
+ * waking someone for. Both carry title, office and tag so the record is
+ * actionable without a second query.
+ */
+function logDenials(userId: string, denied: readonly PositionDenial[]): void {
+  for (const denial of denied) {
+    const detail = {
+      userId,
+      positionId: denial.positionId,
+      roleName: denial.roleName,
+      officeId: denial.officeId,
+      officeName: denial.officeName,
+      officeTag: denial.officeTag,
+      reason: denial.reason,
+      expectedTag: denial.expectedTag,
+    };
+
+    if (denial.reason === "tag_mismatch" || denial.reason === "unknown_office_tag") {
+      logger.error("GIS position denied: office tag and position title disagree", {
+        ...detail,
+        severity: "HIGH",
+        action: "Confirm the office's tag in GIS, or correct the class table in position-mapping.",
+      });
+    } else {
+      logger.warn("GIS position denied", detail);
+    }
+  }
+}
+
 export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult> {
   warnIfPositionless(person);
 
   const positions = await toPositionInputs(person);
-  const primary = choosePrimaryPosition(positions);
+  const { grants: derived, denied } = derivePositionGrants(positions);
 
-  const primaryEntityId = primary?.officeId
+  const primaryOfficeId = choosePrimaryOfficeId(derived);
+  const primaryEntityId = primaryOfficeId
     ? ((
         await db.entity.findUnique({
-          where: { gisOfficeId: primary.officeId },
+          where: { gisOfficeId: primaryOfficeId },
           select: { id: true },
         })
       )?.id ?? ROOT_ENTITY_ID)
@@ -89,47 +123,23 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
   if (user.status === "ERASED") {
     logger.warn("Sign-in attempted for an erased account", { userId: user.id });
-    return { user, grantsAdded: 0, grantsExpired: 0, unmatchedTitles: [] };
+    return { user, grantsAdded: 0, grantsExpired: 0, denied };
   }
 
-  const { grants: derived, unmatched } = derivePublishingGrants(positions);
-  if (unmatched.length > 0) {
-    // Logged so the vocabulary can be extended from real titles. A silent miss
-    // looks like a bug.
-    logger.info("GIS position titles matched no publishing role", {
-      userId: user.id,
-      titles: unmatched.map((u) => u.roleName),
-    });
-  }
+  logDenials(user.id, denied);
 
   const termLabel = currentTermLabel(now);
   let grantsAdded = 0;
-
-  // Not term-bounded: being a member is not a position, and expiring it
-  // annually would sign the network out at handover.
-  const memberRoleId = await roleIdByKey("member");
-  if (memberRoleId) {
-    const outcome = await upsertRoleGrant({
-      userId: user.id,
-      roleId: memberRoleId,
-      scopeType: ScopeType.GLOBAL,
-      scopeEntityId: null,
-      termLabel: null,
-      source: GrantSource.GIS,
-    });
-    if (outcome.created) grantsAdded++;
-  }
-
   const keepIds = new Set<string>();
 
   for (const grant of derived) {
     const roleId = await roleIdByKey(grant.role);
     if (!roleId) continue;
 
-    const scopeEntityId = grant.officeId
+    const scopeEntityId = grant.scopeOfficeId
       ? ((
           await db.entity.findUnique({
-            where: { gisOfficeId: grant.officeId },
+            where: { gisOfficeId: grant.scopeOfficeId },
             select: { id: true },
           })
         )?.id ?? null)
@@ -137,13 +147,17 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
     const scopeType = scopeEntityId ? ScopeType.ENTITY : ScopeType.GLOBAL;
 
+    // `member` is not term-bounded: it is the one class that survives a
+    // handover, and expiring it annually would sign the network out.
+    const isMember = grant.role === "member";
+
     const outcome = await upsertRoleGrant({
       userId: user.id,
       roleId,
       scopeType,
       scopeEntityId,
-      termLabel,
-      gisPositionId: grant.positionId,
+      termLabel: isMember ? null : termLabel,
+      gisPositionId: isMember ? null : grant.positionId,
       source: GrantSource.GIS,
     });
 
@@ -160,7 +174,6 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
       revokedAt: null,
       endsAt: null,
       id: { notIn: keepIds.size > 0 ? [...keepIds] : ["__none__"] },
-      role: { key: { notIn: ["member"] } },
     },
     select: { id: true },
   });
@@ -174,12 +187,7 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
   await invalidateUserAuthorisation(user.id);
 
-  return {
-    user,
-    grantsAdded,
-    grantsExpired: stale.length,
-    unmatchedTitles: unmatched.map((u) => u.roleName),
-  };
+  return { user, grantsAdded, grantsExpired: stale.length, denied };
 }
 
 export const STALENESS_CEILING_MS = 72 * 60 * 60 * 1000;

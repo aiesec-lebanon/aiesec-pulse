@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  choosePrimaryPosition,
-  derivePublishingGrants,
-  GLOBAL_OFFICE_ID,
+  choosePrimaryOfficeId,
+  classForTitle,
+  derivePositionGrants,
+  normaliseTag,
   normaliseTitle,
+  POSITION_CLASSES,
   type PositionInput,
 } from "@/lib/rbac/position-mapping";
 
@@ -13,145 +15,142 @@ const position = (over: Partial<PositionInput> = {}): PositionInput => ({
   roleName: "MCP",
   officeId: "101",
   officeName: "AIESEC in Lebanon",
-  officeTag: "LB",
-  officeDepth: 3,
+  officeTag: "MC",
   ...over,
 });
 
-describe("normaliseTitle", () => {
-  it("flattens case, punctuation and separators", () => {
-    expect(normaliseTitle("MCVP – Marketing & Comms")).toBe("mcvp marketing comms");
-    expect(normaliseTitle("  LCP  ")).toBe("lcp");
+describe("normalisation", () => {
+  it("trims, case-folds and collapses internal whitespace", () => {
+    expect(normaliseTitle("  MCVP  ")).toBe("mcvp");
+    expect(normaliseTitle("AI   Manager")).toBe("ai manager");
+    expect(normaliseTitle("Ai Manager")).toBe("ai manager");
   });
 
-  it("strips diacritics", () => {
-    expect(normaliseTitle("Président")).toBe("president");
-  });
-});
-
-describe("title matching against free text", () => {
-  it("matches a decorated MCVP title rather than falling through to member", () => {
-    const { grants } = derivePublishingGrants([position({ roleName: "MCVP Marketing" })]);
-    expect(grants).toHaveLength(1);
-    expect(grants[0].role).toBe("entity_publisher");
+  it("does nothing else — punctuation is not a separator here", () => {
+    // Widening the normalisation widens the match surface of an authorisation
+    // boundary, for a form AIESEC does not issue.
+    expect(normaliseTitle("MCVP-Marketing")).toBe("mcvp-marketing");
+    expect(classForTitle(normaliseTitle("MCVP-Marketing"))).toBeNull();
   });
 
-  it("matches presidents and vice presidents written out in full", () => {
-    const { grants } = derivePublishingGrants([
-      position({ roleName: "Member Committee Vice President for Talent Management" }),
-    ]);
-    expect(grants[0]?.role).toBe("entity_publisher");
-  });
-
-  it("does not match a title that merely starts with the same letters", () => {
-    const { grants, unmatched } = derivePublishingGrants([
-      position({ roleName: "MCPartner Liaison" }),
-    ]);
-    expect(grants).toHaveLength(0);
-    expect(unmatched).toHaveLength(1);
-  });
-
-  it("reports unmatched titles instead of failing silently", () => {
-    // A silent miss looks like a bug, so a renamed position
-    // quietly removed someone's publishing rights.
-    const { unmatched } = derivePublishingGrants([position({ roleName: "Chief Vibes Officer" })]);
-    expect(unmatched).toEqual([
-      { positionId: "p1", roleName: "Chief Vibes Officer", officeId: "101" },
-    ]);
-  });
-
-  it("grants nothing for an ordinary member with no leadership position", () => {
-    const { grants } = derivePublishingGrants([position({ roleName: "Member" })]);
-    expect(grants).toHaveLength(0);
+  it("recognises the three office tags and nothing else", () => {
+    expect(normaliseTag("mc")).toBe("MC");
+    expect(normaliseTag(" AI ")).toBe("AI");
+    expect(normaliseTag("LB")).toBeNull();
+    expect(normaliseTag("")).toBeNull();
   });
 });
 
-describe("grant scoping", () => {
-  it("scopes an entity publisher to the office on the position", () => {
-    const { grants } = derivePublishingGrants([position({ roleName: "MCVP", officeId: "202" })]);
-    expect(grants[0]).toMatchObject({ role: "entity_publisher", officeId: "202" });
+describe("the closed list", () => {
+  it("holds exactly the eight recognised titles", () => {
+    expect(POSITION_CLASSES.map((c) => c.title)).toEqual([
+      "pai",
+      "aivp",
+      "ai manager",
+      "mcp",
+      "mcvp",
+      "lcp",
+      "lcvp",
+      "member",
+    ]);
   });
 
-  it("only grants global publishing at the global office", () => {
-    const atMc = derivePublishingGrants([
-      position({ roleName: "Vice President", officeId: "101" }),
-    ]);
-    expect(atMc.grants.some((g) => g.role === "global_publisher")).toBe(false);
+  it("matches a title exactly, never as a prefix or a substring", () => {
+    expect(classForTitle("mcp")?.role).toBe("mc_president");
+    expect(classForTitle("mcp elect")).toBeNull();
+    expect(classForTitle("mcpartner")).toBeNull();
+    expect(classForTitle("deputy mcp")).toBeNull();
+  });
+});
 
-    const atAi = derivePublishingGrants([
-      position({ roleName: "Vice President", officeId: GLOBAL_OFFICE_ID, officeDepth: 1 }),
+describe("deriving grants from a position", () => {
+  it("grants the class when tag and title agree", () => {
+    const { grants, denied } = derivePositionGrants([position()]);
+    expect(denied).toHaveLength(0);
+    expect(grants).toEqual([
+      {
+        role: "mc_president",
+        positionId: "p1",
+        officeId: "101",
+        scopeOfficeId: "101",
+        matchedTitle: "mcp",
+      },
     ]);
-    expect(atAi.grants[0]?.role).toBe("global_publisher");
-    expect(atAi.grants[0]?.officeId).toBeNull();
   });
 
-  it("de-duplicates several positions implying the same role and office", () => {
-    const { grants } = derivePublishingGrants([
+  it("scopes MC and LC classes to their own office", () => {
+    const { grants } = derivePositionGrants([
+      position({ roleName: "LCVP", officeId: "500", officeTag: "LC" }),
+    ]);
+    expect(grants[0]).toMatchObject({ role: "lc_vp", scopeOfficeId: "500" });
+  });
+
+  it("gives AI classes and members global authority, not an office scope", () => {
+    const { grants } = derivePositionGrants([
+      position({ positionId: "a", roleName: "AIVP", officeId: "1", officeTag: "AI" }),
+      position({ positionId: "b", roleName: "Member", officeId: "500", officeTag: "LC" }),
+    ]);
+    expect(grants.map((g) => [g.role, g.scopeOfficeId])).toEqual([
+      ["ai_vp", null],
+      ["member", null],
+    ]);
+    // The office is still carried, because it is what the member is attributed to.
+    expect(grants[1].officeId).toBe("500");
+  });
+
+  it("keeps the recognised position when another one is denied", () => {
+    const { grants, denied } = derivePositionGrants([
       position({ positionId: "a", roleName: "MCVP Marketing" }),
-      position({ positionId: "b", roleName: "MCVP Talent Management" }),
+      position({ positionId: "b", roleName: "MCVP" }),
     ]);
-    expect(grants).toHaveLength(1);
+    expect(grants.map((g) => g.role)).toEqual(["mc_vp"]);
+    expect(denied.map((d) => d.positionId)).toEqual(["a"]);
   });
 
   it("issues one grant per office when a member leads two entities", () => {
-    const { grants } = derivePublishingGrants([
-      position({ positionId: "a", roleName: "LCP", officeId: "500", officeDepth: 4 }),
-      position({ positionId: "b", roleName: "MCVP", officeId: "101" }),
+    const { grants } = derivePositionGrants([
+      position({ positionId: "a", roleName: "LCP", officeId: "500", officeTag: "LC" }),
+      position({ positionId: "b", roleName: "MCVP", officeId: "101", officeTag: "MC" }),
     ]);
-    expect(grants.map((g) => g.officeId).sort()).toEqual(["101", "500"]);
+    expect(grants.map((g) => g.scopeOfficeId).sort()).toEqual(["101", "500"]);
+  });
+
+  it("de-duplicates two positions of the same class at the same office", () => {
+    const { grants } = derivePositionGrants([
+      position({ positionId: "a", roleName: "MCVP" }),
+      position({ positionId: "b", roleName: "MCVP" }),
+    ]);
+    expect(grants).toHaveLength(1);
   });
 });
 
-describe("choosing a primary position", () => {
-  it("prefers the higher-ranked title regardless of GIS ordering", () => {
+describe("choosing a primary office", () => {
+  it("prefers the more senior class regardless of GIS ordering", () => {
     const positions = [
-      position({ positionId: "a", roleName: "LCVP Marketing", officeId: "500", officeDepth: 4 }),
-      position({ positionId: "b", roleName: "MCP", officeId: "101", officeDepth: 3 }),
+      position({ positionId: "a", roleName: "LCVP", officeId: "500", officeTag: "LC" }),
+      position({ positionId: "b", roleName: "MCP", officeId: "101", officeTag: "MC" }),
     ];
-    // Taking current_positions[0] would pick the LCVP here.
-    expect(choosePrimaryPosition(positions)?.positionId).toBe("b");
-    expect(choosePrimaryPosition([...positions].reverse())?.positionId).toBe("b");
+    // Taking current_positions[0] would pick the LC here.
+    const forward = derivePositionGrants(positions).grants;
+    const reversed = derivePositionGrants([...positions].reverse()).grants;
+    expect(choosePrimaryOfficeId(forward)).toBe("101");
+    expect(choosePrimaryOfficeId(reversed)).toBe("101");
   });
 
-  it("prefers the deeper office when titles rank equally", () => {
+  it("is stable across GIS orderings when the class ties", () => {
     const positions = [
-      position({ positionId: "a", roleName: "Member", officeId: "101", officeDepth: 3 }),
-      position({ positionId: "b", roleName: "Member", officeId: "500", officeDepth: 4 }),
+      position({ positionId: "a", roleName: "Member", officeId: "700", officeTag: "LC" }),
+      position({ positionId: "b", roleName: "Member", officeId: "300", officeTag: "LC" }),
     ];
-    expect(choosePrimaryPosition(positions)?.positionId).toBe("b");
+    // Both dedupe to one global `member` grant, so the office that survives has
+    // to be the deterministic one rather than whichever GIS returned first.
+    expect(choosePrimaryOfficeId(derivePositionGrants(positions).grants)).toBe("300");
+    expect(choosePrimaryOfficeId(derivePositionGrants([...positions].reverse()).grants)).toBe(
+      "300"
+    );
   });
 
-  it("is stable across GIS orderings when everything else ties", () => {
-    const positions = [
-      position({ positionId: "a", roleName: "Member", officeId: "700", officeDepth: 4 }),
-      position({ positionId: "b", roleName: "Member", officeId: "300", officeDepth: 4 }),
-    ];
-    expect(choosePrimaryPosition(positions)?.officeId).toBe("300");
-    expect(choosePrimaryPosition([...positions].reverse())?.officeId).toBe("300");
-  });
-
-  it("returns null when there are no positions with an office", () => {
-    expect(choosePrimaryPosition([])).toBeNull();
-    expect(choosePrimaryPosition([position({ officeId: null })])).toBeNull();
-  });
-});
-
-describe("roles that must never be derived from GIS", () => {
-  it("never derives editor, moderator or admin from a position title", () => {
-    // Platform-only roles are granted manually. Deriving a
-    // moderator from free text would make trust & safety authority a function of
-    // someone renaming a role in EXPA.
-    const titles = [
-      "MC Comms Manager",
-      "Trust and Safety Lead",
-      "Platform Administrator",
-      "IM Director",
-    ];
-    for (const roleName of titles) {
-      const { grants } = derivePublishingGrants([position({ roleName })]);
-      for (const grant of grants) {
-        expect(["entity_publisher", "global_publisher"]).toContain(grant.role);
-      }
-    }
+  it("returns null when nothing was recognised", () => {
+    expect(choosePrimaryOfficeId([])).toBeNull();
   });
 });

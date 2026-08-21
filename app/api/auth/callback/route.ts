@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
       return failure(baseUrl, "not_permitted");
     }
 
-    const { user, grantsAdded, grantsExpired, unmatchedTitles } = await syncIdentityFromGis(person);
+    const { user, grantsAdded, grantsExpired, denied } = await syncIdentityFromGis(person);
 
     if (user.status === "ERASED" || user.status === "SUSPENDED") {
       return failure(baseUrl, "not_permitted");
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
       userId: user.id,
       grantsAdded,
       grantsExpired,
-      unmatchedTitleCount: unmatchedTitles.length,
+      deniedPositionCount: denied.length,
     });
   } catch (error) {
     if (!(error instanceof GisUnavailableError)) {
