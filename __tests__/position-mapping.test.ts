@@ -85,16 +85,18 @@ describe("deriving grants from a position", () => {
     expect(grants[0]).toMatchObject({ role: "lc_vp", scopeOfficeId: "500" });
   });
 
-  it("gives AI classes and members global authority, not an office scope", () => {
+  it("gives AI classes global authority and scopes a member to their own office", () => {
     const { grants } = derivePositionGrants([
       position({ positionId: "a", roleName: "AIVP", officeId: "1", officeTag: "AI" }),
       position({ positionId: "b", roleName: "Member", officeId: "500", officeTag: "LC" }),
     ]);
+    // `member` carries OFFICE authority: membership of one LC is not authority
+    // over the network, and a global `member` grant would put every reader's
+    // scope set at the root.
     expect(grants.map((g) => [g.role, g.scopeOfficeId])).toEqual([
       ["ai_vp", null],
-      ["member", null],
+      ["member", "500"],
     ]);
-    // The office is still carried, because it is what the member is attributed to.
     expect(grants[1].officeId).toBe("500");
   });
 
