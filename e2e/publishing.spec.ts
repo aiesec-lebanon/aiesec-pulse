@@ -27,8 +27,8 @@ async function publish(page: Page, title: string, body = BODY) {
   await page.getByRole("button", { name: /^publish$/i }).click();
 }
 
-// The mock "admin" persona holds platform_admin (see lib/auth/mock-oauth.ts),
-// which is what /admin/flags itself gates on — this drives the real console
+// The mock "admin" persona holds `pai` (see lib/auth/mock-oauth.ts), which
+// carries admin.configure - what /admin/flags itself gates on — this drives the real console
 // M2 built rather than writing to the database directly.
 async function ensureFlagEnabled(page: Page, key: string) {
   await page.goto("/admin/flags");
@@ -256,7 +256,7 @@ test.describe("scheduling", () => {
 });
 
 test.describe("audience targeting", () => {
-  // The mock "publisher" persona holds entity_publisher only (no
+  // The mock "publisher" persona holds `lc_vp` only (no
   // post.target_beyond) — context.md §7.2 gives it no real audience choice,
   // so the composer shows its entity as information rather than a control.
   test("a restricted publisher sees their own entity as a fixed audience, not a picker", async ({
@@ -273,7 +273,7 @@ test.describe("audience targeting", () => {
     await expect(page.getByRole("button", { name: "Everyone" })).toHaveCount(0);
   });
 
-  // The mock "admin" persona holds platform_admin, which carries
+  // The mock "admin" persona holds `pai`, which carries
   // post.target_beyond — the full picker, defaulting to GLOBAL.
   test("a platform admin gets the full picker and can publish with it visible", async ({
     page,

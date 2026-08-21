@@ -84,7 +84,7 @@ test.describe("an editor", () => {
     await expect(page.getByRole("heading", { name: /approval queue/i })).toBeVisible();
   });
 
-  test("cannot grant roles or execute data requests", async ({ page, signInAs }) => {
+  test("cannot reach position management or execute data requests", async ({ page, signInAs }) => {
     await signInAs("editor");
     await page.goto("/admin/roles");
     await expect(page).toHaveURL(/\/unauthorized/);
@@ -94,21 +94,19 @@ test.describe("an editor", () => {
 });
 
 test.describe("a platform admin", () => {
-  test("reaches role management and sees only manually grantable roles", async ({
+  test("reaches position management, which offers no way to grant a position", async ({
     page,
     signInAs,
   }) => {
     await signInAs("admin");
     await page.goto("/admin/roles");
-    await expect(page.getByRole("heading", { name: /roles & grants/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^positions$/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /active positions/i })).toBeVisible();
 
-    // By id, not by label: the surrounding "Grant a role" section is also
-    // labelled, and `getByLabel("Role")` matches both under strict mode.
-    const roleSelect = page.locator("#grant-role");
-    await expect(roleSelect).toContainText("Entity editor");
-    await expect(roleSelect).toContainText("Entity moderator");
-    await expect(roleSelect).not.toContainText("Entity publisher");
-    await expect(roleSelect).not.toContainText("Global publisher");
+    // Authority is whatever GIS says it is, so there is deliberately nothing
+    // here that confers one - not for an admin either.
+    await expect(page.locator("#grant-role")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^grant$/i })).toHaveCount(0);
   });
 
   test("reaches the data request queue", async ({ page, signInAs }) => {
