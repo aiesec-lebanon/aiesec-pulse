@@ -1,9 +1,17 @@
 import type { Page } from "@playwright/test";
 
-import { alertText, expect, isolationId, test } from "./fixtures";
+import { FEED_MODE_COOKIE } from "@/lib/feed-mode";
+
+import { alertText, expect, isolationId, type SignInAs, test } from "./fixtures";
 
 // Every publishing spec signs in as its own publisher: quota is per author per
 // period, so a shared account would make the suite order-dependent.
+//
+// The org tree these personas sit in is defined by the GIS fixtures
+// (e2e/gis-stub/fixtures.ts): one MC, "AIESEC in Testonia", with two LCs beneath
+// it. `lc_vp` and `member` share the first LC, so a member can see what a
+// publisher publishes; `lc_president` holds the second, which is what "outside
+// the viewer's scope" means in the search spec below.
 
 const uniqueTitle = (label: string) =>
   `${label} ${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -27,9 +35,8 @@ async function publish(page: Page, title: string, body = BODY) {
   await page.getByRole("button", { name: /^publish$/i }).click();
 }
 
-// The mock "admin" persona holds `pai` (see lib/auth/mock-oauth.ts), which
-// carries admin.configure - what /admin/flags itself gates on — this drives the real console
-// M2 built rather than writing to the database directly.
+// `pai` carries admin.configure, which is what /admin/flags gates on — this
+// drives the real console M2 built rather than writing to the database directly.
 async function ensureFlagEnabled(page: Page, key: string) {
   await page.goto("/admin/flags");
   const button = page.getByRole("listitem").filter({ hasText: key }).getByRole("button");
@@ -39,9 +46,34 @@ async function ensureFlagEnabled(page: Page, key: string) {
   }
 }
 
-// Every mock user is created with the schema's default timezone (UTC — see
-// ensureMockUser), so formatting in UTC is exactly what the composer's
-// zone-aware conversion should turn back into this same instant.
+/**
+ * "For you" is the default feed mode, and it ranks on engagement as well as
+ * recency (lib/feed.ts) — so a brand-new post with no reactions legitimately
+ * loses its place among the seven cards the page renders to an older one that
+ * has some. That is the ranking working, not the publish failing.
+ *
+ * Latest is the unranked escape hatch, and it is the only surface on which
+ * "the post I just published is there" is a guarantee. Asserting the heading
+ * afterwards keeps the tab-absent case honest: if the toggle never switched,
+ * the h1 still reads "For you" and the test says so.
+ */
+async function openLatestFeed(page: Page) {
+  // The mode is a cookie (lib/feed-mode.ts). Setting it is the same state a
+  // reader who has already chosen Latest arrives with, and it keeps these two
+  // tests — which are about publishing and following — off the toggle widget's
+  // own timing: FeedModeToggle disables its tablist for the whole of the RSC
+  // re-render the switch triggers, which against the remote database is
+  // routinely longer than an assertion budget.
+  await page
+    .context()
+    .addCookies([{ name: FEED_MODE_COOKIE, value: "latest", url: new URL(page.url()).origin }]);
+  await page.goto("/feed");
+  await expect(page.getByRole("heading", { level: 1, name: /^latest$/i })).toBeVisible();
+}
+
+// GIS carries no timezone, so every account reconciled from it takes the
+// schema's default (UTC). Formatting in UTC is therefore exactly what the
+// composer's zone-aware conversion should turn back into this same instant.
 function toWallTimeUtc(date: Date): string {
   return date.toISOString().slice(0, 16);
 }
@@ -52,19 +84,22 @@ test.describe("publishing", () => {
     signInAs,
   }, testInfo) => {
     const title = uniqueTitle("E2E published update");
-    await signInAs("publisher", "/feed", isolationId(testInfo));
+    await signInAs("lc_vp", "/feed", isolationId(testInfo));
     await publish(page, title);
 
-    await expect(page).toHaveURL(POST_SLUG_URL);
+    // The same 15s the rest of this file already gives a publish round trip.
+    // This case was the one left on the 10s default, on the slowest operation
+    // in the suite, which is why it was the one that kept failing.
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
 
-    await page.goto("/feed");
+    await openLatestFeed(page);
     await expect(page.getByRole("link", { name: new RegExp(title, "i") }).first()).toBeVisible();
   });
 
   test("a post carries reading time", async ({ page, signInAs }, testInfo) => {
     const title = uniqueTitle("E2E metadata");
-    await signInAs("publisher", "/feed", isolationId(testInfo));
+    await signInAs("lc_vp", "/feed", isolationId(testInfo));
     await publish(page, title, Array(400).fill("word").join(" "));
 
     // 400 real keystrokes into the editor push submission close to the
@@ -82,7 +117,7 @@ test.describe("publishing", () => {
     page,
     signInAs,
   }, testInfo) => {
-    await signInAs("publisher", "/feed", isolationId(testInfo));
+    await signInAs("lc_vp", "/feed", isolationId(testInfo));
     await page.goto("/posts/new");
     await page.locator("#title").fill("ab"); // below the 3-character minimum
     await page.locator("#content").pressSequentially("short");
@@ -100,7 +135,7 @@ test.describe("publishing", () => {
     // under the 30s default once autosave adds its own background traffic.
     test.setTimeout(60_000);
     // Going over quota routes to review rather than blocking the author.
-    await signInAs("publisher", "/feed", isolationId(testInfo));
+    await signInAs("lc_vp", "/feed", isolationId(testInfo));
 
     for (let i = 0; i < 2; i++) {
       await publish(page, uniqueTitle(`E2E quota ${i}`));
@@ -114,18 +149,17 @@ test.describe("publishing", () => {
 });
 
 test.describe("approval queue", () => {
-  test("an editor sees a queued post and can approve it", async ({
+  test("an MC vice president approves an LC post and it reaches that LC's members", async ({
     page,
-    browser,
     signInAs,
   }, testInfo) => {
-    // Three publish cycles plus a second browser context for the editor —
-    // same margin problem as "the third post in a week" above.
-    test.setTimeout(60_000);
+    // Three publish cycles plus three further sign-ins, each a full OAuth round
+    // trip — well past the 30s default before the assertions even start.
+    test.setTimeout(120_000);
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E queued for approval");
 
-    await signInAs("publisher", "/feed", isolate);
+    await signInAs("lc_vp", "/feed", isolate);
     for (let i = 0; i < 2; i++) {
       await publish(page, uniqueTitle(`E2E filler ${i}`));
       await page.waitForURL(POST_SLUG_URL);
@@ -133,36 +167,49 @@ test.describe("approval queue", () => {
     await publish(page, title);
     await page.waitForURL(/\/posts\/queued/);
 
-    const editorContext = await browser.newContext();
-    const editorPage = await editorContext.newPage();
-    await editorPage.goto(
-      `/api/auth/mock?persona=editor&isolate=${isolate}&returnTo=${encodeURIComponent("/admin/queue")}`
-    );
-    await editorPage.waitForURL("**/admin/queue");
+    // The approver sits a level up: `post.approve` is granted at the MC, and a
+    // scoped grant covers the whole subtree beneath it, so an MCVP can act on a
+    // post published in either of its LCs.
+    await signInAs("mc_vp", "/admin/queue", isolate);
 
-    const card = editorPage.locator("article", { hasText: title });
+    const card = page.locator("article", { hasText: title });
     await expect(card).toBeVisible();
     await card.getByRole("button", { name: /approve/i }).click();
 
-    await expect(editorPage.locator("article", { hasText: title })).toHaveCount(0);
+    await expect(page.locator("article", { hasText: title })).toHaveCount(0);
 
-    await editorPage.goto("/feed");
-    await expect(editorPage.getByText(title).first()).toBeVisible();
+    // The author's own profile, not a feed: it lists their posts unranked, so
+    // this says "approval published it" without depending on the post winning a
+    // place in the seven cards the feed renders — a race every other worker
+    // publishing at the same moment takes part in.
+    await signInAs("lc_vp", "/profile", isolate);
+    const row = page.locator("li", { hasText: title });
+    await expect(row.getByText(/^published$/i)).toBeVisible();
+    const postPath = new URL(
+      (await row.getByRole("link").first().getAttribute("href"))!,
+      "http://localhost"
+    ).pathname;
 
-    await editorContext.close();
+    // Then from inside the audience. Post detail applies the same audience
+    // filter the feed does and 404s when it does not match, so opening it as a
+    // member of the publisher's LC is the visibility assertion — and, unlike a
+    // feed check, it cannot be pushed out of view by unrelated traffic.
+    await signInAs("member", postPath, isolate);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
   });
 });
 
 test.describe("engagement", () => {
-  // Swapping the session cookie on one page is simpler than a second context:
-  // browser.newContext() does not inherit baseURL from the config.
+  // Signing in again on the same page is simpler than a second context: the
+  // callback replaces the session cookie, and browser.newContext() inherits
+  // neither baseURL nor the per-test client IP the sign-in throttle keys on.
   async function publishThenViewAsMember(
     page: Page,
-    signInAs: (p: "member" | "publisher", returnTo?: string, isolate?: string) => Promise<void>,
+    signInAs: SignInAs,
     isolate: string,
     title: string
   ): Promise<void> {
-    await signInAs("publisher", "/feed", isolate);
+    await signInAs("lc_vp", "/feed", isolate);
     await publish(page, title);
     await page.waitForURL(POST_SLUG_URL);
     const postPath = new URL(page.url()).pathname;
@@ -204,10 +251,10 @@ test.describe("scheduling", () => {
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E scheduled");
 
-    await signInAs("admin", "/admin/flags", isolate);
+    await signInAs("pai", "/admin/flags", isolate);
     await ensureFlagEnabled(page, "posts.scheduling");
 
-    await signInAs("publisher", "/feed", isolate);
+    await signInAs("lc_vp", "/feed", isolate);
     const scheduledFor = new Date(Date.now() + 2 * 60_000);
 
     await page.goto("/posts/new");
@@ -235,10 +282,10 @@ test.describe("scheduling", () => {
 
   test("scheduling for a past time is rejected", async ({ page, signInAs }, testInfo) => {
     const isolate = isolationId(testInfo);
-    await signInAs("admin", "/admin/flags", isolate);
+    await signInAs("pai", "/admin/flags", isolate);
     await ensureFlagEnabled(page, "posts.scheduling");
 
-    await signInAs("publisher", "/feed", isolate);
+    await signInAs("lc_vp", "/feed", isolate);
     await page.goto("/posts/new");
     await page.locator("#title").fill(uniqueTitle("E2E past schedule"));
     await page.locator("#content").pressSequentially(BODY);
@@ -256,35 +303,34 @@ test.describe("scheduling", () => {
 });
 
 test.describe("audience targeting", () => {
-  // The mock "publisher" persona holds `lc_vp` only (no
-  // post.target_beyond) — context.md §7.2 gives it no real audience choice,
-  // so the composer shows its entity as information rather than a control.
+  // `lc_vp` does not hold post.target_beyond — context.md §7.2 gives it no real
+  // audience choice — so the composer shows its entity as information rather
+  // than a control.
   test("a restricted publisher sees their own entity as a fixed audience, not a picker", async ({
     page,
     signInAs,
   }, testInfo) => {
     const isolate = isolationId(testInfo);
-    await signInAs("admin", "/admin/flags", isolate);
+    await signInAs("pai", "/admin/flags", isolate);
     await ensureFlagEnabled(page, "posts.targeting");
 
-    await signInAs("publisher", "/posts/new", isolate);
+    await signInAs("lc_vp", "/posts/new", isolate);
 
     await expect(page.getByText(/this post will reach/i)).toBeVisible();
     await expect(page.getByRole("button", { name: "Everyone" })).toHaveCount(0);
   });
 
-  // The mock "admin" persona holds `pai`, which carries
-  // post.target_beyond — the full picker, defaulting to GLOBAL.
-  test("a platform admin gets the full picker and can publish with it visible", async ({
+  // `pai` carries post.target_beyond — the full picker, defaulting to GLOBAL.
+  test("the PAI gets the full picker and can publish with it visible", async ({
     page,
     signInAs,
   }, testInfo) => {
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E audience global");
 
-    await signInAs("admin", "/admin/flags", isolate);
+    await signInAs("pai", "/admin/flags", isolate);
     await ensureFlagEnabled(page, "posts.targeting");
-    await signInAs("admin", "/posts/new", isolate);
+    await signInAs("pai", "/posts/new", isolate);
 
     await page.locator("#title").fill(title);
     await page.locator("#content").pressSequentially(BODY);
@@ -299,9 +345,9 @@ test.describe("audience targeting", () => {
     signInAs,
   }, testInfo) => {
     const isolate = isolationId(testInfo);
-    await signInAs("admin", "/admin/flags", isolate);
+    await signInAs("pai", "/admin/flags", isolate);
     await ensureFlagEnabled(page, "posts.targeting");
-    await signInAs("admin", "/posts/new", isolate);
+    await signInAs("pai", "/posts/new", isolate);
 
     await page.getByRole("button", { name: "A specific entity" }).click();
     await page.getByLabel("Search for an entity").fill("zzz-no-such-entity-zzz");
@@ -318,7 +364,7 @@ test.describe("topics", () => {
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E topic");
 
-    await signInAs("publisher", "/posts/new", isolate);
+    await signInAs("lc_vp", "/posts/new", isolate);
     await page.locator("#title").fill(title);
     await page.locator("#content").pressSequentially(BODY);
 
@@ -395,19 +441,23 @@ test.describe("follow and mute", () => {
     page,
     signInAs,
   }, testInfo) => {
+    // A publish cycle, a feed-mode switch and a follow round trip, each against
+    // the remote database.
+    test.setTimeout(60_000);
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E entity follow");
 
-    await signInAs("publisher", "/posts/new", isolate);
+    await signInAs("lc_vp", "/posts/new", isolate);
     await page.locator("#title").fill(title);
     await page.locator("#content").pressSequentially(BODY);
     await page.getByRole("button", { name: /^publish$/i }).click();
     await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
 
-    await page.goto("/feed");
-    // Confirms the just-published post actually landed as the feed hero
-    // (SecondaryPostCard/SidebarPostItem don't carry an entity-follow
-    // control — see components/feed/HeroPost.tsx) before relying on it.
+    // Latest, because the hero is the control this test needs: only HeroPost
+    // carries an entity-follow button (SecondaryPostCard/SidebarPostItem do
+    // not), and on Latest the newest post is the hero by construction. Asserted
+    // before the click rather than assumed.
+    await openLatestFeed(page);
     await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
 
     const followButton = page.getByRole("button", { name: /^follow /i }).first();
@@ -433,26 +483,30 @@ test.describe("search", () => {
     // rather than the two titles merely not matching the same query.
     const keyword = `kangaroo${Date.now()}`;
 
-    await signInAs("admin", "/admin/flags", isolate);
+    await signInAs("pai", "/admin/flags", isolate);
     await ensureFlagEnabled(page, "search.enabled");
     await ensureFlagEnabled(page, "posts.targeting");
 
-    const visibleTitle = uniqueTitle(`E2E ${keyword} global`);
-    await signInAs("publisher", "/posts/new", isolate);
+    // Signing in as the LCP is what materialises its LC as an entity: offices
+    // enter the tree when someone holding a position there authenticates, so
+    // "Otherton" has to exist before the typeahead below can find it.
+    await signInAs("lc_president", "/feed", isolate);
+
+    const visibleTitle = uniqueTitle(`E2E ${keyword} in scope`);
+    await signInAs("lc_vp", "/posts/new", isolate);
     await page.locator("#title").fill(visibleTitle);
     await page.locator("#content").pressSequentially(BODY);
     await page.getByRole("button", { name: /^publish$/i }).click();
     await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
 
-    // Scoped to "Lebanon" (an MC, lib/org/entities.ts's seeded tree) — every
-    // mock persona's primaryEntityId is ROOT_ENTITY_ID (lib/auth/mock-oauth.ts),
-    // and a scope chain only walks upward to your own ancestors, so root's
-    // chain is just itself. A member never sees this post.
-    const scopedTitle = uniqueTitle(`E2E ${keyword} scoped`);
-    await signInAs("admin", "/posts/new", isolate);
+    // Scoped to the *other* LC under the same MC. The member sits in the first
+    // one, and a scope chain only walks upward to your own ancestors — a sibling
+    // is never in it — so this post is invisible to them however recent it is.
+    const scopedTitle = uniqueTitle(`E2E ${keyword} out of scope`);
+    await signInAs("pai", "/posts/new", isolate);
     await page.getByRole("button", { name: "A specific entity" }).click();
-    await page.getByLabel("Search for an entity").fill("Lebanon");
-    await page.getByRole("button", { name: /^Lebanon/ }).click();
+    await page.getByLabel("Search for an entity").fill("Otherton");
+    await page.getByRole("button", { name: /Otherton/ }).click();
     await page.locator("#title").fill(scopedTitle);
     await page.locator("#content").pressSequentially(BODY);
     await page.getByRole("button", { name: /^publish$/i }).click();
@@ -474,10 +528,10 @@ test.describe("search", () => {
     const keyword = `narwhal${Date.now()}`;
     const title = uniqueTitle(`E2E ${keyword} announcement`);
 
-    await signInAs("admin", "/admin/flags", isolate);
+    await signInAs("pai", "/admin/flags", isolate);
     await ensureFlagEnabled(page, "search.enabled");
 
-    await signInAs("publisher", "/posts/new", isolate);
+    await signInAs("lc_vp", "/posts/new", isolate);
     await page.locator("#title").fill(title);
     await page.locator("#content").pressSequentially(BODY);
     await page.getByRole("button", { name: /^publish$/i }).click();

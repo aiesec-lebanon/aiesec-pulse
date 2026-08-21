@@ -144,9 +144,13 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL(handshake.returnTo, baseUrl));
   response.cookies.set(SESSION_COOKIE, session.token, sessionCookieAttributes(session.expiresAt));
 
+  // `delete`, not `set(name, "", { maxAge: 0 })`. ResponseCookies drops a
+  // zero `maxAge` as falsy, so that form emitted `aiesec_token=; Path=/` with no
+  // expiry at all — creating each MVP cookie in every browser that had never
+  // held one, rather than clearing it. `delete` writes an expiry in the past.
   for (const name of LEGACY_COOKIES) {
     if (name === SESSION_COOKIE) continue;
-    response.cookies.set(name, "", { path: "/", maxAge: 0 });
+    response.cookies.delete({ name, path: "/" });
   }
 
   return response;

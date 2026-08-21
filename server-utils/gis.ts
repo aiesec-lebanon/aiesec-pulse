@@ -44,6 +44,14 @@ export type GisPosition = z.infer<typeof positionSchema>;
 export type GisOffice = z.infer<typeof officeSchema>;
 export type GisPerson = z.infer<typeof currentPersonSchema>;
 
+/**
+ * Exported for the contract test only. Every e2e sign-in fixture is parsed
+ * through this exact schema (`__tests__/gis-contract.test.ts`), so a fixture that
+ * has drifted from the shape production accepts fails CI rather than quietly
+ * making the suite green against a GIS that no longer exists.
+ */
+export const __testing = { currentPersonSchema };
+
 const officesPageSchema = z.object({
   data: z.array(officeSchema).default([]),
   paging: z

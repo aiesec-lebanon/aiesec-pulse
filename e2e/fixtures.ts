@@ -1,19 +1,80 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test as base } from "@playwright/test";
+import { expect, type Page, test as base, type TestInfo } from "@playwright/test";
 
-// signInAs drives the mock provider rather than stubbing cookies, so the tests
-// exercise the real session issuance path.
+import type { PersonaKey } from "./gis-stub/fixtures";
 
-export type Persona = "member" | "publisher" | "editor" | "moderator" | "admin";
+export type { PersonaKey } from "./gis-stub/fixtures";
+
+/**
+ * Signing in drives the whole real path: /api/auth/start mints `state`, the
+ * browser is redirected to the authorization server, the code comes back, the
+ * callback verifies `state`, exchanges the code, queries GIS, parses the
+ * response through the production Zod schema and reconciles grants. Only the far
+ * end of the socket is ours — see ./gis-stub/server.ts.
+ *
+ * The persona is chosen with a cookie on the stub's own origin, set here before
+ * navigating. The application never learns that personas exist.
+ */
+
+const STUB_ORIGIN = `http://127.0.0.1:${process.env.PULSE_GIS_STUB_PORT ?? 3099}`;
+const PERSONA_COOKIE = "pulse_e2e_persona";
+
+/**
+ * /api/auth/start throttles per client IP at 10 attempts per 15 minutes, and a
+ * suite that signs in dozens of times from one loopback address would spend that
+ * budget and start failing on 429s that say nothing about the code under test.
+ * Each test presents its own synthetic address instead. `clientIp()` reads
+ * `x-forwarded-for` in production too, so this exercises the same code path
+ * rather than disabling the limiter.
+ *
+ * Counted rather than hashed so the addresses cannot collide: workers are
+ * separate processes with distinct indices, and tests within a worker run in
+ * sequence. A retry is a fresh run and takes the next address.
+ */
+let nthRunInWorker = 0;
+
+function syntheticIp(testInfo: TestInfo): string {
+  const n = nthRunInWorker++;
+  return `10.${testInfo.workerIndex & 0xff}.${(n >> 8) & 0xff}.${n & 0xff}`;
+}
+
+export type SignInAs = (persona: PersonaKey, returnTo?: string, isolate?: string) => Promise<void>;
+
+/** Starts a sign-in without asserting where it lands — for the refusal cases. */
+export type AttemptSignIn = (persona: PersonaKey, isolate?: string) => Promise<void>;
+
+async function startSignIn(
+  page: Page,
+  persona: PersonaKey,
+  returnTo: string,
+  isolate?: string
+): Promise<void> {
+  await page.context().addCookies([
+    {
+      name: PERSONA_COOKIE,
+      value: isolate ? `${persona}:${isolate}` : persona,
+      url: STUB_ORIGIN,
+      sameSite: "Lax",
+    },
+  ]);
+  await page.goto(`/api/auth/start?returnTo=${encodeURIComponent(returnTo)}`);
+}
 
 export const test = base.extend<{
-  signInAs: (persona: Persona, returnTo?: string, isolate?: string) => Promise<void>;
+  signInAs: SignInAs;
+  attemptSignIn: AttemptSignIn;
 }>({
+  extraHTTPHeaders: async ({}, use, testInfo) => {
+    await use({ "x-forwarded-for": syntheticIp(testInfo) });
+  },
+
+  attemptSignIn: async ({ page }, use) => {
+    await use((persona, isolate) => startSignIn(page, persona, "/feed", isolate));
+  },
+
   signInAs: async ({ page }, use) => {
     await use(async (persona, returnTo = "/feed", isolate) => {
-      const params = new URLSearchParams({ persona, returnTo });
-      if (isolate) params.set("isolate", isolate);
-      await page.goto(`/api/auth/mock?${params.toString()}`);
+      await startSignIn(page, persona, returnTo, isolate);
       await page.waitForURL(`**${returnTo}`);
     });
   },

@@ -49,14 +49,14 @@ test.describe("a member", () => {
   });
 });
 
-test.describe("a publisher", () => {
+test.describe("an LC vice president", () => {
   test("reaches the composer and sees the quota from policy", async ({
     page,
     signInAs,
   }, testInfo) => {
     // Its own account: quota is per author, so a shared one would make this
     // assertion depend on execution order.
-    await signInAs("publisher", "/feed", isolationId(testInfo));
+    await signInAs("lc_vp", "/feed", isolationId(testInfo));
     await page.goto("/posts/new");
     await expect(page.getByRole("heading", { name: /share an update/i })).toBeVisible();
     // Two `role="status"` regions render on this page (the quota pill and the
@@ -71,21 +71,21 @@ test.describe("a publisher", () => {
   test("cannot approve their own entity's queue", async ({ page, signInAs }) => {
     // Publishing and approving are separate permissions precisely so a publisher
     // cannot wave their own over-quota post through.
-    await signInAs("publisher");
+    await signInAs("lc_vp");
     await page.goto("/admin/queue");
     await expect(page).toHaveURL(/\/unauthorized/);
   });
 });
 
-test.describe("an editor", () => {
+test.describe("an MC vice president", () => {
   test("reaches the approval queue", async ({ page, signInAs }) => {
-    await signInAs("editor");
+    await signInAs("mc_vp");
     await page.goto("/admin/queue");
     await expect(page.getByRole("heading", { name: /approval queue/i })).toBeVisible();
   });
 
   test("cannot reach position management or execute data requests", async ({ page, signInAs }) => {
-    await signInAs("editor");
+    await signInAs("mc_vp");
     await page.goto("/admin/roles");
     await expect(page).toHaveURL(/\/unauthorized/);
     await page.goto("/admin/privacy");
@@ -93,12 +93,12 @@ test.describe("an editor", () => {
   });
 });
 
-test.describe("a platform admin", () => {
+test.describe("the PAI", () => {
   test("reaches position management, which offers no way to grant a position", async ({
     page,
     signInAs,
   }) => {
-    await signInAs("admin");
+    await signInAs("pai");
     await page.goto("/admin/roles");
     await expect(page.getByRole("heading", { name: /^positions$/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /active positions/i })).toBeVisible();
@@ -110,7 +110,7 @@ test.describe("a platform admin", () => {
   });
 
   test("reaches the data request queue", async ({ page, signInAs }) => {
-    await signInAs("admin");
+    await signInAs("pai");
     await page.goto("/admin/privacy");
     await expect(page.getByRole("heading", { name: /data subject requests/i })).toBeVisible();
   });

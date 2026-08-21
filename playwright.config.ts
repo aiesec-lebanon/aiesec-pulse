@@ -1,25 +1,57 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/test";
 
 // Runs against a real `next build` output: the CSP nonce, dynamic rendering and
 // the security headers all behave differently under the dev server.
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
+// The stub that answers as auth.aiesec.org and gis-api.aiesec.org. Sign-in is
+// otherwise the production path end to end — see e2e/gis-stub/server.ts for why
+// this is a server rather than Playwright route interception.
+const STUB_PORT = process.env.PULSE_GIS_STUB_PORT ?? "3099";
+const STUB_ORIGIN = `http://127.0.0.1:${STUB_PORT}`;
+
 // Two servers against one database produce failures that look like
 // application bugs and are not.
-const webServer = process.env.PLAYWRIGHT_BASE_URL
+const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE_URL
   ? undefined
-  : {
-      command: "npm run build && npm run start",
-      url: "http://localhost:3000/api/health",
-      reuseExistingServer: !process.env.CI,
-      timeout: 180_000,
-      env: {
-        PULSE_E2E_MOCK_AUTH: "1",
-        // next start forces NODE_ENV=production, so the deployment is declared
-        // explicitly instead. Anything but "production" keeps mock sign-in available.
-        PULSE_DEPLOYMENT: "test",
+  : [
+      {
+        command: "npx tsx e2e/gis-stub/server.ts",
+        url: `${STUB_ORIGIN}/__health`,
+        reuseExistingServer: !process.env.CI,
+        timeout: 30_000,
+        env: { PULSE_GIS_STUB_PORT: STUB_PORT },
       },
-    };
+      {
+        command: "npm run build && npm run start",
+        url: "http://localhost:3000/api/health",
+        reuseExistingServer: !process.env.CI,
+        // A cold `next build` is the whole of this budget and then some on a
+        // machine without a warm .next cache; 180s was not enough to get to a
+        // first request.
+        timeout: 300_000,
+        env: {
+          // The whole of the test-only configuration: point the two AIESEC
+          // endpoints at the stub. Nothing in `app/` or `lib/` knows the
+          // difference, which is the property that makes this suite worth
+          // having — a bypass wired into application code tests the bypass.
+          AIESEC_OAUTH_AUTH_URL: STUB_ORIGIN,
+          GIS_GRAPHQL_URL: `${STUB_ORIGIN}/graphql`,
+          // Opens /api/test/publish-scheduled, which runs the scheduling cron's
+          // own logic synchronously. Refused outright on a production
+          // deployment — see lib/test-hooks.ts.
+          PULSE_E2E_TEST_HOOKS: "1",
+          // next start forces NODE_ENV=production, so the deployment is declared
+          // explicitly instead. Anything but "production" keeps the hook available.
+          PULSE_DEPLOYMENT: "test",
+          // Inlined into the client bundle at build time, so it has to be right
+          // here rather than only at run time: a stale value sends the callback's
+          // redirects at whatever else is listening on that port.
+          NEXT_PUBLIC_BASE_URL: baseURL,
+          AIESEC_OAUTH_REDIRECT_URI: `${baseURL}/api/auth/callback`,
+        },
+      },
+    ];
 
 export default defineConfig({
   testDir: "./e2e",

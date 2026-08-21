@@ -34,12 +34,12 @@ test.describe("axe-core, WCAG 2.2 AA", () => {
   });
 
   test("composer", async ({ page, signInAs }) => {
-    await signInAs("publisher", "/posts/new");
+    await signInAs("lc_vp", "/posts/new");
     await expectNoA11yViolations(page, "/posts/new");
   });
 
   test("drafts", async ({ page, signInAs }) => {
-    await signInAs("publisher", "/drafts");
+    await signInAs("lc_vp", "/drafts");
     await expectNoA11yViolations(page, "/drafts");
   });
 
@@ -59,12 +59,12 @@ test.describe("axe-core, WCAG 2.2 AA", () => {
   });
 
   test("moderation queue", async ({ page, signInAs }) => {
-    await signInAs("editor", "/admin/queue");
+    await signInAs("mc_vp", "/admin/queue");
     await expectNoA11yViolations(page, "/admin/queue");
   });
 
   test("admin tables", async ({ page, signInAs }) => {
-    await signInAs("admin", "/admin/posts");
+    await signInAs("pai", "/admin/posts");
     await expectNoA11yViolations(page, "/admin/posts");
     await page.goto("/admin/audit");
     await expectNoA11yViolations(page, "/admin/audit");
@@ -144,7 +144,7 @@ test.describe("keyboard operation", () => {
 
 test.describe("document structure", () => {
   test("every core page has exactly one h1", async ({ page, signInAs }) => {
-    await signInAs("admin");
+    await signInAs("pai");
     for (const path of ["/feed", "/profile", "/settings/privacy", "/admin/queue", "/admin/audit"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 }), `h1 count on ${path}`).toHaveCount(1);

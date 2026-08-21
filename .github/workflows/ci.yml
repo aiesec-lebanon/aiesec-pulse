@@ -124,10 +124,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    env:
-      # Signals to lib/auth/mock-oauth.ts that the sign-in flow may be stubbed.
-      # Refused outright when NODE_ENV is production — see that file.
-      PULSE_E2E_MOCK_AUTH: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -140,6 +136,11 @@ jobs:
       - run: npm run seed
       - run: npx playwright install --with-deps chromium
       - name: Playwright
+        # Sign-in has no test-only path in the application. playwright.config.ts
+        # starts a stub that answers as auth.aiesec.org and gis-api.aiesec.org
+        # and points the app at it, so the OAuth handshake, the code exchange,
+        # the GIS query and the grant reconciliation all run for real.
+        #
         # Specs assert axe-core has no violations on the feed, post detail,
         # composer and moderation queue.
         run: npm run test:e2e

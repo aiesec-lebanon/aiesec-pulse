@@ -103,7 +103,7 @@ aiesec-pulse/
 │   │   └── privacy/              # Data subject request queue
 │   ├── legal/                    # Privacy notice, content policy, terms
 │   ├── api/
-│   │   ├── auth/                 # start, callback, logout, mock
+│   │   ├── auth/                 # start, callback, logout
 │   │   ├── storage/sign/         # Presigned upload URLs
 │   │   ├── inngest/              # Background job endpoint
 │   │   └── health/               # Readiness with a freshness timestamp
@@ -225,13 +225,17 @@ The app is available at `http://localhost:3000`.
 
 ### Working without AIESEC OAuth credentials
 
-OAuth credentials take time to be issued. In the meantime, set `PULSE_E2E_MOCK_AUTH=1` and visit:
+There is no mock sign-in path in the application, so real credentials are required to use the app by hand. What the E2E suite does instead is point the two AIESEC endpoints somewhere else:
 
-```
-/api/auth/mock?persona=publisher&returnTo=/feed
+```bash
+npx tsx e2e/gis-stub/server.ts     # answers as auth.aiesec.org and gis-api.aiesec.org
+
+AIESEC_OAUTH_AUTH_URL=http://127.0.0.1:3099 \
+GIS_GRAPHQL_URL=http://127.0.0.1:3099/graphql \
+npm run dev
 ```
 
-Personas are `member`, `publisher`, `editor`, `moderator`, and `admin`. Mock auth requires both the explicit flag **and** a non-production deployment; it refuses to run on production and logs the attempt as a security event.
+Sign in at `/login` as usual. Which persona you get is chosen by a `pulse_e2e_persona` cookie on `127.0.0.1:3099`, one per AIESEC position class — see `e2e/gis-stub/fixtures.ts`. The OAuth handshake, the code exchange, the GIS query and the grant reconciliation all run for real; only the far end of the socket is a stub, which is the point. `playwright.config.ts` wires the same thing up for `npm run test:e2e`.
 
 ---
 
