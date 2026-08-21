@@ -56,7 +56,7 @@ export function GrantsTable({ rows }: { rows: GrantRow[] }) {
     <>
       <div className="aiesec-card overflow-x-auto p-0">
         <table className="w-full text-left">
-          <caption className="sr-only">Active manually granted roles</caption>
+          <caption className="sr-only">Active positions derived from EXPA</caption>
           <thead>
             <tr className="border-b border-[var(--border)]">
               <th

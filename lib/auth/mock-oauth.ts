@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { isProductionDeployment } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { ROOT_ENTITY_ID } from "@/lib/org/entities";
+import type { RoleKey } from "@/lib/rbac/catalogue";
 import { upsertRoleGrant } from "@/lib/rbac/grants";
 import { invalidateUserAuthorisation } from "@/lib/redis";
 import { currentTermLabel } from "@/lib/term";
@@ -29,12 +30,15 @@ export function mockAuthEnabled(): boolean {
 
 export type MockPersona = "member" | "publisher" | "editor" | "moderator" | "admin";
 
-const PERSONAS: Record<MockPersona, { name: string; roles: string[] }> = {
+// Persona names are the e2e suite's vocabulary, not the catalogue's; each maps
+// onto the position class that carries the capability the persona exists to
+// exercise. Replaced wholesale when the suite starts intercepting GIS.
+const PERSONAS: Record<MockPersona, { name: string; roles: RoleKey[] }> = {
   member: { name: "Test Member", roles: ["member"] },
-  publisher: { name: "Test Publisher", roles: ["member", "entity_publisher"] },
-  editor: { name: "Test Editor", roles: ["member", "entity_editor"] },
-  moderator: { name: "Test Moderator", roles: ["member", "entity_moderator"] },
-  admin: { name: "Test Admin", roles: ["member", "platform_admin"] },
+  publisher: { name: "Test Publisher", roles: ["member", "lc_vp"] },
+  editor: { name: "Test Editor", roles: ["member", "mc_vp"] },
+  moderator: { name: "Test Moderator", roles: ["member", "mc_president"] },
+  admin: { name: "Test Admin", roles: ["member", "pai"] },
 };
 
 // `isolate` gives the persona its own account. Quota is per author per week,
@@ -63,7 +67,7 @@ export async function ensureMockUser(persona: MockPersona, isolate?: string) {
     if (!role) continue;
 
     const scopeType =
-      roleKey === "member" || roleKey === "platform_admin" ? ScopeType.GLOBAL : ScopeType.ENTITY;
+      roleKey === "member" || roleKey === "pai" ? ScopeType.GLOBAL : ScopeType.ENTITY;
     const scopeEntityId = scopeType === ScopeType.ENTITY ? ROOT_ENTITY_ID : null;
 
     await upsertRoleGrant({

@@ -17,7 +17,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     comments: permissions.has("moderation.hide"),
     activity: permissions.has("analytics.view_network") || permissions.has("analytics.view_entity"),
     audit: permissions.has("admin.audit_view"),
-    roles: permissions.has("admin.grant_role"),
+    roles: permissions.has("admin.configure_roles"),
     privacy: permissions.has("admin.privacy_execute"),
     flags: permissions.has("admin.configure"),
   };

@@ -27,6 +27,7 @@ import {
 } from "@/lib/org/scope";
 import { resolveQuotaPolicy } from "@/lib/quota";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
+import { NARROWEST_PUBLISHING_TIER } from "@/lib/rbac/catalogue";
 import { checkPermission, requireSession } from "@/lib/rbac/guards";
 import { currentTermLabel } from "@/lib/term";
 import {
@@ -81,7 +82,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
-  const roleKey = (await publishingRoleFor(user, entityId)) ?? "entity_publisher";
+  const roleKey = (await publishingRoleFor(user, entityId)) ?? NARROWEST_PUBLISHING_TIER;
   const policy = await resolveQuotaPolicy(entityId, roleKey);
   if (!policy) {
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
@@ -213,7 +214,8 @@ export async function resubmitPost(
 
   const { title, bodyJson, summary, linkUrl, topicIds } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
-  const roleKey = (await publishingRoleFor(user, post.publisherEntityId)) ?? "entity_publisher";
+  const roleKey =
+    (await publishingRoleFor(user, post.publisherEntityId)) ?? NARROWEST_PUBLISHING_TIER;
   const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey);
   if (!policy)
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };

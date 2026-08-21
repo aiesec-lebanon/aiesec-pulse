@@ -1,17 +1,23 @@
-// Must stay in step with the RBAC migration and the seed; rbac-catalogue.test
+// Roles are AIESEC position classes, not Pulse inventions: AIESEC's identity
+// system has no way for an application to confer or revoke a role of its own,
+// so a Pulse-defined role would have no offboarding story at handover
+// (architecture.md §6.2). The list is closed and code-defined — new titles are
+// added here deliberately, never inferred from live data.
+//
+// Must stay in step with the M16 migration and the seed; rbac-catalogue.test
 // asserts all three agree. Pure constants with no imports, so client
 // components can hide controls without pulling in the server runtime — hiding
 // a control is never the check.
 
 export const ROLE_KEYS = [
+  "pai",
+  "ai_vp",
+  "ai_manager",
+  "mc_president",
+  "mc_vp",
+  "lc_president",
+  "lc_vp",
   "member",
-  "entity_publisher",
-  "entity_editor",
-  "entity_moderator",
-  "global_publisher",
-  "global_moderator",
-  "platform_admin",
-  "break_glass_admin",
 ] as const;
 
 export type RoleKey = (typeof ROLE_KEYS)[number];
@@ -25,6 +31,8 @@ export const PERMISSION_KEYS = [
   "post.approve",
   "post.edit_any",
   "post.archive",
+  "post.promote",
+  "post.demote",
   "comment.create",
   "comment.delete_own",
   "moderation.hide",
@@ -35,7 +43,7 @@ export const PERMISSION_KEYS = [
   "analytics.view_own",
   "analytics.view_entity",
   "analytics.view_network",
-  "admin.grant_role",
+  "admin.configure_roles",
   "admin.configure",
   "admin.audit_view",
   "admin.privacy_execute",
@@ -44,25 +52,25 @@ export const PERMISSION_KEYS = [
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
 export const ROLE_NAMES: Record<RoleKey, string> = {
+  pai: "PAI",
+  ai_vp: "AIVP",
+  ai_manager: "AI Manager",
+  mc_president: "MCP",
+  mc_vp: "MCVP",
+  lc_president: "LCP",
+  lc_vp: "LCVP",
   member: "Member",
-  entity_publisher: "Entity publisher",
-  entity_editor: "Entity editor",
-  entity_moderator: "Entity moderator",
-  global_publisher: "Global publisher",
-  global_moderator: "Global moderator",
-  platform_admin: "Platform admin",
-  break_glass_admin: "Break-glass admin",
 };
 
 export const ROLE_DESCRIPTIONS: Record<RoleKey, string> = {
-  member: "Every authenticated AIESEC member.",
-  entity_publisher: "MCP, MCVP, LCP and functional team leads — publishes for their entity.",
-  entity_editor: "MC comms/IM team — edits and approves within their entity.",
-  entity_moderator: "Nominated per MC — moderation only, within their entity.",
-  global_publisher: "AI teams — publishes to any audience.",
-  global_moderator: "AI Trust & Safety designates.",
-  platform_admin: "IM platform owners — configuration, quotas, role grants.",
-  break_glass_admin: "Emergency local credential access. Heavily audited.",
+  pai: "President of AIESEC International. Full access, locked in code.",
+  ai_vp: "Vice President of AIESEC International. Full access, locked in code.",
+  ai_manager: "AIESEC International manager — global reach, fully configurable.",
+  mc_president: "Member Committee President — own MC and every LC beneath it. Promotes posts.",
+  mc_vp: "Member Committee Vice President — own MC and every LC beneath it.",
+  lc_president: "Local Committee President — own LC.",
+  lc_vp: "Local Committee Vice President — own LC.",
+  member: "Every AIESEC member. Read and engage.",
 };
 
 export const PERMISSION_NAMES: Record<PermissionKey, string> = {
@@ -74,6 +82,8 @@ export const PERMISSION_NAMES: Record<PermissionKey, string> = {
   "post.approve": "Approve or reject queued posts",
   "post.edit_any": "Edit any post in scope",
   "post.archive": "Archive a post",
+  "post.promote": "Promote a post to network level",
+  "post.demote": "Return a promoted post to local level",
   "comment.create": "Comment on a post",
   "comment.delete_own": "Delete own comment",
   "moderation.hide": "Hide a post or comment",
@@ -84,21 +94,51 @@ export const PERMISSION_NAMES: Record<PermissionKey, string> = {
   "analytics.view_own": "View own post analytics",
   "analytics.view_entity": "View entity analytics",
   "analytics.view_network": "View network analytics",
-  "admin.grant_role": "Grant and revoke platform roles",
+  "admin.configure_roles": "Edit the role → permission matrix",
   "admin.configure": "Configure quotas, topics, feature flags",
   "admin.audit_view": "View the audit log",
   "admin.privacy_execute": "Execute GDPR data subject requests",
 };
 
-// Expanded to the full set by permissionsForRole, so a new permission cannot
-// be accidentally withheld from them.
-const EXPLICIT_ROLE_PERMISSIONS: Record<
-  Exclude<RoleKey, "platform_admin" | "break_glass_admin">,
+// `pai` and `ai_vp` hold every permission unconditionally — a fixed floor in
+// code, not editable rows, so no matrix state can leave the platform with
+// nobody able to administer it (architecture.md §7.1). `lib/rbac/can.ts`
+// enforces the same floor ahead of the database lookup; these constants only
+// describe it for the seed and for read-only UI.
+export const LOCKED_FULL_ACCESS_ROLES: readonly RoleKey[] = ["pai", "ai_vp"];
+
+export function isLockedFullAccess(role: RoleKey): boolean {
+  return LOCKED_FULL_ACCESS_ROLES.includes(role);
+}
+
+// Publishing tiers, most permissive first. A member holding several positions
+// is billed against the widest one, so the precedence has to be explicit rather
+// than "whichever grant the database returned first". `member` is absent
+// because a member does not publish.
+export const PUBLISHING_TIERS: readonly RoleKey[] = [
+  "pai",
+  "ai_vp",
+  "ai_manager",
+  "mc_president",
+  "mc_vp",
+  "lc_president",
+  "lc_vp",
+];
+
+/** The narrowest publishing allowance — the safe default when no tier matches. */
+export const NARROWEST_PUBLISHING_TIER: RoleKey = "lc_vp";
+
+// The seeded default of context.md §7.3 — a starting point an AI-level admin
+// re-assigns at runtime (`admin.configure_roles`), never a hard-coded rule.
+// From M18 the live answer comes from the `RolePermission` table; this stays
+// the seed and the reset point.
+const DEFAULT_ROLE_PERMISSIONS: Record<
+  Exclude<RoleKey, "pai" | "ai_vp" | "ai_manager">,
   readonly PermissionKey[]
 > = {
   member: ["comment.create", "comment.delete_own"],
 
-  entity_publisher: [
+  lc_vp: [
     "comment.create",
     "comment.delete_own",
     "post.draft",
@@ -107,7 +147,28 @@ const EXPLICIT_ROLE_PERMISSIONS: Record<
     "analytics.view_own",
   ],
 
-  entity_editor: [
+  // An LCP moderates their own LC: with no MC officer beneath them, the
+  // nearest moderator to a local report is the LCP.
+  lc_president: [
+    "comment.create",
+    "comment.delete_own",
+    "post.draft",
+    "post.publish",
+    "post.schedule",
+    "post.require_ack",
+    "post.approve",
+    "post.edit_any",
+    "post.archive",
+    "moderation.hide",
+    "moderation.restore",
+    "moderation.report_triage",
+    "moderation.appeal_decide",
+    "analytics.view_own",
+    "analytics.view_entity",
+    "admin.audit_view",
+  ],
+
+  mc_vp: [
     "comment.create",
     "comment.delete_own",
     "post.draft",
@@ -121,61 +182,41 @@ const EXPLICIT_ROLE_PERMISSIONS: Record<
     "analytics.view_entity",
   ],
 
-  entity_moderator: [
-    "comment.create",
-    "comment.delete_own",
-    "moderation.hide",
-    "moderation.restore",
-    "moderation.report_triage",
-    "moderation.appeal_decide",
-    "admin.audit_view",
-  ],
-
-  global_publisher: [
+  // Promotion is seeded here and nowhere below: deciding what an MC puts in
+  // front of the whole network is the MCP's editorial call (context.md §7.2).
+  mc_president: [
     "comment.create",
     "comment.delete_own",
     "post.draft",
     "post.publish",
     "post.schedule",
-    "post.target_beyond",
     "post.require_ack",
-    "analytics.view_own",
-  ],
-
-  global_moderator: [
-    "comment.create",
-    "comment.delete_own",
     "post.approve",
+    "post.edit_any",
+    "post.archive",
+    "post.promote",
+    "post.demote",
     "moderation.hide",
     "moderation.restore",
     "moderation.report_triage",
     "moderation.appeal_decide",
     "moderation.restrict_user",
+    "analytics.view_own",
+    "analytics.view_entity",
     "admin.audit_view",
   ],
 };
 
+// `ai_manager` starts at full access like the two locked classes, but is an
+// ordinary editable row — an AI Manager can be scoped down without touching
+// the lockout guarantee.
 export function permissionsForRole(role: RoleKey): readonly PermissionKey[] {
-  if (role === "platform_admin" || role === "break_glass_admin") return PERMISSION_KEYS;
-  return EXPLICIT_ROLE_PERMISSIONS[role];
+  if (isLockedFullAccess(role) || role === "ai_manager") return PERMISSION_KEYS;
+  return DEFAULT_ROLE_PERMISSIONS[role];
 }
 
 export function rolePermissionPairs(): Array<{ role: RoleKey; permission: PermissionKey }> {
   return ROLE_KEYS.flatMap((role) =>
     permissionsForRole(role).map((permission) => ({ role, permission }))
   );
-}
-
-// Deriving these from a free-text GIS title would make trust & safety
-// authority a function of someone renaming a role in EXPA.
-export const MANUAL_ONLY_ROLES: readonly RoleKey[] = [
-  "entity_editor",
-  "entity_moderator",
-  "global_moderator",
-  "platform_admin",
-  "break_glass_admin",
-];
-
-export function isManualOnly(role: RoleKey): boolean {
-  return MANUAL_ONLY_ROLES.includes(role);
 }

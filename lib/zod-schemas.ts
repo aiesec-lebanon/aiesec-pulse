@@ -160,13 +160,6 @@ export const breakGlassLoginSchema = z.object({
     .regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator"),
 });
 
-export const grantRoleSchema = z.object({
-  userId: z.string().trim().min(1),
-  roleKey: z.string().trim().min(1),
-  scopeEntityId: z.string().trim().min(1).nullable(),
-  reason: z.string().trim().min(5, "Record why this grant is being made").max(500),
-});
-
 export const dataSubjectRequestSchema = z.object({
   kind: z.enum(["ACCESS", "EXPORT", "RECTIFICATION", "ERASURE", "OBJECTION"]),
   notes: z.string().trim().max(2_000).optional(),

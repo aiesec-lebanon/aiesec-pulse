@@ -4,6 +4,7 @@ import { ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { ancestorChain } from "@/lib/org/entities";
 import { can } from "@/lib/rbac/can";
+import { NARROWEST_PUBLISHING_TIER, PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
 import { cached, cacheKeys } from "@/lib/redis";
 
 // A relevance filter, not a confidentiality boundary — the content policy says
@@ -68,7 +69,7 @@ export function defaultAudience(): Array<{ scopeType: ScopeType; entityId: strin
 // tier before they submit (most permissive grant wins) — currently
 // /posts/new and /posts/[slug]/edit. Server Actions resolve their own,
 // entity-scoped version of this at write time; this is the display-only read.
-export async function publishingRoleKeyFor(userId: string): Promise<string> {
+export async function publishingRoleKeyFor(userId: string): Promise<RoleKey> {
   const grants = await db.roleGrant.findMany({
     where: {
       userId,
@@ -77,10 +78,10 @@ export async function publishingRoleKeyFor(userId: string): Promise<string> {
     },
     select: { role: { select: { key: true } } },
   });
-  for (const key of ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"]) {
+  for (const key of PUBLISHING_TIERS) {
     if (grants.some((g) => g.role.key === key)) return key;
   }
-  return "entity_publisher";
+  return NARROWEST_PUBLISHING_TIER;
 }
 
 export async function resolveAudienceSize(
@@ -112,7 +113,7 @@ export async function resolveAudienceSize(
 /**
  * What a publisher may choose as their post's audience. `fixed` means there
  * is no real choice to offer — context.md §7.2's "target audience beyond own
- * scope: ❌" for entity_publisher/entity_editor — so the composer shows
+ * scope: ❌" for every MC and LC class — so the composer shows
  * their entity as information, not a control. `open` (post.target_beyond)
  * gets the full picker: GLOBAL, any region, or any entity via typeahead.
  */

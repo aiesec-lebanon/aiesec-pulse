@@ -101,11 +101,17 @@ async function seedTopics() {
   console.log(`  topics: ${TOPICS.length}`);
 }
 
-const QUOTAS: Array<{ id: string; roleKey: string; maxPosts: number }> = [
-  { id: "quota_default_entity_publisher", roleKey: "entity_publisher", maxPosts: 2 },
-  { id: "quota_default_entity_editor", roleKey: "entity_editor", maxPosts: 2 },
-  { id: "quota_default_global_publisher", roleKey: "global_publisher", maxPosts: 20 },
-  { id: "quota_default_platform_admin", roleKey: "platform_admin", maxPosts: 100 },
+// The per-author LOCAL publishing allowance, one row per position class that
+// may publish. The NETWORK promotion quota is counted per MC, not per author,
+// and lands with the promotion model.
+const QUOTAS: Array<{ id: string; roleKey: RoleKey; maxPosts: number }> = [
+  { id: "quota_default_lc_vp", roleKey: "lc_vp", maxPosts: 2 },
+  { id: "quota_default_lc_president", roleKey: "lc_president", maxPosts: 2 },
+  { id: "quota_default_mc_vp", roleKey: "mc_vp", maxPosts: 2 },
+  { id: "quota_default_mc_president", roleKey: "mc_president", maxPosts: 2 },
+  { id: "quota_default_ai_manager", roleKey: "ai_manager", maxPosts: 20 },
+  { id: "quota_default_ai_vp", roleKey: "ai_vp", maxPosts: 100 },
+  { id: "quota_default_pai", roleKey: "pai", maxPosts: 100 },
 ];
 
 async function seedQuotas() {

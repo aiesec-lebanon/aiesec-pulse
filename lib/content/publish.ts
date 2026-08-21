@@ -13,6 +13,7 @@ import { db } from "@/lib/db";
 import type { ResolvedQuota } from "@/lib/quota";
 import { usedInPeriod } from "@/lib/quota";
 import { can } from "@/lib/rbac/can";
+import { PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
 
 // Shared by every path that turns a submission into a PUBLISHED/IN_REVIEW
 // post — createPost, resubmitPost, and publishDraft. Not exported from a
@@ -24,21 +25,19 @@ import { can } from "@/lib/rbac/can";
 export async function publishingRoleFor(
   user: { id: string },
   entityId: string
-): Promise<string | null> {
+): Promise<RoleKey | null> {
   if (await can(user, "post.publish", { type: "ENTITY", entityId })) {
     const grants = await db.roleGrant.findMany({
       where: {
         userId: user.id,
         revokedAt: null,
         OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
-        role: {
-          key: { in: ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"] },
-        },
+        role: { key: { in: [...PUBLISHING_TIERS] } },
       },
       select: { role: { select: { key: true } } },
     });
-    // Most permissive first: an editor who also publishes gets the wider allowance.
-    for (const key of ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"]) {
+    // Most permissive first: an MCVP who is also an LCP gets the wider allowance.
+    for (const key of PUBLISHING_TIERS) {
       if (grants.some((g) => g.role.key === key)) return key;
     }
   }
