@@ -45,7 +45,7 @@ export function CommentsTable({ rows }: { rows: CommentRow[] }) {
                 · on{" "}
                 <Link
                   href={`/posts/${row.postSlug}`}
-                  className="text-[color:var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                 >
                   {row.postTitle}
                 </Link>

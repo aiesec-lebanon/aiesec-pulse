@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 import { PERMISSION_KEYS, type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { cached, cacheDelete, cacheKeys } from "@/lib/redis";
@@ -30,7 +32,10 @@ function emptyMatrix(): PermissionMatrix {
   return matrix;
 }
 
-export async function permissionMatrix(): Promise<PermissionMatrix> {
+// Memoised per request as well as cached across them: the matrix is one row
+// set shared by every viewer, and a request that runs several permission
+// checks should not pay for it more than once.
+export const permissionMatrix = cache(async (): Promise<PermissionMatrix> => {
   return cached<PermissionMatrix>(cacheKeys.permissionMatrix(), TTL_SECONDS, async () => {
     const roles = await db.role.findMany({
       select: {
@@ -48,7 +53,7 @@ export async function permissionMatrix(): Promise<PermissionMatrix> {
     }
     return matrix;
   });
-}
+});
 
 export async function invalidatePermissionMatrix(): Promise<void> {
   await cacheDelete(cacheKeys.permissionMatrix());

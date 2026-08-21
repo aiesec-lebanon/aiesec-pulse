@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 import { isInSubtree } from "@/lib/org/path";
 import { type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
@@ -37,7 +39,7 @@ function isRoleKey(key: string): key is RoleKey {
   return (ROLE_KEYS as readonly string[]).includes(key);
 }
 
-async function grantsOf(userId: string): Promise<ResolvedGrant[]> {
+const grantsOf = cache(async (userId: string): Promise<ResolvedGrant[]> => {
   return cached<ResolvedGrant[]>(cacheKeys.roleGrants(userId), TTL_SECONDS, async () => {
     const now = new Date();
 
@@ -71,7 +73,7 @@ async function grantsOf(userId: string): Promise<ResolvedGrant[]> {
     }
     return resolved;
   });
-}
+});
 
 async function resolve(userId: string): Promise<ResolvedAuthorisation> {
   const grants = await grantsOf(userId);
