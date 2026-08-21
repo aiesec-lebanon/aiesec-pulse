@@ -10,7 +10,7 @@ import {
   sanitiseDocument,
 } from "@/lib/content/document";
 import { slugifyTitle } from "@/lib/content/slug";
-import { quotaPeriodFor } from "@/lib/quota";
+import { nearestByScope, quotaPeriodFor } from "@/lib/quota";
 import { termEndsAt, termLabelFor } from "@/lib/term";
 import { currentIsoWeek, isoWeekShortLabel, lastNIsoWeeks } from "@/lib/week";
 
@@ -49,6 +49,56 @@ describe("quota periods", () => {
   it("labels a week for humans", () => {
     expect(isoWeekShortLabel("2026-W21")).toMatch(/^May W\d$/);
     expect(isoWeekShortLabel("nonsense")).toBe("nonsense");
+  });
+});
+
+// `resolveQuotaPolicy` used to express this precedence by asking the database
+// once per candidate scope and stopping at the first hit — six sequential round
+// trips for an ordinary LC author. It now fetches every applicable policy in one
+// query and picks here, so the rule is worth pinning down.
+describe("quota scope precedence", () => {
+  // The chain the author sits on: root, their MC, their LC. Depth comes from the
+  // entity rows the resolver fetches alongside the policies.
+  const depths = new Map([
+    ["ai", 1],
+    ["mc", 2],
+    ["lc", 3],
+  ]);
+
+  const global = { id: "global", entityId: null };
+  const ai = { id: "ai-policy", entityId: "ai" };
+  const mc = { id: "mc-policy", entityId: "mc" };
+  const lc = { id: "lc-policy", entityId: "lc" };
+
+  it("falls back to the network-wide default when nothing else applies", () => {
+    expect(nearestByScope([global], depths)).toBe(global);
+  });
+
+  it("prefers the author's own entity over every ancestor", () => {
+    expect(nearestByScope([global, ai, mc, lc], depths)).toBe(lc);
+  });
+
+  it("walks up to the nearest ancestor that has one", () => {
+    expect(nearestByScope([global, ai, mc], depths)).toBe(mc);
+  });
+
+  it("does not depend on the order the database returned the rows in", () => {
+    expect(nearestByScope([lc, global, mc, ai], depths)).toBe(lc);
+    expect(nearestByScope([ai, lc, global], depths)).toBe(lc);
+  });
+
+  it("ranks a GLOBAL row behind every entity-scoped one, however shallow", () => {
+    expect(nearestByScope([global, ai], depths)).toBe(ai);
+  });
+
+  it("keeps the first row on a tie, as the per-scope findFirst did", () => {
+    const weekly = { id: "weekly", entityId: "lc" };
+    const monthly = { id: "monthly", entityId: "lc" };
+    expect(nearestByScope([weekly, monthly], depths)).toBe(weekly);
+  });
+
+  it("has no answer when no policy is configured at all", () => {
+    expect(nearestByScope([], depths)).toBeNull();
   });
 });
 
