@@ -9,7 +9,7 @@ type Props = {
   disabled?: boolean;
 };
 
-/** Filter Chips, selector mode (§7.4) — picking a topic is "activating a filter." */
+/** Filter chips in selector mode — picking a topic is "activating a filter." */
 export function TopicPicker({ topics, selectedIds, onChange, disabled }: Props) {
   if (topics.length === 0) return null;
 

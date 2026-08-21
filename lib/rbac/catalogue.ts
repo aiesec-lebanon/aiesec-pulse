@@ -1,10 +1,10 @@
 // Roles are AIESEC position classes, not Pulse inventions: AIESEC's identity
 // system has no way for an application to confer or revoke a role of its own,
 // so a Pulse-defined role would have no offboarding story at handover
-// (architecture.md §6.2). The list is closed and code-defined — new titles are
+// at handover. The list is closed and code-defined — new titles are
 // added here deliberately, never inferred from live data.
 //
-// Must stay in step with the M16 migration and the seed; rbac-catalogue.test
+// Must stay in step with the migration and the seed; rbac-catalogue.test
 // asserts all three agree. Pure constants with no imports, so client
 // components can hide controls without pulling in the server runtime — hiding
 // a control is never the check.
@@ -111,7 +111,7 @@ export const NARROWEST_PUBLISHING_TIER: RoleKey = "lc_vp";
  * The classes whose reach is the whole network by position rather than by
  * promotion. An AI-level office sits above the MC tier and has no MC to be
  * local to, so `LOCAL` would be a level with nothing to mean; what they publish
- * is born `NETWORK` (context.md §7.2, architecture.md §8.6).
+ * is born `NETWORK`.
  *
  * This is deliberately the class list and not "the publisher has no MC
  * ancestor". A leaf office whose parent has not been synced yet is parked under
@@ -129,7 +129,7 @@ export function isAiLevelRole(role: RoleKey): role is AiLevelRole {
 
 // Seed data, and only seed data. The live answer to "what may this class do"
 // is the `RolePermission` table, read by `lib/rbac/matrix.ts` and re-assignable
-// at runtime by an AI-level admin (`admin.configure_roles`). What follows is
+// at runtime from the admin console. What follows is
 // the starting point that table is seeded with and the state a reset returns
 // it to — never consult it to authorise anything.
 const DEFAULT_ROLE_PERMISSIONS: Record<Exclude<RoleKey, AiLevelRole>, readonly PermissionKey[]> = {
@@ -179,7 +179,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<Exclude<RoleKey, AiLevelRole>, readonly P
   ],
 
   // Promotion is seeded here and nowhere below: deciding what an MC puts in
-  // front of the whole network is the MCP's editorial call (context.md §7.2).
+  // front of the whole network is the MCP's editorial call.
   mc_president: [
     "comment.create",
     "comment.delete_own",

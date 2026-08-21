@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 
 /**
- * Motion preference (design system §8.2).
+ * Motion preference.
  *
  * Pulse treats motion as an explicit member choice rather than an inferred OS
  * setting: the header carries a Motion control beside the theme control, and

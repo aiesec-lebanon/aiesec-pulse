@@ -57,7 +57,7 @@ export default async function FollowingSettingsPage() {
           href: null,
         };
       }
-      // USER follows have no UI yet (M9 only wires topics and entities).
+      // USER follows have no UI yet: only topics and entities are wired.
       return null;
     })
     .filter((item): item is FollowingItem => item !== null);

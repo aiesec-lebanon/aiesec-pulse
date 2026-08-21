@@ -69,7 +69,7 @@ export function publicStorageBase(): string | null {
   return `${projectOrigin}/storage/v1/object/public`;
 }
 
-// A row whose key could not be parsed during the M6 backfill still holds a
+// A row whose key could not be parsed during the backfill still holds a
 // full URL, and is returned untouched.
 export function mediaUrl(cover: { bucket: string; path: string } | null): string | null {
   if (!cover) return null;
@@ -80,7 +80,7 @@ export function mediaUrl(cover: { bucket: string; path: string } | null): string
   return `${base}/${cover.bucket}/${cover.path}`;
 }
 
-export function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>): FeedPost {
+function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>): FeedPost {
   return {
     id: row.id,
     slug: row.slug,
@@ -142,7 +142,7 @@ function entityFollowStatesFor(
   return followStatesFor(userId, FollowTarget.ENTITY, entityIds);
 }
 
-// Same shape, for the ranking affinity term (M12) below.
+// Same shape, for the ranking affinity term below.
 function topicFollowStatesFor(
   userId: string,
   topicIds: string[]
@@ -175,8 +175,8 @@ export async function getFeedPage(page: number): Promise<{ posts: FeedPost[]; ha
 const TOPIC_PAGE_SIZE = 12;
 
 // Same audience-scoping as the main feed — a topic archive is never a way
-// around targeting (context.md §8.3: audience is a distribution control the
-// reader-facing surfaces must all honour identically).
+// around targeting: audience is a distribution control every reader-facing
+// surface honours identically.
 export async function getTopicFeed(
   topicId: string,
   page: number
@@ -287,15 +287,15 @@ export async function getRelatedPosts(
 }
 
 // ---------------------------------------------------------------------------
-// Ranking (story 16, M12) — architecture.md §11. Deterministic and weighted,
-// no learned model; every term below is inspectable per-post via
-// getPostRankingBreakdown, which backs the "why this appeared" disclosure.
+// Ranking. Deterministic and weighted, no learned model; every term below is
+// inspectable per-post via getPostRankingBreakdown, which backs the "why this
+// appeared" disclosure.
 //
-// Deliberate reading of §11's "computation happens in SQL over a bounded
-// candidate set": the *bounding* — visiblePublishedWhere + ORDER BY + LIMIT
+// The computation is meant to happen in SQL over a bounded candidate set. The
+// *bounding* — visiblePublishedWhere + ORDER BY + LIMIT
 // 500, so this never scans the full archive — is SQL, in rankingCandidatesFor
 // below. The score arithmetic itself runs in JS over that already-bounded set
-// (≤500 rows of plain numbers), the same call M10 made choosing EXISTS/CROSS
+// (≤500 rows of plain numbers), the same call search made choosing EXISTS/CROSS
 // JOIN over the doc's illustrated SQL: it keeps the formula a plain,
 // unit-testable function — this repo's established pattern for business
 // logic (dueScheduledPostsQuery, decideAudienceForSubmission both work the
@@ -303,11 +303,11 @@ export async function getRelatedPosts(
 // code path that ranked the feed, rather than a second, raw-SQL formula that
 // could silently drift from it.
 //
-// Caching: §17 keys the feed candidate cache by "scope set", but the formula
+// Caching: the feed candidate cache is keyed by "scope set", but the formula
 // itself defines affinity (Follow) and seen (PostRead) as per-viewer terms —
 // two members of the same entity can have different follows and read
 // history, so flattening those into a shared cache entry would silently
-// undo the personalisation story 16 asks for. Resolved by caching only the
+// undo the personalisation the feed is meant to provide. Resolved by caching only the
 // scope-shared half (which posts are candidates, and every term that only
 // depends on the entity tree — see cacheKeys.feedRanked) and layering the
 // two genuinely personal terms on top at request time, cheaply, since they're
@@ -361,8 +361,8 @@ const PROXIMITY_BY_TIER: Record<ProximityTier, number> = {
 };
 
 /**
- * architecture.md §11: "same LC = 1.0, same MC = 0.8, same region = 0.5,
- * global = 0.3" — read as tiers of shared ancestry between the viewer's own
+ * "same LC = 1.0, same MC = 0.8, same region = 0.5, global = 0.3" — tiers of
+ * shared ancestry between the viewer's own
  * entity and the post's publisher entity (Entity.path, e.g.
  * "/ai/mena/lb/aub"), not a literal equality check: a post published by the
  * viewer's own MC (an ancestor of the viewer's LC, not the same node) is
@@ -419,7 +419,7 @@ export type RankingTerms = {
 export type ScoredPost = { score: number; terms: RankingTerms };
 
 /**
- * architecture.md §11's formula, verbatim. `terms[*].weighted` always sums to
+ * The ranking formula. `terms[*].weighted` always sums to
  * `score` (seen's `weighted` is pre-negated) — that invariant is what makes
  * the per-post breakdown (getPostRankingBreakdown) a projection of the exact
  * numbers that ranked the feed, not a second computation that could drift
@@ -528,9 +528,9 @@ type CachedRankingRow = Omit<RankingRow, "publishedAt" | "createdAt" | "pinnedUn
 };
 
 /**
- * The expensive, shared half of ranking: cached per scope set, per
- * architecture.md §11/§17 (see cacheKeys.feedRanked for why that's sound
- * even though affinity/seen are personal). Personal terms are layered on by
+ * The expensive, shared half of ranking: cached per scope set (see
+ * cacheKeys.feedRanked for why that is sound even though affinity and seen
+ * are personal). Personal terms are layered on by
  * the caller — never cached here.
  */
 async function rankingCandidatesFor(scope: ScopeSet): Promise<RankingRow[]> {
@@ -756,5 +756,3 @@ export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
     })
     .filter((a): a is TrendingAuthor => a !== null);
 }
-
-export const FEED_PAGE_SIZE = POSTS_PER_PAGE;

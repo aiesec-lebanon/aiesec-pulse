@@ -58,25 +58,3 @@ export function PostAvatar({ fullName, avatarUrl, size = "md" }: PostAvatarProps
     </span>
   );
 }
-
-export function ImageFallback() {
-  return (
-    <div aria-hidden className="relative h-full w-full bg-[var(--muted)]">
-      <svg
-        viewBox="0 0 200 120"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="absolute inset-0 h-full w-full text-[color:var(--muted-foreground)]"
-        aria-hidden
-      >
-        <path
-          d="M -10 90 C 50 10 130 110 210 30"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeOpacity="0.18"
-          fill="none"
-        />
-      </svg>
-    </div>
-  );
-}

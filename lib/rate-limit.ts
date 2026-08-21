@@ -24,10 +24,10 @@ const LIMITS: Record<LimitName, { max: number; windowSeconds: number; by: "ip" |
   postSubmit: { max: 5, windowSeconds: 60, by: "user" },
   // Its own bucket rather than postSubmit's: an officer who has just published
   // should not find promoting throttled, and each promotion costs a live GIS
-  // round trip (architecture.md §6.3) that is worth capping on its own. Far
+  // round trip that is worth capping on its own. Far
   // above the weekly promotion quota, so this only ever catches hammering.
   promote: { max: 10, windowSeconds: 60 * 60, by: "user" },
-  // The composer autosaves on a 5-second debounce (architecture.md §8.1), so
+  // The composer autosaves on a 5-second debounce, so
   // postSubmit's 5/minute budget would be exhausted by normal typing. Headroom
   // above the ~12 ticks/minute the debounce can produce, not a bare minimum.
   draftAutosave: { max: 20, windowSeconds: 60, by: "user" },

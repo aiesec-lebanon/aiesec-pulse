@@ -1,7 +1,7 @@
 // PULSE_TERM_LABEL overrides the computed value outright, so a term rollover
 // can be rehearsed off-cycle.
 
-export const TERM_START_MONTH = 7;
+const TERM_START_MONTH = 7;
 
 export function termLabelFor(date: Date = new Date()): string {
   const year = date.getUTCFullYear();

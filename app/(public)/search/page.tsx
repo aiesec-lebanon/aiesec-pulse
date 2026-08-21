@@ -46,9 +46,8 @@ export default async function SearchPage({
 }: {
   searchParams: Promise<RawSearchParams>;
 }) {
-  // Search is a signed-in surface (context.md §7.1's permission matrix lists
-  // "View feed, search, archive" alongside the rest of the reader
-  // experience) — guarded here even though an empty query never reaches
+  // Search is a signed-in surface, like the rest of the reader experience —
+  // guarded here even though an empty query never reaches
   // searchPosts's own guard, so landing on /search unauthenticated still
   // redirects rather than rendering the filter chrome.
   await requireSession();

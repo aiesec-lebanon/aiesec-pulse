@@ -2,7 +2,7 @@ import { PostLevel } from "@/app/generated/prisma/enums";
 import { Pill } from "@/components/ui/Pill";
 
 /**
- * How far a post reaches (context.md §7.2), in §10.7a's pill shape.
+ * How far a post reaches, in the status-pill shape.
  *
  * Renders nothing for LOCAL. Every post is local until an MCP promotes it, so a
  * "Local" badge would sit on almost every card saying almost nothing; the badge

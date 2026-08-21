@@ -4,7 +4,7 @@ import { FeedIllustration } from "@/components/feed/FeedIllustration";
 import { Reveal } from "@/components/motion/Reveal";
 
 /**
- * §10.9's shape with the error tone. Not `EmptyState` itself: recovery here is
+ * The empty-state shape with the error tone. Not `EmptyState` itself: recovery here is
  * a `reset()` callback rather than a destination, and bending that component
  * to take an onClick would make its one clear contract two.
  */

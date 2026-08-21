@@ -508,7 +508,7 @@ export async function restorePost(
 }
 
 // ---------------------------------------------------------------------------
-// Promotion (architecture.md §8.6) — the editorial valve between two failures:
+// Promotion — the editorial valve between two failures:
 // every LC post flooding every member's feed, and LC posts never travelling
 // past their own MC. The quota is how wide the valve opens.
 // ---------------------------------------------------------------------------
@@ -559,7 +559,7 @@ const promotableSelect = {
  * be a way to withdraw another MC's post.
  *
  * Revalidating positions against GIS is the callers' job, not this one's: the
- * two writes do it and the budget read does not (§6.3).
+ * two writes do it and the budget read does not.
  */
 async function promotionContextFor(
   postId: string,
@@ -580,8 +580,8 @@ async function promotionContextFor(
     mcAncestorOf(post.publisherEntityId),
   ]);
 
-  // "Reject unless mcOf(post.publisher) = mcOf(actor.primaryEntity)" (§8.6),
-  // read as a rule about officers who *have* an MC. An AI-level actor has none,
+  // The same-MC rule is about officers who *have* an MC. An AI-level actor
+  // has none,
   // and taking the equality literally there would deny a class the catalogue
   // grants `post.promote` to; their boundary is the grant scope the permission
   // check above already applied, which for them is global by design.
@@ -606,7 +606,7 @@ async function promotionContextFor(
  * hides the control.
  *
  * Deliberately does not revalidate against GIS: this is a read on every render
- * of a post page, and §6.3 pays that latency only where authority is actually
+ * of a post page, and that latency is paid only where authority is actually
  * exercised. A number shown to someone whose position has just lapsed is a
  * stale label; the write behind it still refuses.
  */
@@ -647,8 +647,8 @@ export async function promotePost(postId: string, note: string): Promise<Promoti
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Give a reason." };
   }
 
-  // Before the permission check, never after (architecture.md §6.3, and see
-  // lib/auth/positions.ts): reconciliation expires grants GIS no longer returns
+  // Before the permission check, never after (see lib/auth/positions.ts):
+  // reconciliation expires grants GIS no longer returns
   // and busts the authorisation cache, which `can()` memoises per request.
   const confirmed = await revalidatePositions(user);
   if (!confirmed.ok) return { ok: false, error: confirmed.error };
@@ -712,7 +712,7 @@ export async function promotePost(postId: string, note: string): Promise<Promoti
 
 /**
  * The exact inverse, and it refunds nothing: `promotionPeriod` stays on the row
- * so the window's promotion remains spent (architecture.md §8.6). Otherwise
+ * so the window's promotion remains spent. Otherwise
  * promote/demote cycling would be an unbounded reach budget.
  */
 export async function demotePost(postId: string): Promise<PromotionResult> {

@@ -1,7 +1,7 @@
 import type { RoleKey } from "@/lib/rbac/catalogue";
 
-// Authority is the product of two axes and both must agree (architecture.md
-// §7.1). `office.tag` says what level a position sits at; `role.name` says what
+// Authority is the product of two axes and both must agree. `office.tag` says
+// what level a position sits at; `role.name` says what
 // the position is. Each class declares the tag it requires, and a disagreement
 // denies the position rather than guessing which axis to trust — guessing is
 // the only outcome that can silently over-grant.

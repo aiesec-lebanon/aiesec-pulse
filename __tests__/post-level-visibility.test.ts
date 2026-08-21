@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { EntityKind, PostLevel, ScopeType } from "@/app/generated/prisma/enums";
 import { localRootOf, type ScopeSet, visibilityFilter } from "@/lib/org/scope";
 
-// architecture.md §10.2 has two halves, and both are pure decisions over data
+// Visibility has two halves, and both are pure decisions over data
 // the caller has already fetched — where a viewer's local reach starts, and
 // what "visible" then means. Exercised here without a database, so the rule
 // itself is pinned down rather than only the query that happens to express it.
@@ -80,7 +80,7 @@ describe("visibilityFilter", () => {
   });
 
   it("never narrows a NETWORK post by audience", () => {
-    // architecture.md §8.6: promotion raises the ceiling. If the two arms were
+    // Promotion raises the ceiling. If the two arms were
     // ANDed rather than ORed, a promoted post targeted at its own LC would stay
     // invisible to the network it was just promoted to.
     const filter = visibilityFilter(LOCAL_SCOPE);

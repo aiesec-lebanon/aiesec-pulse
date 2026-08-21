@@ -7,8 +7,7 @@ import { recordAudit, systemActor } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
-// architecture.md §8.3 / §5.4's `Post_due_idx`: due posts, oldest first, one
-// page per run. A single minute realistically never queues more than this,
+// Served by `Post_due_idx`: due posts, oldest first, one page per run. A single minute realistically never queues more than this,
 // but the cap keeps one very late catch-up run bounded.
 export const SCHEDULE_BATCH_LIMIT = 200;
 
@@ -28,8 +27,7 @@ export function dueScheduledPostsQuery(now: Date = new Date()) {
  * Publishes one due post. Guarded by `status: SCHEDULED` in the update's
  * `where`, so a retried Inngest step or an overlapping run can never
  * double-publish or clobber a post the author has since pulled into another
- * state — a re-run of an already-published post is a no-op, exactly as
- * architecture.md §8.3 requires.
+ * state — a re-run of an already-published post is a no-op.
  */
 export async function publishDuePost(post: DuePost): Promise<boolean> {
   const updated = await db.post.updateMany({

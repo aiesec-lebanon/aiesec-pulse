@@ -4,15 +4,14 @@ import { FeedIllustration } from "@/components/feed/FeedIllustration";
 import { Reveal } from "@/components/motion/Reveal";
 
 /**
- * Empty & error state (§10.9), as one component.
+ * The empty and error state, as one component.
  *
  * The feed, search and topic-archive pages each carried their own copy of this
  * markup — same illustration, same float animation, three sets of headings at
- * two different levels. §10.9 already described a single canonical shape; it
- * just had no component to point at.
+ * two different levels.
  *
  * `tone` switches the heading colour for a failure rather than an absence,
- * which is the one variation §10.9 actually calls for.
+ * which is the only variation any caller needs.
  */
 export function EmptyState({
   heading,

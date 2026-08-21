@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 import { expect, isolationId, signInPage, test } from "./fixtures";
 
 /**
- * Post level, end to end (context.md §7.2, architecture.md §8.6).
+ * Post level, end to end.
  *
  * The org tree comes from the GIS fixtures: one region holding two MCs —
  * Testonia, with the LCs Testville and Otherton beneath it, and Farland with
@@ -31,7 +31,7 @@ const POST_SLUG_URL = /\/posts\/(?!new$|queued$)[a-z0-9-]+$/;
 /**
  * Publishes as whoever is signed in, and returns the post's URL path. Passing a
  * note takes the composer's own reach control — the second route to a promotion
- * (architecture.md §8.6), spending the same budget as the panel on post detail.
+ * spending the same budget as the panel on post detail.
  */
 async function publish(page: Page, title: string, networkNote?: string): Promise<string> {
   await page.goto("/posts/new");
@@ -196,7 +196,7 @@ test.describe("post level", () => {
     await page.goto(firstPath);
 
     // Demote it. The post goes back to local; the window's promotion does not
-    // come back with it (architecture.md §8.6), or promote/demote cycling would
+    // come back with it, or promote/demote cycling would
     // be an unbounded reach budget — so the budget still reads as spent.
     await page.getByRole("button", { name: /^return to local$/i }).click();
     await expect(promotionPanel(page).getByText(/only your MC/i)).toBeVisible({

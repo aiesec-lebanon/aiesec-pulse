@@ -61,7 +61,7 @@ export function nearestByScope<T extends { entityId: string | null }>(
  *
  * `postLevel` picks between the two budgets a role carries: LOCAL is how many
  * posts it may publish into its own MC, NETWORK how many it may promote to the
- * whole network (context.md §8.4). They are separate policy rows at the same
+ * whole network. They are separate policy rows at the same
  * scope, so the level is part of the question, never inferred.
  */
 export async function resolveQuotaPolicy(
@@ -70,15 +70,9 @@ export async function resolveQuotaPolicy(
   postLevel: PostLevel,
   at: Date = new Date()
 ): Promise<ResolvedQuota | null> {
-  // This used to walk the candidate scopes with one `findFirst` each, stopping
-  // at the first hit. For an LC author falling through to the seeded GLOBAL
-  // default — the ordinary case — that was six sequential round trips before an
-  // answer, and it runs twice per publish: once for the composer's quota state,
-  // once inside createPost. Against a remote database that is most of a second
-  // of the publish budget spent on configuration lookup.
-  //
-  // Two round trips now, whatever the depth of the tree. Precedence moves out of
-  // the query order and into nearestByScope, where it is explicit and testable.
+  // Two round trips whatever the depth of the tree, and this runs twice per
+  // publish — once for the composer's quota state, once inside createPost.
+  // Precedence lives in nearestByScope rather than in the order of the queries.
   const entity = entityId
     ? await db.entity.findUnique({ where: { id: entityId }, select: { path: true } })
     : null;
@@ -206,8 +200,8 @@ export async function quotaStateFor(
 }
 
 /**
- * The pool a promotion is billed against. context.md §8.4: the NETWORK budget
- * is counted per MC, not per officer, so an MC cannot buy extra network reach
+ * The pool a promotion is billed against. The NETWORK budget is counted per
+ * MC, not per officer, so an MC cannot buy extra network reach
  * by spreading promotions across several MCVPs. A promoter above the MC tier
  * shares an MC with nobody, so their pool is themselves — the same rule, not an
  * exception to it.
@@ -224,11 +218,9 @@ export function promotionPoolFor(promoterId: string, mc: { path: string } | null
  * promotion model and the easiest to undo by accident.
  *
  * Counted on `promotionPeriod` alone — deliberately **not** also on
- * `level = NETWORK`, which architecture.md §8.6's illustrative SQL adds.
- * Including it would make demotion refund the promotion, and §8.6's own prose
- * (and the `@@index([promotedById, promotionPeriod])` it specifies) says the
- * opposite: the window's promotion is spent whether or not it is later
- * withdrawn, or promote/demote cycling becomes an unbounded reach budget.
+ * `level = NETWORK`. Including it would make demotion refund the promotion:
+ * the window's promotion is spent whether or not it is later withdrawn, or
+ * promote/demote cycling becomes an unbounded reach budget.
  *
  * `excludePostId` leaves the post being promoted out of its own count, so
  * re-promoting something this window already paid for is free while a second

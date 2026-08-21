@@ -17,7 +17,7 @@ type Props = {
 };
 
 /**
- * How far this post will travel, chosen at publication (architecture.md §8.6).
+ * How far this post will travel, chosen at publication.
  *
  * Two shapes, matching `AudiencePicker`'s fixed/open split so the composer has
  * one grammar for "reach" rather than two:

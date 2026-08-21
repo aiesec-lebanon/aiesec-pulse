@@ -25,8 +25,8 @@ import { InsertImageDialog } from "@/components/editor/InsertImageDialog";
 import { PulseImageNode } from "@/components/editor/PulseImageNode";
 import { isSafeHref, type PulseDocument, sanitiseDocument } from "@/lib/content/document";
 
-// The extension list is the enforcement point for §10.1's rule: "the toolbar
-// must never offer something the sanitiser will silently strip on save."
+// The extension list is where the toolbar is kept from offering anything the
+// sanitiser will silently strip on save.
 // Every node/mark lib/content/document.ts doesn't allowlist is switched off
 // here rather than merely left off the toolbar, so a keyboard shortcut or a
 // paste can't smuggle it in either.

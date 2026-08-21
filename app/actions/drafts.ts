@@ -457,7 +457,7 @@ export async function deleteDraft(
     async () => {
       // Hard delete, not hidden/archived: an unpublished draft was never seen
       // by anyone but its author, so the reversible-moderation principle
-      // (architecture.md §1.8) doesn't apply — retention.ts already
+      // doesn't apply — retention.ts already
       // hard-deletes stale drafts the same way.
       await db.post.delete({ where: { id: postId } });
       revalidatePath("/drafts");

@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { motionEnabled } from "@/components/motion/motion-context";
 
 /**
- * Scroll-driven parallax (design system §8.5).
+ * Scroll-driven parallax.
  *
  * One shared scroll listener per mounted layer would be wasteful, so every
  * layer registers with a single module-level rAF loop instead. The loop only

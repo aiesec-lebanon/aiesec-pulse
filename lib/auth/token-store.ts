@@ -36,7 +36,7 @@ export async function deleteTokens(userId: string): Promise<void> {
 
 // An undecryptable row means the key changed without a rotation. Treated as
 // "no token" so the user re-authenticates cleanly instead of hitting a 500.
-export async function readTokens(userId: string): Promise<TokenSet | null> {
+async function readTokens(userId: string): Promise<TokenSet | null> {
   const row = await db.oauthToken.findUnique({ where: { userId } });
   if (!row) return null;
 
@@ -112,7 +112,7 @@ export async function exchangeCode(code: string, codeVerifier?: string): Promise
   });
 }
 
-export async function refreshTokens(refreshToken: string): Promise<TokenSet> {
+async function refreshTokens(refreshToken: string): Promise<TokenSet> {
   return postToken({
     grant_type: "refresh_token",
     client_id: env.AIESEC_OAUTH_CLIENT_ID,

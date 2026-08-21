@@ -147,10 +147,9 @@ export default async function FeedPage({
 }
 
 /**
- * The feed's own header. `FeedModeToggle` lives here and nowhere else — the
- * app shell used to carry a second, permanently-active "Latest" tab strip that
- * sat directly above this one, so the page shipped two tab controls a dozen
- * pixels apart with the same label and different meanings.
+ * The feed's own header. `FeedModeToggle` lives here and nowhere else: a
+ * second tab control in the app shell would sit a dozen pixels above this one
+ * carrying the same label and a different meaning.
  */
 function FeedHeader({
   heading,

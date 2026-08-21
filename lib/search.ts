@@ -7,10 +7,8 @@ import { scopeSetFor } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { type FilterableEntity, KIND_LABELS } from "@/lib/search-shared";
 
-// architecture.md §12's canonical shape: websearch_to_tsquery over the
-// generated searchVector column, ranked with ts_rank, snippeted with
-// ts_headline. The audience check there is illustrated as a plain JOIN; this
-// uses EXISTS instead (matching lib/org/scope.ts's visibilityFilter() Prisma
+// websearch_to_tsquery over the generated searchVector column, ranked with
+// ts_rank, snippeted with ts_headline. The audience check uses EXISTS (matching lib/org/scope.ts's visibilityFilter() Prisma
 // semantics exactly) so a post targeted at more than one entity the viewer
 // belongs to can't produce duplicate rows.
 
@@ -199,7 +197,7 @@ export async function searchPosts(
 
   const page = Math.max(1, filters.page);
 
-  // CROSS JOIN, not the comma-join architecture.md §12 illustrates
+  // CROSS JOIN, not the comma-join form
   // (`FROM "Post" p, websearch_to_tsquery(...) q`) — Postgres accepts the
   // comma form fine on its own (verified directly against it), but Prisma
   // 7's $queryRaw interpreter throws "invalid reference to FROM-clause entry
@@ -235,9 +233,8 @@ export async function searchPosts(
   };
 }
 
-// A flat, alphabetised list for the filter bar's plain <select> (design
-// system §10.3 — no typeahead here, unlike the composer's
-// AudiencePicker). Small enough to list in full at this org's actual scale;
+// A flat, alphabetised list for the filter bar's plain <select> — no
+// typeahead here, unlike the composer's AudiencePicker. Small enough to list in full at this org's actual scale;
 // escalate to the same trigram search the audience picker already uses if
 // that stops being true.
 export async function listFilterableEntities(): Promise<FilterableEntity[]> {
@@ -247,5 +244,3 @@ export async function listFilterableEntities(): Promise<FilterableEntity[]> {
     select: { id: true, name: true, tag: true },
   });
 }
-
-export const SEARCH_PAGE_SIZE = PAGE_SIZE;

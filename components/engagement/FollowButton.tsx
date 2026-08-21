@@ -18,7 +18,7 @@ type Props = {
 
 const DEBOUNCE_MS = 300;
 
-// Same shape as ReactionButton (§10.8's cited reference): debounced so a
+// Same shape as ReactionButton: debounced so a
 // double-tap can't fire two round-trips whose responses arrive out of order,
 // optimistic with a revert-on-failure, aria-live announced.
 export function FollowButton({
@@ -49,7 +49,7 @@ export function FollowButton({
     const revert = state;
     // A muted target that gets "followed" here lands on "following" too —
     // this button only ever expresses the follow/unfollow half of the
-    // toggle, matching M9's scope (mute has no inline control here).
+    // toggle: mute has no inline control here.
     setState(state === "following" ? "none" : "following");
 
     if (debounceRef.current) clearTimeout(debounceRef.current);

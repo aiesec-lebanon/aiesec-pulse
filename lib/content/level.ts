@@ -15,23 +15,22 @@ import { can } from "@/lib/rbac/can";
 import { isAiLevelRole, type RoleKey } from "@/lib/rbac/catalogue";
 
 /**
- * How far a post reaches the moment it is published (context.md §7.2,
- * architecture.md §8.6). Two rules, and the second is the answer to Q12.
+ * How far a post reaches the moment it is published. Two rules.
  *
  * 1. **An AI-level office publishes at `NETWORK` by default.** It sits above
  *    the MC tier, so there is no MC for `LOCAL` to mean anything relative to.
- *    Nothing is spent: no promoter, no note, no window — the same shape the M19
+ *    Nothing is spent: no promoter, no note, no window — the same shape the
  *    backfill gave posts that were network-wide before promotion existed.
  *    Promotion is an editorial act on an MC's own output, and an AI office is
  *    not doing that when it simply publishes.
  *
  *    The default holds only while the audience is `GLOBAL`. `NETWORK` reaches
- *    every member whatever a post is targeted at (§10.2's query tests the level
- *    first), so an AI office that narrows to a region or an entity would
+ *    every member whatever a post is targeted at — the visibility query tests
+ *    the level first — so an AI office narrowing to a region or an entity would
  *    otherwise have its targeting silently ignored — and `post.target_beyond`
  *    belongs to exactly these three classes. Narrowing keeps the post `LOCAL`,
- *    where `PostAudience` decides who sees it, which is what context.md §8.3
- *    means by audience narrowing and never widening.
+ *    where `PostAudience` decides who sees it: audience narrows reach and
+ *    never widens it.
  *
  * 2. **Everything else starts `LOCAL`, including an MC's own posts**, and
  *    reaches the network only by promotion — which is what makes the quota an
@@ -151,9 +150,9 @@ export async function decideReach(
   }
 
   // A queued post reaches nobody, so there is nothing to promote and no reason
-  // to spend a window on it. §8.6 refuses to promote anything that is not
-  // published; a scheduled post is on its way there and keeps the choice, the
-  // same call §8.2 already makes for the publishing quota.
+  // to spend a window on it. Nothing unpublished can be promoted; a scheduled
+  // post is on its way there and keeps the choice, the same call the publishing
+  // quota already makes.
   if (status === PostStatus.IN_REVIEW) {
     return {
       ok: false,

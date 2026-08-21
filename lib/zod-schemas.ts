@@ -88,7 +88,7 @@ export const createPostSchema = z
     scheduledAt: scheduledAtField,
     audience: audienceField,
     topicIds: topicIdsField,
-    // Reach, chosen at publication (architecture.md §8.6). Ignored unless the
+    // Reach, chosen at publication. Ignored unless the
     // publisher may actually promote — the server re-derives that; this is only
     // what the composer asked for.
     promoteToNetwork: z.boolean().optional(),
@@ -163,8 +163,8 @@ export const hideContentSchema = z.object({
 });
 
 /**
- * architecture.md §8.6 requires the note: the promotion quota is always spent
- * against a stated reason, so the audit record says why the network's attention
+ * The note is mandatory: the promotion quota is always spent against a stated
+ * reason, so the audit record says why the network's attention
  * was bought and not only that it was.
  */
 export const promotePostSchema = z.object({

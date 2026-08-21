@@ -7,7 +7,7 @@ import {
   scorePost,
 } from "@/lib/feed";
 
-// architecture.md §11's formula, exercised the same way this repo already
+// The ranking formula, exercised the same way this repo already
 // tests other pure business-logic functions (dueScheduledPostsQuery,
 // decideAudienceForSubmission): fixed fixtures, no database, no mocking —
 // scorePost takes every DB lookup already resolved, so it's just arithmetic.

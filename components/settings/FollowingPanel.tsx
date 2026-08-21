@@ -11,7 +11,7 @@ export type FollowingItem = {
   targetId: string;
   muted: boolean;
   name: string;
-  /** /topics/[slug] for topics; null for entities — no entity detail page exists yet (Phase 3). */
+  /** /topics/[slug] for topics; null for entities — no entity detail page exists yet. */
   href: string | null;
 };
 

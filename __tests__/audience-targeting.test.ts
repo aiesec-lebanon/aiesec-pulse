@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { ScopeType } from "@/app/generated/prisma/enums";
 import { decideAudienceForSubmission } from "@/lib/org/scope";
 
-// context.md §7.2: "target audience beyond own scope" is ❌ for
-// entity_publisher/entity_editor, ✅ for global_publisher/platform_admin.
+// Targeting beyond one's own scope belongs to the classes holding
+// post.target_beyond and to nobody else.
 // availableAudiencesFor already encodes that as "fixed" vs "open" — these
 // tests exercise the boundary decideAudienceForSubmission enforces given
 // each, independent of any real entity or database.
@@ -13,7 +13,7 @@ const OWN_ENTITY = "ent_lc_beirut";
 const OTHER_ENTITY = "ent_lc_cairo";
 const REGION = "ent_region_mena";
 
-describe("decideAudienceForSubmission — fixed (entity_publisher / entity_editor)", () => {
+describe("decideAudienceForSubmission — fixed (no post.target_beyond)", () => {
   const fixed = { kind: "fixed" as const, entityId: OWN_ENTITY, label: "AIESEC in Lebanon" };
 
   it("accepts an absent submission, defaulting to the publisher's own entity", () => {
@@ -54,10 +54,10 @@ describe("decideAudienceForSubmission — fixed (entity_publisher / entity_edito
   });
 });
 
-describe("decideAudienceForSubmission — open (global_publisher / platform_admin)", () => {
+describe("decideAudienceForSubmission — open (holds post.target_beyond)", () => {
   const open = { kind: "open" as const, regions: [{ id: REGION, name: "MENA" }] };
 
-  it("defaults to GLOBAL when nothing was submitted, preserving the pre-M7 default", () => {
+  it("defaults to GLOBAL when nothing was submitted", () => {
     const result = decideAudienceForSubmission(open, undefined);
     expect(result).toEqual({ ok: true, scopeType: ScopeType.GLOBAL, entityId: null });
   });

@@ -31,13 +31,9 @@
 
   /* Neutral / muted */
   --muted: #f5f5f5;
-  /* Three grounds have to clear 4.5:1 now, not two. #6b7586 managed 4.65:1 on
-     --card but only 4.23:1 on --background; #626b7a fixed that pair (4.90:1
-     and 5.39:1) but v1.3 introduced --stage, a step darker than --background,
-     where it fell to 4.46:1 — and --stage is exactly where the new micro-label
-     register sits. #5d6675 is the nearest value on the same hue that clears
-     all three: 5.83:1 on --card, 5.30:1 on --background/--muted, 4.76:1 on
-     --stage. */
+  /* Three grounds have to clear 4.5:1: --card, --background/--muted, and
+     --stage, where the micro-label register sits. #5d6675 clears all three
+     — 5.83:1, 5.30:1 and 4.76:1 respectively. */
   --muted-foreground: #5d6675;
 
   /* Structural */
@@ -63,7 +59,7 @@
   --shadow-card: 0px 2px 0px 0px rgba(29, 33, 41, 0.02);
   --shadow-button: 0px 2px 0px 0px rgba(5, 145, 255, 0.1);
 
-  /* ── Depth scale (§6.2) ────────────────────────────────────────────────
+  /* ── Depth scale ────────────────────────────────────────────────
      Every step carries a real y-offset and a soft blur — a zero-offset halo
      is decoration, not depth. The ambient (first) layer grounds the plate;
      the direct (second) layer gives it a contact edge. Dark theme re-states
@@ -90,13 +86,13 @@
   --scrim: color-mix(in srgb, var(--card) 78%, transparent);
   --hairline: color-mix(in srgb, var(--border) 70%, transparent);
   /* Light thrown by the brand accent, at three intensities. Used as fields
-     and glows, never as text (§3.3). */
+     and glows, never as text. */
   --glow-primary: color-mix(in srgb, var(--primary) 26%, transparent);
   --glow-primary-soft: color-mix(in srgb, var(--primary) 12%, transparent);
   --glow-success: color-mix(in srgb, var(--success) 22%, transparent);
   --glow-destructive: color-mix(in srgb, var(--destructive) 20%, transparent);
 
-  /* ── Motion grammar (§8) ───────────────────────────────────────────────
+  /* ── Motion grammar ───────────────────────────────────────────────
      One easing curve at three durations. `--transition-standard` stays the
      documented default for colour/border/opacity on interactive elements;
      these govern movement, reveal, and scene changes. */
@@ -141,7 +137,7 @@
   --chart-5: #e3e5e9;
 
   /* On the dark stage the plates are lifted by a deeper cast shadow plus a
-     lit top edge, since black-on-near-black reads as nothing. §6.2's
+     lit top edge, since black-on-near-black reads as nothing. The
      "dark drops shadows" rule assumed a flat card grid; a depth-led
      composition needs the z-order to survive the theme switch, so dark
      re-states elevation rather than disabling it. */
@@ -301,7 +297,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MOTION SYSTEM (§8)
+   MOTION SYSTEM
 
    Motion is a first-class, on-by-default part of this interface, and the
    preference that governs it is the member's explicit choice — a `Motion`
@@ -636,7 +632,7 @@ body {
   );
 }
 
-/* ── Display type register (§4.4) ──────────────────────────────────────────
+/* ── Display type register ──────────────────────────────────────────
    Lato 900 at cinematic scale. Tracking tightens as size grows, which is what
    keeps a 900-weight face from reading as a wall at large sizes. Capped at
    96px: past that the measure breaks before the drama pays off. */
@@ -851,7 +847,7 @@ textarea,
   color: var(--muted-foreground);
 }
 
-/* ── Rich-text editor prose (design system §10.1) ────────────────────────
+/* ── Rich-text editor prose ────────────────────────
    Scoped to the TipTap editable surface. ProseMirror renders bare tags into
    the DOM directly, not through React, so per-element Tailwind classes
    aren't reachable here — these descendant selectors are the same technique

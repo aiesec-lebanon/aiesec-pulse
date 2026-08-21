@@ -31,7 +31,7 @@ export type StubOffice = {
  * smaller tree can:
  *
  * - **Two LCs under one MC** (`lc`, `otherLc`). Post level makes an LC's news
- *   reach its sister LC automatically (context.md §7.2), which a suite with one
+ *   reach its sister LC automatically, which a suite with one
  *   LC cannot tell from no scoping at all.
  * - **Two MCs under one region** (`mc`, `farMc`). This is what "outside the
  *   viewer's scope" means now that the local scope set is an MC subtree: a

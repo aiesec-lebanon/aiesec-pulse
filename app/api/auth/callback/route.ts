@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     // the case it existed for: an outage is precisely when Pulse cannot tell
     // whether a position was revoked an hour ago, so the window let stale
     // authority keep working for up to three days. Authority is what GIS says it
-    // is right now, or it is nothing (architecture.md ADR-027).
+    // is right now, or it is nothing.
     logger.error("GIS unavailable; sign-in refused rather than served from cache", {
       error,
       severity: "HIGH",

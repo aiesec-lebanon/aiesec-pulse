@@ -3,13 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 /**
- * Design system §10.6, as one component instead of a copy per feature.
- *
- * This is `HideContentModal`'s implementation — §10.6 names it the reference
- * for §9.4 (focus trap, Escape-to-close, focus return) — generalised over its
- * labels and its confirm tone so moderation and promotion share it. Reach for
- * this before writing another dialog; a third ad hoc copy is exactly what §11's
- * "no second copy" rule exists to stop.
+ * The one dialog: focus trap, Escape-to-close, focus return, generalised over
+ * its labels and its confirm tone so moderation and promotion share it. Reach
+ * for this before writing another.
  *
  * `tone` picks the confirm button's fill: `destructive` for an action that
  * takes something away (hide, reject), `primary` for one that grants reach.

@@ -37,9 +37,9 @@ function actionClass(action: string): string {
   if (action.includes("reject") || action.includes("hidden") || action.includes("restrict")) {
     return "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[color:var(--destructive-text)]";
   }
-  // `break_glass.*` actions can no longer be written — M17 deleted that path —
-  // but rows from before it was removed are retained, and they are exactly the
-  // rows a reader should not have to hunt for.
+  // `break_glass.*` actions can no longer be written, but rows from before
+  // that path was removed are retained — and they are exactly the rows a
+  // reader should not have to hunt for.
   if (action.includes("erase") || action.includes("break_glass")) {
     return "bg-[color-mix(in_srgb,var(--destructive)_18%,transparent)] text-[color:var(--destructive-text)]";
   }

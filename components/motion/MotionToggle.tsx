@@ -5,7 +5,7 @@ import { Zap, ZapOff } from "lucide-react";
 import { useMotion } from "@/components/motion/motion-context";
 
 /**
- * Icon-button toggle (§10.8): `aria-pressed` reflects state, `aria-label`
+ * Icon-button toggle: `aria-pressed` reflects state, `aria-label`
  * names the action the click performs, 44px hit area, and a visually-hidden
  * `aria-live` region announcing the result — the state change is not conveyed
  * by the icon alone.

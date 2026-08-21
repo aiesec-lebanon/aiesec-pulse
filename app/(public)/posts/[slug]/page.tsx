@@ -60,9 +60,8 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   const user = await requireSession();
   const scope = await scopeSetFor(user);
 
-  // "Why this appeared" is a For You-mode-only disclosure (architecture.md
-  // §11) — Latest is an explicitly unranked escape hatch, so there is
-  // nothing for it to explain there.
+  // "Why this appeared" is a For You-mode-only disclosure — Latest is an
+  // explicitly unranked escape hatch, so there is nothing to explain there.
   const rankedAvailable = await isEnabled("feed.ranked");
   const cookieStore = await cookies();
   const showWhyThisAppeared =

@@ -78,7 +78,7 @@ Members sign in through AIESEC OAuth. Pulse is the relying party and issues its 
 - The session JWT carries only `{ sub, jti, iat, exp }`. Permissions are resolved per request, so a revoked grant takes effect within the minute rather than at next login.
 - `Session.revokedAt` makes "sign out everywhere" real, and gives the platform team an offboarding lever.
 
-There is no second way in. No local credentials, no break-glass console, no mock provider. AIESEC OAuth is the sole identity authority for every AIESEC platform, so a parallel path would be a bypass of the only authority Pulse recognises and would have no offboarding story when a term ends. If AIESEC auth is down, Pulse is down; that availability ceiling is accepted deliberately (architecture.md ADR-027).
+There is no second way in. No local credentials, no break-glass console, no mock provider. AIESEC OAuth is the sole identity authority for every AIESEC platform, so a parallel path would be a bypass of the only authority Pulse recognises and would have no offboarding story when a term ends. If AIESEC auth is down, Pulse is down; that availability ceiling is accepted deliberately.
 
 ---
 

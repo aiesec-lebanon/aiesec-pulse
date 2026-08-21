@@ -1,5 +1,5 @@
 /**
- * Feed skeleton (§10.4), matching the page's real composition: one immersive
+ * Feed skeleton, matching the page's real composition: one immersive
  * lead frame, a row of three plates, then quiet index rows.
  *
  * The shimmer is a masked sweep rather than `animate-pulse` — a whole page of

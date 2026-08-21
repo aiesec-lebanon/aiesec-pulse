@@ -19,7 +19,7 @@ export function joinPath(parentPath: string, segment: string): string {
   return `${parent}/${segment}`;
 }
 
-export function pathParts(path: string): string[] {
+function pathParts(path: string): string[] {
   return path.split("/").filter(Boolean);
 }
 

@@ -7,8 +7,8 @@ import { logger } from "@/lib/logger";
 import { fetchCurrentPerson } from "@/server-utils/gis";
 
 /**
- * architecture.md §6.3: persisted grants are authoritative for reads, but a
- * stale grant must not authorise a write. Before a privileged action the acting
+ * Persisted grants are authoritative for reads, but a stale grant must not
+ * authorise a write. Before a privileged action the acting
  * user's positions are re-fetched from GIS and reconciled inside the same
  * request, so a position that has disappeared or changed since login fails the
  * action rather than being spent on it.
@@ -21,7 +21,7 @@ import { fetchCurrentPerson } from "@/server-utils/gis";
  * `lib/rbac/can.ts` memoises grants per request — a check that ran first would
  * hold the answer from before the refresh.
  *
- * Fails closed on every branch. §6.4 has no degraded mode and no staleness
+ * Fails closed on every branch. There is no degraded mode and no staleness
  * ceiling: if GIS cannot confirm the position now, the position does not
  * authorise anything now.
  */

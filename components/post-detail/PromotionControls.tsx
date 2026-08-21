@@ -9,7 +9,7 @@ import { PostLevel } from "@/app/generated/prisma/enums";
 import { ReasonModal } from "@/components/ui/ReasonModal";
 
 /**
- * The MCP's editorial valve (context.md §7.2), on the post it acts on.
+ * The MCP's editorial valve, on the post it acts on.
  *
  * Rendered only when the viewer may actually promote this post — the server
  * returns no budget otherwise — so this is never a control that explains why it

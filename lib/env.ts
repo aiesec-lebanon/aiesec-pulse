@@ -112,7 +112,7 @@ export const has = {
 export const isProductionDeployment = (): boolean =>
   process.env.VERCEL_ENV === "production" || process.env.PULSE_DEPLOYMENT === "production";
 
-export const isProductionBuild = () => process.env.NODE_ENV === "production";
+const isProductionBuild = () => process.env.NODE_ENV === "production";
 
 export function assertProductionEnv(): void {
   load();

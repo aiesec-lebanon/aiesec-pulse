@@ -175,7 +175,7 @@ test.describe("security headers", () => {
 });
 
 test.describe("no bypass of AIESEC sign-in", () => {
-  // AIESEC OAuth is the sole identity authority (architecture.md ADR-027), so
+  // AIESEC OAuth is the sole identity authority, so
   // the emergency local-credential path is gone rather than merely disabled.
   // Signed in first on purpose: an unauthenticated request would be sent to
   // /login by the proxy either way, which proves nothing about whether the

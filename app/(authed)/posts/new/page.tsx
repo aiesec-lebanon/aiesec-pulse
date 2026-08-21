@@ -22,7 +22,7 @@ export default async function NewPostPage() {
       ? await availableAudiencesFor(user, user.primaryEntityId)
       : undefined;
   // Unflagged, like the promotion panel on post detail: reach is the level
-  // model itself, not one of the Phase 1 authoring features behind a switch.
+  // model itself, not one of the authoring features behind a switch.
   const reachOptions = user.primaryEntityId
     ? await reachOptionsFor(user, user.primaryEntityId, roleKey)
     : undefined;

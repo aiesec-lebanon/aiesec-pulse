@@ -313,9 +313,8 @@ test.describe("scheduling", () => {
 });
 
 test.describe("audience targeting", () => {
-  // `lc_vp` does not hold post.target_beyond — context.md §7.2 gives it no real
-  // audience choice — so the composer shows its entity as information rather
-  // than a control.
+  // `lc_vp` does not hold post.target_beyond, so the composer shows its entity
+  // as information rather than a control.
   test("a restricted publisher sees their own entity as a fixed audience, not a picker", async ({
     page,
     signInAs,
@@ -392,7 +391,7 @@ test.describe("topics", () => {
     // The chip is its own link, distinct from the card link it sits beside
     // on feed cards (SecondaryPostCard) — verified here via the post detail
     // page, then followed through to the archive. `.first()` disambiguates
-    // from any same-named topic chips M13's related-posts rail may also
+    // from any same-named topic chips the related-posts rail may also
     // render further down the page — the post's own chip, right under its
     // heading, is always first in DOM order.
     const chip = page.getByRole("link", { name: topicName, exact: true }).first();

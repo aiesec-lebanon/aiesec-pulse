@@ -101,7 +101,7 @@ function logDenials(userId: string, denied: readonly PositionDenial[]): void {
  * There is no implicit `member` grant. Membership is a position like any other
  * and has to come back from GIS as one; granting it to whoever completed the
  * OAuth handshake would mean a renamed or expired position quietly downgrading
- * someone to a working account instead of failing loudly (architecture.md §7.1).
+ * someone to a working account instead of failing loudly.
  */
 export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult> {
   warnIfPositionless(person);

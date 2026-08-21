@@ -1,5 +1,5 @@
-// No date/timezone library is a project dependency (architecture.md §3.3 keeps
-// the stack minimal), so converting a `datetime-local` picker's wall-clock
+// No date/timezone library is a project dependency, so converting a
+// `datetime-local` picker's wall-clock
 // value into the correct UTC instant for an arbitrary IANA zone is done with
 // plain Intl — the standard "format, diff, correct" technique.
 
@@ -31,7 +31,7 @@ function offsetParts(instant: Date, timeZone: string) {
  * Interprets a `datetime-local` input's value (bare wall-clock digits, no
  * zone) as a moment in `timeZone` and returns the equivalent UTC instant.
  * Needed because the picker reports whatever the browser's own clock reads,
- * but architecture.md §8.3 requires scheduling to honour the author's stored
+ * but scheduling honours the author's stored
  * `User.timezone`, not the browser's — "Monday 9am Beirut" must mean that
  * regardless of where the author's browser happens to be.
  */

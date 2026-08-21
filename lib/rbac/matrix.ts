@@ -6,9 +6,8 @@ import { db } from "@/lib/db";
 import { PERMISSION_KEYS, type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { cached, cacheDelete, cacheKeys } from "@/lib/redis";
 
-// What a position class may do is the one thing administrators configure
-// (architecture.md, "Configurable capability matrix"): the live answer is the
-// `RolePermission` table, and `catalogue.ts` holds only the defaults the seed
+// What a position class may do is the one thing administrators configure: the
+// live answer is the `RolePermission` table, and `catalogue.ts` holds only the defaults the seed
 // writes there. Reading it here rather than in `can.ts` keeps it one shared
 // cache entry — a matrix edit busts a single key and reaches every user at
 // once, which a per-user cache could never do without enumerating them.

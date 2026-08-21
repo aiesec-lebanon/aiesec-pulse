@@ -52,10 +52,8 @@ describe("quota periods", () => {
   });
 });
 
-// `resolveQuotaPolicy` used to express this precedence by asking the database
-// once per candidate scope and stopping at the first hit — six sequential round
-// trips for an ordinary LC author. It now fetches every applicable policy in one
-// query and picks here, so the rule is worth pinning down.
+// Precedence is decided in `nearestByScope` rather than by the order of a
+// sequence of queries, so the rule is worth pinning down here.
 describe("quota scope precedence", () => {
   // The chain the author sits on: root, their MC, their LC. Depth comes from the
   // entity rows the resolver fetches alongside the policies.

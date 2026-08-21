@@ -2,7 +2,7 @@ import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
 import { Reveal } from "@/components/motion/Reveal";
 import type { FeedPost } from "@/types/feed";
 
-// Design Guidelines §10.11: no new visual treatment — the same
+// No new visual treatment — the same
 // SecondaryPostCard the feed's secondary row already renders, arranged as a
 // grid here instead of an invented rail.
 export function RelatedPosts({ posts }: { posts: FeedPost[] }) {

@@ -12,7 +12,7 @@ type Props = {
 
 const DEBOUNCE_MS = 300;
 
-// Same shape as ReactionButton (§10.8): debounced so a double-tap can't fire
+// Same shape as ReactionButton: debounced so a double-tap can't fire
 // two round-trips whose responses arrive out of order, optimistic with a
 // revert-on-failure, aria-live announced.
 export function BookmarkButton({ postId, initialBookmarked }: Props) {

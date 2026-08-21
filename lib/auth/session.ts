@@ -54,7 +54,7 @@ export async function createSession(
 }
 
 /** Signature and expiry only. Never the only check — it cannot see revocation. */
-export async function verifySessionToken(token: string): Promise<SessionClaims | null> {
+async function verifySessionToken(token: string): Promise<SessionClaims | null> {
   try {
     const { payload } = await jwtVerify(token, secret(), {
       issuer: "aiesec-pulse",
@@ -175,11 +175,6 @@ export function sessionCookieAttributes(expiresAt: Date) {
     secure: process.env.NODE_ENV === "production",
     expires: expiresAt,
   };
-}
-
-export async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
-  const store = await cookies();
-  store.set(SESSION_COOKIE, token, sessionCookieAttributes(expiresAt));
 }
 
 export async function clearSessionCookie(): Promise<void> {

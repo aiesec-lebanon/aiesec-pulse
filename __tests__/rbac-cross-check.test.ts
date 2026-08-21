@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { derivePositionGrants, type PositionInput } from "@/lib/rbac/position-mapping";
 
-// The cross-check is the whole security boundary of §7.1: everything downstream
+// The cross-check is the whole security boundary: everything downstream
 // trusts that a grant only exists because a tag and a title agreed. These are
 // the cases that must NOT produce one.
 

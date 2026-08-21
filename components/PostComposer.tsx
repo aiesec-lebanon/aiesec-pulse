@@ -27,7 +27,6 @@ type FieldErrors = Partial<
   >
 >;
 
-// architecture.md §8.1 — verbatim interval.
 const AUTOSAVE_DELAY_MS = 5_000;
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -89,8 +88,8 @@ export function PostComposer({
   const [serverError, setServerError] = useState<string | null>(null);
 
   // Wall-clock digits in `timezone`, no zone suffix — never persisted by
-  // autosave (architecture.md §8.2 treats scheduling as a submit-time input,
-  // not draft state), so this always starts blank even when resuming a draft.
+  // autosave, which treats scheduling as a submit-time input rather than
+  // draft state, so this always starts blank even when resuming a draft.
   const [scheduledAt, setScheduledAt] = useState("");
   const minScheduleValue = formatAsWallTime(new Date(), timezone);
 
@@ -105,7 +104,7 @@ export function PostComposer({
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
 
   // Reach starts local for everyone who has a choice: spending one of the MC's
-  // promotions is never the default (context.md §7.2). An AI-level office has
+  // promotions is never the default. An AI-level office has
   // no choice to make, and the server decides its level regardless of this.
   const [reachValue, setReachValue] = useState<ReachValue>("local");
   const [promotionNote, setPromotionNote] = useState("");
@@ -182,7 +181,7 @@ export function PostComposer({
     if (isSubmitting || isUploading) return;
 
     // Converted client-side so "Monday 9am Beirut" means what the author
-    // intended regardless of the browser's own zone (architecture.md §8.3);
+    // intended regardless of the browser's own zone;
     // an unparseable value still reaches the schema so its "invalid date"
     // message is the one shown, rather than throwing here.
     let scheduledAtIso: string | undefined;

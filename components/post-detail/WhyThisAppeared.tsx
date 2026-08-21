@@ -2,12 +2,10 @@ import { ChevronDown } from "lucide-react";
 
 import type { ProximityTier, ScoredPost } from "@/lib/feed";
 
-// architecture.md §11: "Every post detail view can show *why this appeared*
-// — the contributing terms. This is a product requirement... not a debug
-// feature." No §7/§10 pattern covers a disclosure like this, so it's
-// documented here, alongside this first use: a native <details>/<summary> —
-// no custom ARIA needed, the browser owns the expanded/collapsed state —
-// styled to the card/border/radius tokens already used throughout §7.1/§10.6.
+// Why a post appeared, in terms the reader can check — a product
+// requirement, not a debug view. A native <details>/<summary>: no custom ARIA
+// needed, the browser owns the expanded/collapsed state, styled to the
+// card/border/radius tokens already used elsewhere.
 // A negligible term (recency on a very old post, an exact-zero affinity) is
 // left out rather than listed at "+0.00", so the list only ever shows terms
 // that actually moved this post.

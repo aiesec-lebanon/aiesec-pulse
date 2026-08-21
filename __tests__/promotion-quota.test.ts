@@ -13,7 +13,7 @@ const POST = "post_being_promoted";
 
 describe("promotionPoolFor", () => {
   it("bills an officer's promotion to their MC, not to them", () => {
-    // context.md §8.4: an MC cannot buy extra network reach by spreading
+    // An MC cannot buy extra network reach by spreading
     // promotions across several MCVPs.
     expect(promotionPoolFor("user_mcp", MC)).toEqual({ mcPath: MC.path });
   });
@@ -45,10 +45,9 @@ describe("promotionCountWhere", () => {
   });
 
   it("does not filter on level, so demotion refunds nothing", () => {
-    // architecture.md §8.6's illustrative SQL adds `AND level = NETWORK`, which
-    // would hand the promotion back the moment the post was demoted and make
-    // promote/demote cycling an unbounded reach budget. Its prose, and the
-    // index it specifies, say the spend is permanent for the window.
+    // Counting `AND level = NETWORK` would hand the promotion back the moment
+    // the post was demoted and make promote/demote cycling an unbounded reach
+    // budget. The spend is permanent for the window.
     const where = promotionCountWhere(promotionPoolFor("user_mcp", MC), WEEK, POST);
     expect(where).not.toHaveProperty("level");
     expect(where.promotionPeriod).toBe(WEEK);

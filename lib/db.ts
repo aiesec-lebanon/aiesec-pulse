@@ -17,9 +17,8 @@ const CLIENT_ID = "20260527200507";
  * traffic: one `next start` process fielding four parallel Playwright workers,
  * where every request spends most of its life waiting on a remote round trip,
  * queues behind those 10 slots. `DATABASE_POOL_MAX` raises it for that shape of
- * deployment — architecture.md §"Connection limits" names raising the pool size
- * as the mitigation, the Supabase pooler in transaction mode being the thing
- * that multiplexes it back down.
+ * deployment; the Supabase pooler in transaction mode multiplexes it back
+ * down.
  */
 const DEFAULT_POOL_MAX = 10;
 

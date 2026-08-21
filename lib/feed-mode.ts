@@ -8,10 +8,9 @@ export type FeedMode = "latest" | "for-you";
 
 export const FEED_MODE_COOKIE = "pulse_feed_mode";
 
-// "For You" is the default once ranking is available — context.md §10's
-// Phase 1 exit criterion is a feed "demonstrably personalised" by default,
-// with Latest as the explicit escape hatch, not the other way round.
-export const DEFAULT_FEED_MODE: FeedMode = "for-you";
+// "For You" is the default once ranking is available: the feed is
+// personalised by default, with Latest as the explicit escape hatch.
+const DEFAULT_FEED_MODE: FeedMode = "for-you";
 
 export function parseFeedMode(value: string | undefined): FeedMode {
   return value === "latest" ? "latest" : DEFAULT_FEED_MODE;

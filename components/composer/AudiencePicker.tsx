@@ -34,12 +34,9 @@ const SCOPE_OPTIONS: Array<{ key: AudienceValue["scopeType"]; label: string }> =
 ];
 
 /**
- * Restricted publishers (entity_publisher/entity_editor) have no real choice
- * — context.md §7.2's "target audience beyond own scope: ❌" — so this is
- * information, not a control, for them. Publishers holding post.target_beyond
- * get the full picker. New pattern, no existing §7/§10 precedent to cite:
- * documented in AIESEC-Design-System-Guidelines.md §10.12 alongside this,
- * its first use.
+ * A publisher without `post.target_beyond` has no real choice of audience, so
+ * this is information rather than a control for them. Publishers holding it
+ * get the full picker.
  */
 export function AudiencePicker({ options, value, onChange, error, disabled }: Props) {
   if (options.kind === "fixed") {

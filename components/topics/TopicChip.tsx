@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 /**
- * Filter Chips, display mode (§7.4): compact, read-only, always the inactive
+ * Filter chip in display mode: compact, read-only, always the inactive
  * visual — a displayed topic isn't "on" or "off." Links to the topic's
  * archive page, so it gets ordinary link hover/focus treatment on the text
  * rather than the chip's active-state color shift on the container.

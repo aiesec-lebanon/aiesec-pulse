@@ -35,8 +35,8 @@ type Props = {
   initial: SearchFormInitial;
 };
 
-// Search Bar + Filter Bar (design system §10.2/§10.3): topics stay chips in
-// selector mode (§7.4); entity/kind/date all use the plain <select> pattern
+// Search bar and filter bar: topics stay chips in selector mode;
+// entity/kind/date all use the plain <select> pattern
 // PageSizeSelect already established — no typeahead here, unlike the
 // composer's AudiencePicker, and no native date-range input either. One
 // explicit submit rather than navigating on every change, matching how the

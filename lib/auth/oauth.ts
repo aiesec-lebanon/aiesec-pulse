@@ -18,7 +18,7 @@ const RETURN_TO_COOKIE = "pulse_oauth_return_to";
 
 const HANDSHAKE_TTL_SECONDS = 10 * 60;
 
-export function pkceEnabled(): boolean {
+function pkceEnabled(): boolean {
   return process.env.AIESEC_OAUTH_PKCE_S256 === "true";
 }
 
@@ -66,7 +66,7 @@ export async function completeHandshake(returnedState: string | null): Promise<H
   return { ok: true, codeVerifier, returnTo: safeReturnTo(returnTo) };
 }
 
-export async function clearHandshake(): Promise<void> {
+async function clearHandshake(): Promise<void> {
   const store = await cookies();
   for (const name of [STATE_COOKIE, VERIFIER_COOKIE, RETURN_TO_COOKIE]) {
     store.set(name, "", { ...handshakeCookieOptions(), maxAge: 0 });

@@ -44,7 +44,7 @@ type EntityRef = { id: string; kind: EntityKind; path: string };
  * Where a viewer's local reach starts, isolated from the database so the rule
  * is unit-testable against a hand-built chain.
  *
- * architecture.md §10.2: the local root is the viewer's **MC**, not their
+ * The local root is the viewer's **MC**, not their
  * ancestor chain — the chain never contained sibling LCs, so an LC member could
  * not see the LC next door under the same MC. A viewer above the MC tier has no
  * MC to anchor to and roots at their own entity instead, which at the global
@@ -93,15 +93,15 @@ export async function scopeSetFor(user: {
 }
 
 /**
- * architecture.md §10.2. A post is visible on two independent grounds and what
+ * A post is visible on two independent grounds and what
  * a viewer sees is the **union** of them: the post is NETWORK, whoever
  * published it, or it is aimed at somewhere in the viewer's local scope.
  *
  * `PostAudience` narrows *within* a level — it is how a publisher aims a LOCAL
  * post inside their own MC — so audience targeting and promotion cannot be
  * played off against each other to smuggle a post network-wide. The one
- * exception is a GLOBAL audience row, which §10.2's query matches regardless of
- * level; only `post.target_beyond` can write one, and no MC or LC class holds
+ * exception is a GLOBAL audience row, matched regardless of level; only
+ * `post.target_beyond` can write one, and no MC or LC class holds
  * it, so it stays an AI-level announcement rather than a route around the quota.
  *
  * Filtering in the query, not in application code, so a missing guard cannot
@@ -179,9 +179,8 @@ export async function resolveAudienceSize(
 
 /**
  * What a publisher may choose as their post's audience. `fixed` means there
- * is no real choice to offer — context.md §7.2's "target audience beyond own
- * scope: ❌" for every MC and LC class — so the composer shows
- * their entity as information, not a control. `open` (post.target_beyond)
+ * is no real choice to offer — no MC or LC class may target beyond its own
+ * scope — so the composer shows their entity as information, not a control. `open` (post.target_beyond)
  * gets the full picker: GLOBAL, any region, or any entity via typeahead.
  */
 export type AudienceOptions =

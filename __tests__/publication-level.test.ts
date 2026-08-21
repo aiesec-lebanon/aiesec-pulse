@@ -90,7 +90,7 @@ describe("an MC publisher", () => {
 
   it("keeps the choice on a scheduled post", async () => {
     // The scheduler only flips status; it never re-touches quota. The window is
-    // spent at submit time, the same call §8.2 already makes for publishing.
+    // spent at submit time, the same call publishing already makes.
     const decision = await decideReach(
       txSpending(0),
       MC_PROMOTER,

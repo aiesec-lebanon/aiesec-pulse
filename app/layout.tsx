@@ -44,41 +44,6 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        {/*
-          DIRECTION CONTRACT — AIESEC Pulse, cinematic reader flow
-
-          THESIS: Depth encodes distance in the network. What is near a member
-          (their entity, their topics, the lead story) sits forward and lit;
-          the wider network recedes into a cooler field behind. Refuses the
-          category default this product had shipped — a flat grey ground under
-          uniform bordered cards, with no z-axis and no focal point.
-
-          OWN-WORLD: The AIESEC tokens unchanged (blue #037ef3 leading, teal
-          and orange as meaning accents), redeployed as fields and light rather
-          than 1px outlines: a lit stage, plates carrying real offset+blur
-          elevation, and a projected point-cloud of the network as the only
-          ornament. Lato pushed to both extremes — 900 at up to 96px against
-          400/18px body, plus a 12px tracked uppercase micro-label register.
-
-          STORY: A member arrives at a sign-in screen where the network
-          resolves out of the dark, signs in, meets a lead story that fills the
-          viewport with parallax depth, and reads down a page that rises into
-          place as they scroll.
-
-          FIRST VIEWPORT (feed): full-bleed lead cover with a parallax
-          foreground, the headline in 900-weight over a vertical scrim at lower
-          left, one tracked metadata line, and Latest/For You as the only tab
-          control on the page.
-
-          FORM: Motion is on by default for everyone and governed by an
-          explicit in-app Motion control (§8.2), not an inferred OS setting.
-          Depth is CSS 3-D and 2-D canvas projection, never WebGL —
-          context.md §11.2 defers that.
-
-          FINISH: unreviewed and undocumented is unfinished; this build ends
-          with the finish review, the verdict, DESIGN.md, and every shipping
-          raster carrying its provenance.
-        */}
         <BootScript nonce={nonce} />
         {/*
           WCAG 2.4.1 Bypass Blocks. Visually hidden until focused, then pinned

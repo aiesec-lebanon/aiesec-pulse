@@ -14,15 +14,15 @@ export const cacheKeys = {
   // shared key instead of every member's entry (lib/rbac/matrix.ts).
   roleGrants: (userId: string) => `grants:${userId}`,
   permissionMatrix: () => "rbac:matrix",
-  // Versioned: M19 changed a scope set from the viewer's ancestor chain to
+  // Versioned: a scope set moved from the viewer's ancestor chain to
   // their MC subtree, so an entry written by the previous deployment answers a
   // different question rather than merely being stale.
   scopeSet: (userId: string) => `scope:v2:${userId}`,
   session: (jti: string) => `sess:${jti}`,
   entityTree: () => "org:tree",
   flag: (key: string) => `flag:${key}`,
-  // Keyed by primaryEntityId, not userId: architecture.md §11/§17 — every
-  // member of the same entity shares the same bounded candidate window.
+  // Keyed by primaryEntityId, not userId: every member of the same entity
+  // shares the same bounded candidate window.
   // Personal terms (affinity, seen, ack) are layered on at request time,
   // never cached, so personalisation itself is never flattened by this key.
   feedRanked: (primaryEntityKey: string) => `feed:ranked:${primaryEntityKey}`,

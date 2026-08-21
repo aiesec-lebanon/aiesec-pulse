@@ -30,7 +30,6 @@ type ResolvedGrant = { roleKey: RoleKey; scopePath: string | null };
 
 type ResolvedAuthorisation = {
   permissions: ResolvedPermission[];
-  roleKeys: RoleKey[];
 };
 
 const TTL_SECONDS = 60;
@@ -77,7 +76,6 @@ const grantsOf = cache(async (userId: string): Promise<ResolvedGrant[]> => {
 
 async function resolve(userId: string): Promise<ResolvedAuthorisation> {
   const grants = await grantsOf(userId);
-  const roleKeys = [...new Set(grants.map((g) => g.roleKey))];
   const matrix = await permissionMatrix();
   const seen = new Set<string>();
   const permissions: ResolvedPermission[] = [];
@@ -91,7 +89,7 @@ async function resolve(userId: string): Promise<ResolvedAuthorisation> {
     }
   }
 
-  return { permissions, roleKeys };
+  return { permissions };
 }
 
 const pathCache = new Map<string, string | null>();
@@ -130,38 +128,10 @@ export async function permissionsOf(user: Principal): Promise<Set<string>> {
   return new Set(permissions.map((p) => p.permission));
 }
 
-export async function rolesOf(user: Principal): Promise<Set<string>> {
-  const { roleKeys } = await resolve(user.id);
-  return new Set(roleKeys);
-}
-
-export async function hasRole(user: Principal, role: RoleKey): Promise<boolean> {
-  return (await rolesOf(user)).has(role);
-}
-
 export async function scopePathsFor(
   user: Principal,
   permission: PermissionKey
 ): Promise<Array<string | null>> {
   const { permissions } = await resolve(user.id);
   return permissions.filter((p) => p.permission === permission).map((p) => p.scopePath);
-}
-
-export async function entityScopeFilter(
-  user: Principal,
-  permission: PermissionKey
-): Promise<
-  | { publisherEntity: { path: { startsWith: string } } }
-  | Record<string, never>
-  | { id: string }
-  | undefined
-> {
-  const paths = await scopePathsFor(user, permission);
-  if (paths.length === 0) return { id: "__no_scope__" };
-  if (paths.includes(null)) return undefined;
-  return { publisherEntity: { path: { startsWith: paths[0]! } } };
-}
-
-export function __clearPathCache(): void {
-  pathCache.clear();
 }

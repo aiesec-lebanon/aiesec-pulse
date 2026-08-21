@@ -8,7 +8,7 @@ import type { PermissionKey } from "@/lib/rbac/catalogue";
 // an empty filter would return everything, which is the failure this type
 // exists to make unrepresentable.
 
-export const IMPOSSIBLE: Prisma.PostWhereInput = { id: { in: [] } };
+const IMPOSSIBLE: Prisma.PostWhereInput = { id: { in: [] } };
 
 export type ScopeFilter =
   | { kind: "all" }
@@ -56,20 +56,5 @@ export function commentScopeWhere(filter: ScopeFilter): Prisma.CommentWhereInput
           { post: { publisher: { path: { startsWith: `${path}/` } } } },
         ]),
       };
-  }
-}
-
-/** The same restriction expressed against `AuditEvent.entityId`. */
-export function auditScopeWhere(
-  filter: ScopeFilter,
-  entityIdsInScope: string[]
-): Prisma.AuditEventWhereInput {
-  switch (filter.kind) {
-    case "all":
-      return {};
-    case "none":
-      return { id: { in: [] } };
-    case "subtrees":
-      return { entityId: { in: entityIdsInScope } };
   }
 }

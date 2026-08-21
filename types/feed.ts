@@ -7,7 +7,7 @@ export type FeedPost = {
   title: string;
   excerpt: string;
   readingMinutes: number;
-  /** How far the post reaches (context.md §7.2). Surfaced as a badge on the card. */
+  /** How far the post reaches. Surfaced as a badge on the card. */
   level: PostLevel;
   mediaUrl: string | null;
   mediaAlt: string | null;

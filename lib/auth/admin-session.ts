@@ -53,7 +53,7 @@ export async function createAdminSession(): Promise<{ token: string; expiresAt: 
   return { token, expiresAt };
 }
 
-export async function verifyAdminSessionToken(token: string): Promise<AdminClaims | null> {
+async function verifyAdminSessionToken(token: string): Promise<AdminClaims | null> {
   try {
     const { payload } = await jwtVerify(token, secret(), {
       issuer: ADMIN_SESSION_ISSUER,

@@ -13,7 +13,7 @@ import {
 
 // The catalogue lives in the module, in the migrations and in the seed. A role
 // added to one and forgotten in another is silent, so this makes it a CI
-// failure. Permissions are created across two migrations - M2 seeded the
+// failure. Permissions are created across two migrations - the first seeded the
 // original catalogue and the position-classes migration amends it - so the
 // permission assertions read both; roles and quotas are wholly redefined by the
 // later one and read only that.
@@ -48,8 +48,8 @@ describe("position classes", () => {
   });
 
   it("no longer defines a role Pulse could confer but AIESEC could not revoke", () => {
-    // architecture.md §6.2: a Pulse-owned role has no offboarding path at
-    // handover, so every key must mirror a position AIESEC actually issues.
+    // A Pulse-owned role has no offboarding path at handover, so every key
+    // must mirror a position AIESEC actually issues.
     for (const retired of [
       "entity_publisher",
       "entity_editor",
@@ -144,8 +144,8 @@ describe("default permission matrix — what each class must NOT hold", () => {
   });
 
   it("promotion is seeded to mc_president and above, and to nothing below", () => {
-    // context.md §7.2: an MCP decides what their MC puts in front of the whole
-    // network. Extending it to mc_vp is an admin's call, not a default.
+    // An MCP decides what their MC puts in front of the whole network.
+    // Extending it to mc_vp is an admin's call, not a default.
     for (const permission of ["post.promote", "post.demote"]) {
       expect(holds("member", permission)).toBe(false);
       expect(holds("lc_vp", permission)).toBe(false);

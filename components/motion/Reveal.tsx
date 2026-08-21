@@ -20,7 +20,7 @@ type RevealProps = {
 };
 
 /**
- * The single entrance grammar for the whole app (design system §8.4).
+ * The single entrance grammar for the whole app.
  *
  * Two rules make this safe rather than the usual scroll-animation trap:
  *
@@ -102,30 +102,5 @@ export function Reveal({
     >
       {children}
     </Tag>
-  );
-}
-
-/**
- * Reveals its children in sequence. Saves threading an incrementing `delay`
- * through every call site, which is where stagger ladders drift out of step.
- */
-export function RevealGroup({
-  children,
-  step = 70,
-  start = 0,
-  ...shared
-}: Omit<RevealProps, "children" | "delay"> & {
-  children: React.ReactNode[];
-  step?: number;
-  start?: number;
-}) {
-  return (
-    <>
-      {children.map((child, i) => (
-        <Reveal key={i} delay={start + i * step} {...shared}>
-          {child}
-        </Reveal>
-      ))}
-    </>
   );
 }

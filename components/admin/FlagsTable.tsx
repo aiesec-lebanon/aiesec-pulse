@@ -7,8 +7,8 @@ import { setFlagEnabled } from "@/app/actions/flags";
 
 export type FlagRow = { key: string; enabled: boolean; updatedAt: string };
 
-// Status-pill treatment (§10.7a) generalized to a two-state on/off badge —
-// no new badge shape invented for this.
+// The status-pill treatment as a two-state on/off badge — no new badge
+// shape invented for this.
 const STATE_PILL: Record<"on" | "off", string> = {
   on: "bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[color:var(--success-text)]",
   off: "bg-[var(--muted)] text-[color:var(--muted-foreground)]",

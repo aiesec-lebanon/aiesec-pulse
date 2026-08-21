@@ -28,8 +28,8 @@ import { type PermissionKey, PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/c
  * may not, which is a refusal rather than a fallback to the narrowest tier.
  *
  * Takes the permission rather than assuming `post.publish`, because promotion
- * is budgeted the same way against a different capability (architecture.md
- * §8.6) — and because the matrix is admin-editable, so a class that may promote
+ * is budgeted the same way against a different capability — and because the
+ * matrix is admin-editable, so a class that may promote
  * cannot be assumed to publish.
  */
 export async function quotaRoleFor(
@@ -110,8 +110,8 @@ export async function materializeInlineImages(
  * The quota-resolution step duplicated across createPost, resubmitPost, and
  * publishDraft's transactions: whoever submits while under quota publishes
  * immediately (or schedules, if a future `scheduledAt` was given), the rest
- * queue. A scheduled post still consumes quota at submit time
- * (architecture.md §8.2) — `lib/quota.ts`'s `QUOTA_CONSUMING_STATUSES`
+ * queue. A scheduled post still consumes quota at submit time —
+ * `lib/quota.ts`'s `QUOTA_CONSUMING_STATUSES`
  * already counts SCHEDULED alongside PUBLISHED and IN_REVIEW, so nothing
  * here needs to special-case it. Takes a transaction client so the
  * read-then-write stays inside the caller's serializable transaction.

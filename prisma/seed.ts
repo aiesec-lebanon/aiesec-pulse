@@ -20,7 +20,7 @@ if (!connectionString) throw new Error("DATABASE_URL (or DIRECT_URL) is not set"
 
 const db = new PrismaClient({ adapter: new PrismaPg(connectionString) });
 
-// Deterministic ids, matching the M2 migration so the two never fork.
+// Deterministic ids, matching the migration so the two never fork.
 const roleId = (key: RoleKey) => `role_${key}`;
 const permissionId = (key: PermissionKey) => `perm_${key.replace(/\./g, "_")}`;
 
@@ -177,8 +177,7 @@ const RANKING_WEIGHTS: Array<{ key: string; weight: number }> = [
   { key: "priority", weight: 0.8 },
   { key: "seen", weight: 0.5 },
   { key: "halfLifeHours", weight: 36 },
-  // architecture.md §11's signal term divides by log1p(normaliser) but the
-  // doc never names a value for it — 50 saturates the signal term around a
+  // The signal term divides by log1p(normaliser). 50 saturates it around a
   // post with ~10 reactions + 5 comments, a reasonable "trending" bar at
   // this org's scale. Tunable at runtime like every other weight.
   { key: "normaliser", weight: 50 },

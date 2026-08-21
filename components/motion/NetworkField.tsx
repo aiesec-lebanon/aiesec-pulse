@@ -13,9 +13,8 @@ import { motionEnabled } from "@/components/motion/motion-context";
  * own thesis as an image: ~110 member committees on one globe, connected, with
  * the near face lit and the far face receding.
  *
- * Deliberately 2-D canvas rather than WebGL — `context.md` §11.2 defers
- * 3D/WebGL, and a few hundred projected points cost far less than a GL context
- * for the same read. The projection maths is the 3-D part; the renderer is not.
+ * Deliberately 2-D canvas rather than WebGL: a few hundred projected points
+ * cost far less than a GL context for the same read. The projection maths is the 3-D part; the renderer is not.
  *
  * Behaviour under the motion preference: Reduced draws exactly one frame and
  * stops. The image stays — it is composition, not decoration — but nothing

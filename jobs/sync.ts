@@ -1,4 +1,3 @@
-import { GrantSource } from "@/app/generated/prisma/enums";
 import { inngest, JOB_IDS } from "@/jobs/client";
 import { recordAudit, systemActor } from "@/lib/audit";
 import { syncIdentityFromGis } from "@/lib/auth/identity";
@@ -282,5 +281,3 @@ export const termTransition = inngest.createFunction(
     return { dryRun: false, ...diff, applied };
   }
 );
-
-export const grantSourceForTests = GrantSource;

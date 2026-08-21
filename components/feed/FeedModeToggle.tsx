@@ -11,12 +11,10 @@ const TABS: Array<{ key: FeedMode; label: string }> = [
 ];
 
 /**
- * §7.3's nav-tabs pattern, as a real 2-tab role="tablist" — unlike
- * AudiencePicker's scope selector (§10.12), which deliberately stayed a
- * plain aria-pressed button group because a roving-tabindex tablist wasn't
- * fully implemented there. §7.3 commits this specific widget to tablist, so
- * this one implements the ARIA APG pattern properly rather than repeating
- * that under-implementation: aria-selected, roving tabindex, and
+ * The nav-tabs pattern as a real 2-tab role="tablist" — unlike
+ * AudiencePicker's scope selector, which stayed a plain aria-pressed button
+ * group because a roving-tabindex tablist was never implemented there. This
+ * one follows the ARIA APG pattern properly: aria-selected, roving tabindex, and
  * Left/Right/Home/End move focus and activate together (automatic
  * activation), which suits an immediate feed-order switch.
  *
