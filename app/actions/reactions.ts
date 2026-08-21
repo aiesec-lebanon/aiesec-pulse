@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import { PostStatus, ReactionKind } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
+import { scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 
 // Visibility is re-checked because reacting is a write against a caller-supplied
@@ -16,7 +16,7 @@ export async function toggleReaction(
 
   const scope = await scopeSetFor(user);
   const post = await db.post.findFirst({
-    where: { id: postId, status: PostStatus.PUBLISHED, ...audienceFilter(scope) },
+    where: { id: postId, status: PostStatus.PUBLISHED, ...visibilityFilter(scope) },
     select: { id: true, slug: true },
   });
   if (!post) return { ok: false, error: "That post is no longer available." };

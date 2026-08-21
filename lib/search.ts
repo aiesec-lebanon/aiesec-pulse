@@ -10,7 +10,7 @@ import { type FilterableEntity, KIND_LABELS } from "@/lib/search-shared";
 // architecture.md §12's canonical shape: websearch_to_tsquery over the
 // generated searchVector column, ranked with ts_rank, snippeted with
 // ts_headline. The audience check there is illustrated as a plain JOIN; this
-// uses EXISTS instead (matching lib/org/scope.ts's audienceFilter() Prisma
+// uses EXISTS instead (matching lib/org/scope.ts's visibilityFilter() Prisma
 // semantics exactly) so a post targeted at more than one entity the viewer
 // belongs to can't produce duplicate rows.
 
@@ -144,22 +144,29 @@ export async function searchPosts(
   const user = await requireSession();
   const scope = await scopeSetFor(user);
 
-  // Same rule the feed and topic archive enforce (lib/org/scope.ts's
-  // audienceFilter): visible if targeted at GLOBAL or any entity in the
-  // viewer's own ancestor chain. Search is never a way around targeting.
-  const audienceCondition = Prisma.sql`
-    EXISTS (
-      SELECT 1 FROM "PostAudience" pa
-      WHERE pa."postId" = p."id"
-        AND (
-          pa."scopeType" = 'GLOBAL'
-          ${
-            scope.entityIds.length > 0
-              ? Prisma.sql`OR pa."entityId" IN (${Prisma.join(scope.entityIds)})`
-              : Prisma.empty
-          }
+  // Same union the feed and topic archive enforce (lib/org/scope.ts's
+  // visibilityFilter): a post is visible because it is NETWORK, or because it
+  // is aimed at somewhere in the viewer's local scope. Search is neither a way
+  // around targeting nor a way around level — hold one of the two arms back
+  // here and a promoted post from another MC would be readable in the feed and
+  // missing from search.
+  const visibilityCondition = scope.unrestricted
+    ? Prisma.sql`TRUE`
+    : Prisma.sql`(
+        p."level" = 'NETWORK'
+        OR EXISTS (
+          SELECT 1 FROM "PostAudience" pa
+          WHERE pa."postId" = p."id"
+            AND (
+              pa."scopeType" = 'GLOBAL'
+              ${
+                scope.entityIds.length > 0
+                  ? Prisma.sql`OR pa."entityId" IN (${Prisma.join(scope.entityIds)})`
+                  : Prisma.empty
+              }
+            )
         )
-    )
+      )
   `;
 
   const conditions: Prisma.Sql[] = [
@@ -167,7 +174,7 @@ export async function searchPosts(
     Prisma.sql`p."publishedAt" <= now()`,
     Prisma.sql`(p."expiresAt" IS NULL OR p."expiresAt" > now())`,
     Prisma.sql`p."searchVector" @@ q`,
-    audienceCondition,
+    visibilityCondition,
   ];
   if (filters.entityId) {
     conditions.push(Prisma.sql`p."publisherEntityId" = ${filters.entityId}`);

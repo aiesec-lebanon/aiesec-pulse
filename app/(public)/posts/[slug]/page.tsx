@@ -20,7 +20,7 @@ import { db } from "@/lib/db";
 import { getPostRankingBreakdown, getRelatedPosts, mediaUrl } from "@/lib/feed";
 import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
 import { isEnabled } from "@/lib/flags";
-import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
+import { scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { relativeTime } from "@/lib/relative-time";
 import { toCommentDto } from "@/types/comment";
@@ -66,7 +66,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
     rankedAvailable && parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value) === "for-you";
 
   const post = await db.post.findFirst({
-    where: { slug, status: PostStatus.PUBLISHED, ...audienceFilter(scope) },
+    where: { slug, status: PostStatus.PUBLISHED, ...visibilityFilter(scope) },
     select: {
       id: true,
       title: true,

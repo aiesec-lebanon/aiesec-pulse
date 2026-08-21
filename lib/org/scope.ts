@@ -1,8 +1,9 @@
 import "server-only";
 
-import { ScopeType } from "@/app/generated/prisma/enums";
+import type { Prisma } from "@/app/generated/prisma/client";
+import { EntityKind, PostLevel, ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { ancestorChain } from "@/lib/org/entities";
+import { ancestorChain, subtreeEntityIds } from "@/lib/org/entities";
 import { can } from "@/lib/rbac/can";
 import { NARROWEST_PUBLISHING_TIER, PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
 import { cached, cacheKeys } from "@/lib/redis";
@@ -11,7 +12,17 @@ import { cached, cacheKeys } from "@/lib/redis";
 // as much to members.
 
 export type ScopeSet = {
+  /**
+   * The entities a LOCAL post may be aimed at for this viewer to see it: the
+   * viewer's MC subtree, plus their region. Empty when `unrestricted`.
+   */
   entityIds: string[];
+  /**
+   * The viewer sits at the global root, so every entity is already beneath
+   * them and there is nothing for the local arm to exclude. Materialising every
+   * entity id would give the same answer at far greater cost.
+   */
+  unrestricted: boolean;
   primaryEntityId: string | null;
   primaryEntityPath: string | null;
   regionEntityId: string | null;
@@ -19,45 +30,101 @@ export type ScopeSet = {
 
 const TTL_SECONDS = 5 * 60;
 
+const NO_SCOPE: ScopeSet = {
+  entityIds: [],
+  unrestricted: false,
+  primaryEntityId: null,
+  primaryEntityPath: null,
+  regionEntityId: null,
+};
+
+type EntityRef = { id: string; kind: EntityKind; path: string };
+
+/**
+ * Where a viewer's local reach starts, isolated from the database so the rule
+ * is unit-testable against a hand-built chain.
+ *
+ * architecture.md §10.2: the local root is the viewer's **MC**, not their
+ * ancestor chain — the chain never contained sibling LCs, so an LC member could
+ * not see the LC next door under the same MC. A viewer above the MC tier has no
+ * MC to anchor to and roots at their own entity instead, which at the global
+ * root means the whole tree.
+ */
+export function localRootOf(
+  chain: readonly EntityRef[],
+  primaryEntityId: string
+): EntityRef | null {
+  const primary = chain.find((e) => e.id === primaryEntityId) ?? null;
+  return chain.find((e) => e.kind === EntityKind.MC) ?? primary;
+}
+
 export async function scopeSetFor(user: {
   id: string;
   primaryEntityId: string | null;
 }): Promise<ScopeSet> {
   return cached<ScopeSet>(cacheKeys.scopeSet(user.id), TTL_SECONDS, async () => {
-    if (!user.primaryEntityId) {
-      return {
-        entityIds: [],
-        primaryEntityId: null,
-        primaryEntityPath: null,
-        regionEntityId: null,
-      };
-    }
+    if (!user.primaryEntityId) return NO_SCOPE;
 
     const chain = await ancestorChain(user.primaryEntityId);
     const primary = chain.find((e) => e.id === user.primaryEntityId) ?? null;
-    const region = chain.find((e) => e.kind === "REGION") ?? null;
+    const region = chain.find((e) => e.kind === EntityKind.REGION) ?? null;
+    const localRoot = localRootOf(chain, user.primaryEntityId);
+    if (!primary || !localRoot) return NO_SCOPE;
 
-    return {
-      entityIds: chain.map((e) => e.id),
-      primaryEntityId: primary?.id ?? null,
-      primaryEntityPath: primary?.path ?? null,
+    const anchors = {
+      primaryEntityId: primary.id,
+      primaryEntityPath: primary.path,
       regionEntityId: region?.id ?? null,
+    };
+
+    if (localRoot.kind === EntityKind.GLOBAL) {
+      return { entityIds: [], unrestricted: true, ...anchors };
+    }
+
+    // The subtree is bounded by one MC's LC count rather than by the network,
+    // which is what makes materialising it as a list affordable at all.
+    const subtree = await subtreeEntityIds(localRoot.id);
+    return {
+      entityIds: region ? [...subtree, region.id] : subtree,
+      unrestricted: false,
+      ...anchors,
     };
   });
 }
 
-// Filtering in the query, not in application code, so a missing guard cannot
-// leak rows through a list endpoint.
-export function audienceFilter(scope: ScopeSet) {
+/**
+ * architecture.md §10.2. A post is visible on two independent grounds and what
+ * a viewer sees is the **union** of them: the post is NETWORK, whoever
+ * published it, or it is aimed at somewhere in the viewer's local scope.
+ *
+ * `PostAudience` narrows *within* a level — it is how a publisher aims a LOCAL
+ * post inside their own MC — so audience targeting and promotion cannot be
+ * played off against each other to smuggle a post network-wide. The one
+ * exception is a GLOBAL audience row, which §10.2's query matches regardless of
+ * level; only `post.target_beyond` can write one, and no MC or LC class holds
+ * it, so it stays an AI-level announcement rather than a route around the quota.
+ *
+ * Filtering in the query, not in application code, so a missing guard cannot
+ * leak rows through a list endpoint. Returns a top-level `OR`: a caller that
+ * has an `OR` of its own must nest both under `AND` rather than spreading this.
+ */
+export function visibilityFilter(scope: ScopeSet): Prisma.PostWhereInput {
+  if (scope.unrestricted) return {};
+
   return {
-    audiences: {
-      some: {
-        OR: [
-          { scopeType: ScopeType.GLOBAL },
-          ...(scope.entityIds.length > 0 ? [{ entityId: { in: scope.entityIds } }] : []),
-        ],
+    OR: [
+      { level: PostLevel.NETWORK },
+      {
+        audiences: {
+          some: {
+            OR: [
+              { scopeType: ScopeType.GLOBAL },
+              ...(scope.entityIds.length > 0 ? [{ entityId: { in: scope.entityIds } }] : []),
+            ],
+          },
+        },
       },
-    },
+    ],
   };
 }
 

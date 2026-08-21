@@ -1,9 +1,10 @@
 import "server-only";
 
 import type { FollowState } from "@/app/actions/follows";
+import type { Prisma } from "@/app/generated/prisma/client";
 import { FollowTarget, PostStatus } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { audienceFilter, type ScopeSet, scopeSetFor } from "@/lib/org/scope";
+import { type ScopeSet, scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { cached, cacheKeys } from "@/lib/redis";
 import type { FeedPost } from "@/types/feed";
@@ -102,13 +103,15 @@ export function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowS
 }
 
 // Shared by getFeedPage and getTopicFeed so "what counts as visible" can
-// never drift between the main feed and a topic archive.
-function visiblePublishedWhere(scope: Parameters<typeof audienceFilter>[0]) {
+// never drift between the main feed and a topic archive. Both conditions are
+// nested under AND because each is an OR in its own right — spreading the
+// second over the first would silently drop the expiry check.
+function visiblePublishedWhere(scope: ScopeSet): Prisma.PostWhereInput {
+  const now = new Date();
   return {
     status: PostStatus.PUBLISHED,
-    publishedAt: { lte: new Date() },
-    OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    ...audienceFilter(scope),
+    publishedAt: { lte: now },
+    AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }, visibilityFilter(scope)],
   };
 }
 
@@ -720,7 +723,7 @@ export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
     where: {
       status: PostStatus.PUBLISHED,
       publishedAt: { gte: since },
-      ...audienceFilter(scope),
+      ...visibilityFilter(scope),
     },
     select: { authorId: true },
   });

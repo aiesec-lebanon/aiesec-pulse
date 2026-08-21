@@ -14,7 +14,10 @@ export const cacheKeys = {
   // shared key instead of every member's entry (lib/rbac/matrix.ts).
   roleGrants: (userId: string) => `grants:${userId}`,
   permissionMatrix: () => "rbac:matrix",
-  scopeSet: (userId: string) => `scope:${userId}`,
+  // Versioned: M19 changed a scope set from the viewer's ancestor chain to
+  // their MC subtree, so an entry written by the previous deployment answers a
+  // different question rather than merely being stale.
+  scopeSet: (userId: string) => `scope:v2:${userId}`,
   session: (jti: string) => `sess:${jti}`,
   entityTree: () => "org:tree",
   flag: (key: string) => `flag:${key}`,
