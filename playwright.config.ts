@@ -68,6 +68,14 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
 
 export default defineConfig({
   testDir: "./e2e",
+
+  // The suite writes to a real database through the real application, so it has
+  // to take its writes back out again: setup clears whatever an interrupted run
+  // left behind, teardown clears this run's. Without them every run inherits the
+  // last one's posts and personas as an unplanned fixture — see e2e/cleanup.ts.
+  globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
+
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

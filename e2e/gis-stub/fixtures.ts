@@ -174,12 +174,31 @@ export function isPersona(value: string): value is PersonaKey {
 }
 
 /**
+ * Every GIS person id the suite invents starts with this, and no real one can:
+ * GIS person ids are numeric. That makes the prefix a safe discriminator for
+ * "rows this suite created" — which is what e2e/cleanup.ts deletes on, so the
+ * teardown can never reach an account belonging to a real member.
+ */
+export const E2E_PERSON_ID_PREFIX = "e2e-";
+
+/**
+ * The GIS office ids the suite causes Pulse to materialise as entities. `ai` is
+ * excluded deliberately: it is the root the seed owns (gisOfficeId "1"), not
+ * something a test run created, and the teardown must leave it alone.
+ */
+export const E2E_OFFICE_IDS: string[] = Object.entries(OFFICES)
+  .filter(([key]) => key !== "ai")
+  .map(([, office]) => office.id);
+
+/**
  * `isolate` gives a persona its own GIS person, and therefore its own Pulse
  * account. Publishing quota is per author per period, so specs that publish must
  * not share one or the suite becomes order-dependent.
  */
 export function personIdFor(persona: PersonaKey, isolate?: string): string {
-  return isolate ? `e2e-${persona}-${isolate}` : `e2e-${persona}`;
+  return isolate
+    ? `${E2E_PERSON_ID_PREFIX}${persona}-${isolate}`
+    : `${E2E_PERSON_ID_PREFIX}${persona}`;
 }
 
 /** The `currentPerson` payload GIS would return for this persona. */

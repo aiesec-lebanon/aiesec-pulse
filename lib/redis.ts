@@ -2,8 +2,13 @@ import "server-only";
 
 import { Redis } from "@upstash/redis";
 
+import { cacheKeys } from "@/lib/cache-keys";
 import { has } from "@/lib/env";
 import { logger } from "@/lib/logger";
+
+// The key vocabulary lives in a non-`server-only` module so the e2e teardown can
+// invalidate the same keys this module writes — see lib/cache-keys.ts.
+export { cacheKeys };
 
 // Without Redis this degrades to a process-local Map — correct for one dev
 // server, wrong across serverless instances — so the fallback warns once.
@@ -93,23 +98,6 @@ export async function cached<T>(
   await cacheSet(key, value, ttlSeconds);
   return value;
 }
-
-export const cacheKeys = {
-  // Which classes a person holds and where — not what those classes may do.
-  // The two are cached apart so that editing the permission matrix busts one
-  // shared key instead of every member's entry (lib/rbac/matrix.ts).
-  roleGrants: (userId: string) => `grants:${userId}`,
-  permissionMatrix: () => "rbac:matrix",
-  scopeSet: (userId: string) => `scope:${userId}`,
-  session: (jti: string) => `sess:${jti}`,
-  entityTree: () => "org:tree",
-  flag: (key: string) => `flag:${key}`,
-  // Keyed by primaryEntityId, not userId: architecture.md §11/§17 — every
-  // member of the same entity shares the same bounded candidate window.
-  // Personal terms (affinity, seen, ack) are layered on at request time,
-  // never cached, so personalisation itself is never flattened by this key.
-  feedRanked: (primaryEntityKey: string) => `feed:ranked:${primaryEntityKey}`,
-};
 
 export async function invalidateUserAuthorisation(userId: string): Promise<void> {
   await cacheDelete(cacheKeys.roleGrants(userId), cacheKeys.scopeSet(userId));
