@@ -47,6 +47,23 @@ export type SignInAsAdmin = (returnTo?: string) => Promise<void>;
 /** Starts a sign-in without asserting where it lands — for the refusal cases. */
 export type AttemptSignIn = (persona: PersonaKey, isolate?: string) => Promise<void>;
 
+/**
+ * Signs an arbitrary page in, rather than the one the `signInAs` fixture is
+ * bound to. Sessions live in the browser context's cookie jar, so a second page
+ * signing in swaps the identity of every page in that context — which is how
+ * `e2e/promotion.spec.ts` puts a control rendered for one account in front of a
+ * request carrying another.
+ */
+export async function signInPage(
+  page: Page,
+  persona: PersonaKey,
+  returnTo = "/feed",
+  isolate?: string
+): Promise<void> {
+  await startSignIn(page, persona, returnTo, isolate);
+  await page.waitForURL(`**${returnTo}`);
+}
+
 async function startSignIn(
   page: Page,
   persona: PersonaKey,
@@ -78,10 +95,9 @@ export const test = base.extend<{
   },
 
   signInAs: async ({ page }, use) => {
-    await use(async (persona, returnTo = "/feed", isolate) => {
-      await startSignIn(page, persona, returnTo, isolate);
-      await page.waitForURL(`**${returnTo}`);
-    });
+    await use((persona, returnTo = "/feed", isolate) =>
+      signInPage(page, persona, returnTo, isolate)
+    );
   },
 
   signInAsAdmin: async ({ page }, use) => {

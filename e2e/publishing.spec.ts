@@ -8,10 +8,12 @@ import { alertText, expect, isolationId, type SignInAs, test } from "./fixtures"
 // period, so a shared account would make the suite order-dependent.
 //
 // The org tree these personas sit in is defined by the GIS fixtures
-// (e2e/gis-stub/fixtures.ts): one MC, "AIESEC in Testonia", with two LCs beneath
-// it. `lc_vp` and `member` share the first LC, so a member can see what a
-// publisher publishes; `lc_president` holds the second, which is what "outside
-// the viewer's scope" means in the search spec below.
+// (e2e/gis-stub/fixtures.ts): one region over two MCs — "AIESEC in Testonia"
+// with the LCs Testville and Otherton beneath it, and "AIESEC in Farland" with
+// Fartown. `lc_vp` and `member` share Testville, so a member can see what a
+// publisher publishes; `lc_president` holds Otherton, which post level now
+// makes visible to them as a sibling LC. "Outside the viewer's scope" means the
+// other MC, which is what the search spec below asserts against.
 
 const uniqueTitle = (label: string) =>
   `${label} ${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -477,17 +479,39 @@ test.describe("follow and mute", () => {
   });
 });
 
+/**
+ * Publishes as the PAI, aimed at one named entity. Only an AI-level class holds
+ * `post.target_beyond`, so this is the only persona that can aim a post
+ * anywhere but its own entity.
+ */
+async function publishTargetedAt(
+  page: Page,
+  signInAs: SignInAs,
+  isolate: string,
+  title: string,
+  entityName: string
+) {
+  await signInAs("pai", "/posts/new", isolate);
+  await page.getByRole("button", { name: "A specific entity" }).click();
+  await page.getByLabel("Search for an entity").fill(entityName);
+  await page.getByRole("button", { name: new RegExp(entityName) }).click();
+  await page.locator("#title").fill(title);
+  await page.locator("#content").pressSequentially(BODY);
+  await page.getByRole("button", { name: /^publish$/i }).click();
+  await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+}
+
 test.describe("search", () => {
-  test("finds a post by keyword and excludes a post scoped outside the viewer's entity chain", async ({
+  test("finds a post by keyword, across the viewer's MC and no further", async ({
     page,
     signInAs,
     signInAsAdmin,
   }, testInfo) => {
-    // Two full publish flows (each a real, char-by-char TipTap type) plus a
-    // flag flip and an entity-typeahead pick is more sequential browser work
-    // than the default 30s budget — every other test here does at most one
+    // Three full publish flows (each a real, char-by-char TipTap type) plus a
+    // flag flip and two entity-typeahead picks is far more sequential browser
+    // work than the default 30s budget — every other test here does at most one
     // publish.
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
 
     const isolate = isolationId(testInfo);
     // Distinctive and unique per run: both posts carry it, so a scope-filter
@@ -499,10 +523,11 @@ test.describe("search", () => {
     await ensureFlagEnabled(page, "search.enabled");
     await ensureFlagEnabled(page, "posts.targeting");
 
-    // Signing in as the LCP is what materialises its LC as an entity: offices
-    // enter the tree when someone holding a position there authenticates, so
-    // "Otherton" has to exist before the typeahead below can find it.
+    // Signing in is what materialises an LC as an entity: leaf offices enter the
+    // tree when someone holding a position there authenticates, so both targets
+    // below have to exist before the typeahead can find them.
     await signInAs("lc_president", "/feed", isolate);
+    await signInAs("far_member", "/feed", isolate);
 
     const visibleTitle = uniqueTitle(`E2E ${keyword} in scope`);
     await signInAs("lc_vp", "/posts/new", isolate);
@@ -511,25 +536,25 @@ test.describe("search", () => {
     await page.getByRole("button", { name: /^publish$/i }).click();
     await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
 
-    // Scoped to the *other* LC under the same MC. The member sits in the first
-    // one, and a scope chain only walks upward to your own ancestors — a sibling
-    // is never in it — so this post is invisible to them however recent it is.
-    const scopedTitle = uniqueTitle(`E2E ${keyword} out of scope`);
-    await signInAs("pai", "/posts/new", isolate);
-    await page.getByRole("button", { name: "A specific entity" }).click();
-    await page.getByLabel("Search for an entity").fill("Otherton");
-    await page.getByRole("button", { name: /Otherton/ }).click();
-    await page.locator("#title").fill(scopedTitle);
-    await page.locator("#content").pressSequentially(BODY);
-    await page.getByRole("button", { name: /^publish$/i }).click();
-    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+    // Scoped to the *sibling* LC under the same MC. The member sits in the other
+    // one, and the local scope set is the MC subtree — so this reaches them,
+    // which is the sharing post level exists to provide. Under the previous
+    // ancestors-only rule it did not.
+    const siblingTitle = uniqueTitle(`E2E ${keyword} sibling LC`);
+    await publishTargetedAt(page, signInAs, isolate, siblingTitle, "Otherton");
+
+    // Scoped into the other MC. Nothing but a promotion can carry a post across
+    // that boundary, and nobody has promoted this one.
+    const farTitle = uniqueTitle(`E2E ${keyword} other MC`);
+    await publishTargetedAt(page, signInAs, isolate, farTitle, "Fartown");
 
     await signInAs("member", "/search", isolate);
     await page.getByRole("searchbox", { name: /^search posts$/i }).fill(keyword);
     await page.getByRole("button", { name: /^search$/i }).click();
 
     await expect(page.getByRole("link", { name: visibleTitle })).toBeVisible();
-    await expect(page.getByRole("link", { name: scopedTitle })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: siblingTitle })).toBeVisible();
+    await expect(page.getByRole("link", { name: farTitle })).toHaveCount(0);
   });
 
   test("a type filter narrows results to the matching post kind", async ({

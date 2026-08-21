@@ -11,7 +11,7 @@ import { ActorType } from "@/app/generated/prisma/enums";
 import { cacheKeys } from "@/lib/cache-keys";
 
 import { E2E_ADMIN } from "./admin-credentials";
-import { E2E_OFFICE_IDS, E2E_PERSON_ID_PREFIX } from "./gis-stub/fixtures";
+import { E2E_OFFICE_IDS, E2E_PERSON_ID_PREFIX, INTERIOR_OFFICES } from "./gis-stub/fixtures";
 
 /**
  * The suite writes to a real database through the real application — there is
@@ -233,6 +233,57 @@ async function purge(db: Db): Promise<PurgeSummary> {
   };
 }
 
+// ── The office tree ──────────────────────────────────────────────────────────
+
+/**
+ * Creates the stub's interior offices before the first spec runs.
+ *
+ * An office enters the tree when someone holding a position there signs in, and
+ * `resolveOfficeEntity` parks one whose parent is not there yet directly under
+ * the root. With `fullyParallel` there is no first login, so the shape of the
+ * tree — and therefore every scope set computed from it — would depend on which
+ * worker happened to get there first. Creating the interior nodes up front makes
+ * that deterministic; the leaves still arrive through the production path.
+ *
+ * Idempotent on `gisOfficeId`, which is also what the purge above deletes on, so
+ * setup and teardown stay symmetric.
+ */
+async function seedInteriorOffices(db: Db): Promise<void> {
+  const root = await db.entity.findUnique({ where: { gisOfficeId: "1" } });
+  if (!root) {
+    throw new Error("The entity root (gisOfficeId 1) is missing. Run `npm run seed` first.");
+  }
+
+  const idByOfficeId = new Map<string, string>([["1", root.id]]);
+
+  // Root-first, so each office's parent has an id by the time it is needed.
+  for (const { office, path, kind } of INTERIOR_OFFICES) {
+    const parentId = office.parent ? idByOfficeId.get(office.parent.id) : root.id;
+    if (!parentId) {
+      throw new Error(`Interior office ${office.id} names a parent that comes after it.`);
+    }
+
+    const data = {
+      name: office.name,
+      tag: office.tag,
+      parentId,
+      path,
+      kind,
+      countryCode: office.country,
+      isActive: true,
+      syncedAt: new Date(),
+    };
+
+    const entity = await db.entity.upsert({
+      where: { gisOfficeId: office.id },
+      update: data,
+      create: { gisOfficeId: office.id, ...data },
+      select: { id: true },
+    });
+    idByOfficeId.set(office.id, entity.id);
+  }
+}
+
 // ── Feature flags ────────────────────────────────────────────────────────────
 // Flags are seeded configuration rather than suite data, so they cannot simply
 // be deleted — but several specs turn them on and would otherwise leave them on,
@@ -300,6 +351,7 @@ export async function prepareDatabase(): Promise<void> {
     if (Object.values(summary).some((count) => count > 0)) {
       console.log(`[e2e cleanup] Cleared debris from an earlier run: ${describe(summary)}.`);
     }
+    await seedInteriorOffices(db);
   });
 }
 

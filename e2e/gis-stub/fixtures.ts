@@ -20,17 +20,27 @@ export type StubOffice = {
 };
 
 /**
- * A four-office tree, deliberately not one flat entity.
+ * The office tree, at the real AIESEC depth: AI → region → MC → LC.
  *
  * `ai` is the office the seed already created as the entity root
  * (`gisOfficeId: "1"`), so name and tag match it exactly — `resolveOfficeEntity`
  * updates an entity whose name or tag has drifted, and the suite has no business
  * renaming the root.
  *
- * Two LCs sit under one MC on purpose. A suite with a single entity cannot tell
- * correct audience scoping from the absence of any scoping at all: every post
- * would be visible to everyone either way. `otherLc` is what "outside the
- * viewer's chain" means concretely.
+ * Three things this shape exists to make testable, none of which a flatter or
+ * smaller tree can:
+ *
+ * - **Two LCs under one MC** (`lc`, `otherLc`). Post level makes an LC's news
+ *   reach its sister LC automatically (context.md §7.2), which a suite with one
+ *   LC cannot tell from no scoping at all.
+ * - **Two MCs under one region** (`mc`, `farMc`). This is what "outside the
+ *   viewer's scope" means now that the local scope set is an MC subtree: a
+ *   sibling LC is inside it, another MC is not.
+ * - **A real region tier.** `Entity.kind` is derived from path depth
+ *   (`kindForDepth`), so in a three-level tree the office tagged MC would be
+ *   stored as a REGION and the promotion rules — which resolve the viewer's
+ *   nearest `EntityKind.MC` ancestor — would be testing the wrong node.
+ *   Nobody holds a position at `region`; it exists so the depths are honest.
  */
 export const OFFICES = {
   ai: {
@@ -40,12 +50,19 @@ export const OFFICES = {
     country: null,
     parent: null,
   },
+  region: {
+    id: "900000",
+    name: "Testing Region",
+    tag: "REGION",
+    country: null,
+    parent: { id: "1" },
+  },
   mc: {
     id: "900001",
     name: "AIESEC in Testonia",
     tag: "MC",
     country: "TT",
-    parent: { id: "1" },
+    parent: { id: "900000" },
   },
   lc: {
     id: "900002",
@@ -61,7 +78,43 @@ export const OFFICES = {
     country: "TT",
     parent: { id: "900001" },
   },
+  farMc: {
+    id: "900004",
+    name: "AIESEC in Farland",
+    tag: "MC",
+    country: "FF",
+    parent: { id: "900000" },
+  },
+  farLc: {
+    id: "900005",
+    name: "AIESEC in Fartown",
+    tag: "LC",
+    country: "FF",
+    parent: { id: "900004" },
+  },
 } as const satisfies Record<string, StubOffice>;
+
+/**
+ * The interior offices, root-first, with the path and kind Pulse's own
+ * derivation would give them.
+ *
+ * An office enters the tree when someone holding a position there signs in, and
+ * `resolveOfficeEntity` parks an office whose parent is not there yet directly
+ * under the root — so which spec happens to run first would decide the shape of
+ * the tree, and therefore what every scope rule computes. These three are
+ * created up front by `e2e/cleanup.ts` in globalSetup instead. The leaves are
+ * deliberately left out: they arrive through the production path at login, which
+ * is worth continuing to exercise, and by then their parents exist.
+ */
+export const INTERIOR_OFFICES: Array<{
+  office: StubOffice;
+  path: string;
+  kind: "REGION" | "MC";
+}> = [
+  { office: OFFICES.region, path: "/ai/testing-region", kind: "REGION" },
+  { office: OFFICES.mc, path: "/ai/testing-region/testonia", kind: "MC" },
+  { office: OFFICES.farMc, path: "/ai/testing-region/farland", kind: "MC" },
+];
 
 /**
  * The eight position classes, then the refusals.
@@ -79,6 +132,8 @@ export type PersonaKey =
   | "lc_president"
   | "lc_vp"
   | "member"
+  | "far_mc_president"
+  | "far_member"
   | "tag_mismatch"
   | "unknown_title"
   | "positionless"
@@ -134,6 +189,21 @@ const PERSONAS: Record<Exclude<PersonaKey, "gis_down">, PersonaSpec> = {
     note: "Reads and engages. Sits in the same LC as lc_vp, so it can see what lc_vp publishes.",
   },
 
+  // ── The second MC ──────────────────────────────────────────────────────────
+  // Same two classes, a whole MC away. Post level is the only thing that can
+  // carry a post across this boundary, so these two are how "invisible until
+  // promoted" is asserted against something rather than against nothing.
+  far_mc_president: {
+    fullName: "Test Far MCP",
+    positions: [["MCP", OFFICES.farMc]],
+    note: "An MCP of the other MC. Its promotion budget is separate from Testonia's.",
+  },
+  far_member: {
+    fullName: "Test Far Member",
+    positions: [["Member", OFFICES.farLc]],
+    note: "Reads from inside the other MC. Sees a Testonia post only once it is promoted.",
+  },
+
   // ── The refusals ───────────────────────────────────────────────────────────
   tag_mismatch: {
     fullName: "Test Tag Mismatch",
@@ -157,7 +227,12 @@ export const PERSONA_KEYS = [
   "gis_down" as const,
 ];
 
-/** The eight classes that are expected to sign in successfully. */
+/**
+ * One persona per position class, for the specs that assert what a class may do.
+ * Not every persona that signs in successfully: `far_mc_president` and
+ * `far_member` are the same two classes at the other MC, and listing them here
+ * would say Pulse recognises ten classes when it recognises eight.
+ */
 export const SIGNED_IN_PERSONAS = [
   "pai",
   "ai_vp",
