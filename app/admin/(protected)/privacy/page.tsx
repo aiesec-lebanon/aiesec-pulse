@@ -1,7 +1,7 @@
 import { DsrQueue, type DsrRow } from "@/components/admin/DsrQueue";
 import { db } from "@/lib/db";
 import { DSR_SLA_DAYS } from "@/lib/privacy/dsr";
-import { requirePermission } from "@/lib/rbac/guards";
+import { requireAdmin } from "@/lib/rbac/guards";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ function isOverdue(dueAt: Date, completedAt: Date | null): boolean {
 }
 
 export default async function AdminPrivacyPage() {
-  await requirePermission("admin.privacy_execute");
+  await requireAdmin();
 
   const requests = await db.dataSubjectRequest.findMany({
     orderBy: [{ status: "asc" }, { dueAt: "asc" }],

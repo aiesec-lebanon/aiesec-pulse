@@ -1,5 +1,7 @@
 import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/test";
 
+import { E2E_ADMIN } from "./e2e/admin-credentials";
+
 // Runs against a real `next build` output: the CSP nonce, dynamic rendering and
 // the security headers all behave differently under the dev server.
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
@@ -49,6 +51,11 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
           // redirects at whatever else is listening on that port.
           NEXT_PUBLIC_BASE_URL: baseURL,
           AIESEC_OAUTH_REDIRECT_URI: `${baseURL}/api/auth/callback`,
+          // Platform administration is a credential login, so the suite needs
+          // one it owns rather than whatever a developer's .env carries.
+          ADMIN_EMAIL: E2E_ADMIN.email,
+          ADMIN_PASSWORD: E2E_ADMIN.password,
+          ADMIN_SESSION_SECRET: E2E_ADMIN.sessionSecret,
         },
       },
     ];

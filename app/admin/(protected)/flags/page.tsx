@@ -1,12 +1,12 @@
 import { type FlagRow, FlagsTable } from "@/components/admin/FlagsTable";
 import { db } from "@/lib/db";
 import { FLAG_KEYS } from "@/lib/flags";
-import { requirePermission } from "@/lib/rbac/guards";
+import { requireAdmin } from "@/lib/rbac/guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminFlagsPage() {
-  await requirePermission("admin.configure");
+  await requireAdmin();
 
   const stored = await db.featureFlag.findMany({
     where: { key: { in: [...FLAG_KEYS] } },

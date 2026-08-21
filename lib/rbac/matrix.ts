@@ -1,13 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import {
-  isLockedFullAccess,
-  PERMISSION_KEYS,
-  type PermissionKey,
-  ROLE_KEYS,
-  type RoleKey,
-} from "@/lib/rbac/catalogue";
+import { PERMISSION_KEYS, type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { cached, cacheDelete, cacheKeys } from "@/lib/redis";
 
 // What a position class may do is the one thing administrators configure
@@ -50,9 +44,7 @@ export async function permissionMatrix(): Promise<PermissionMatrix> {
       // Keys are closed lists on both axes. A row naming something outside
       // them is a leftover, not a permission — it grants nothing.
       if (!isRoleKey(role.key)) continue;
-      matrix[role.key] = isLockedFullAccess(role.key)
-        ? [...PERMISSION_KEYS]
-        : role.permissions.map((rp) => rp.permission.key).filter(isPermissionKey);
+      matrix[role.key] = role.permissions.map((rp) => rp.permission.key).filter(isPermissionKey);
     }
     return matrix;
   });

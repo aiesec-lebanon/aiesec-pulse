@@ -2,13 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { isInSubtree } from "@/lib/org/path";
-import {
-  LOCKED_FULL_ACCESS_ROLES,
-  PERMISSION_KEYS,
-  type PermissionKey,
-  ROLE_KEYS,
-  type RoleKey,
-} from "@/lib/rbac/catalogue";
+import { type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { permissionMatrix } from "@/lib/rbac/matrix";
 import { cached, cacheKeys } from "@/lib/redis";
 
@@ -20,6 +14,9 @@ import { cached, cacheKeys } from "@/lib/redis";
 // A grant says which class a person holds and where; the editable matrix says
 // what that class may do. Only the first is cached per user, so an admin's
 // matrix edit lands for everyone at once instead of waiting out a TTL.
+//
+// No position resolves to platform administration. That is a separate
+// credential login (lib/auth/admin-session.ts) and never a permission here.
 
 export type ScopeRef = { type: "GLOBAL" } | { type: "REGION" | "ENTITY"; entityId: string };
 
@@ -79,19 +76,6 @@ async function grantsOf(userId: string): Promise<ResolvedGrant[]> {
 async function resolve(userId: string): Promise<ResolvedAuthorisation> {
   const grants = await grantsOf(userId);
   const roleKeys = [...new Set(grants.map((g) => g.roleKey))];
-
-  // The anti-lockout floor (architecture.md §7.1). Read off the position
-  // class itself, before a single RolePermission row is consulted, so no
-  // state of the editable matrix - and no row someone deleted by hand - can
-  // leave the platform with nobody able to administer it. Scope is `null`,
-  // meaning everywhere.
-  if (LOCKED_FULL_ACCESS_ROLES.some((locked) => roleKeys.includes(locked))) {
-    return {
-      permissions: PERMISSION_KEYS.map((permission) => ({ permission, scopePath: null })),
-      roleKeys,
-    };
-  }
-
   const matrix = await permissionMatrix();
   const seen = new Set<string>();
   const permissions: ResolvedPermission[] = [];

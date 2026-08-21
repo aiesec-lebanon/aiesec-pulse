@@ -4,15 +4,14 @@ import type { Prisma } from "@/app/generated/prisma/client";
 import { type AuditRow, AuditTable } from "@/components/admin/AuditTable";
 import { PageSizeSelect } from "@/components/admin/PageSizeSelect";
 import { db } from "@/lib/db";
-import { subtreeEntityIds } from "@/lib/org/entities";
-import { requirePermission } from "@/lib/rbac/guards";
-import { resolveScopeFilter } from "@/lib/rbac/scope-filter";
+import { requireAdmin } from "@/lib/rbac/guards";
 
 export const dynamic = "force-dynamic";
 
 const ACTOR_OPTIONS = [
   { label: "All", value: "" },
   { label: "Members", value: "USER" },
+  { label: "Admin", value: "ADMIN" },
   { label: "System", value: "SYSTEM" },
 ] as const;
 
@@ -26,8 +25,7 @@ export default async function AdminAuditPage({
 }: {
   searchParams: Promise<{ actor?: string; action?: string; page?: string; limit?: string }>;
 }) {
-  const user = await requirePermission("admin.audit_view");
-  const scope = await resolveScopeFilter(user, "admin.audit_view");
+  await requireAdmin();
 
   const params = await searchParams;
   const actor = ACTOR_OPTIONS.some((o) => o.value === params.actor) ? (params.actor ?? "") : "";
@@ -35,21 +33,8 @@ export default async function AdminAuditPage({
   const limit = clampLimit(params.limit);
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
-  let entityScope: Prisma.AuditEventWhereInput = {};
-  if (scope.kind === "none") {
-    entityScope = { id: { in: [] } };
-  } else if (scope.kind === "subtrees") {
-    const entities = await db.entity.findMany({
-      where: { OR: scope.paths.map((path) => ({ path })) },
-      select: { id: true },
-    });
-    const ids = (await Promise.all(entities.map((e) => subtreeEntityIds(e.id)))).flat();
-    entityScope = { entityId: { in: ids } };
-  }
-
   const where: Prisma.AuditEventWhereInput = {
-    ...entityScope,
-    ...(actor ? { actorType: actor as "USER" | "SYSTEM" } : {}),
+    ...(actor ? { actorType: actor as "USER" | "ADMIN" | "SYSTEM" } : {}),
     ...(action ? { action: { contains: action, mode: "insensitive" as const } } : {}),
   };
 

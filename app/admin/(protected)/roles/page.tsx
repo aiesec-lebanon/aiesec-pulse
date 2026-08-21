@@ -1,12 +1,12 @@
 import { type MatrixCell, PermissionMatrix } from "@/components/admin/PermissionMatrix";
 import { ROLE_DESCRIPTIONS, ROLE_KEYS, ROLE_NAMES } from "@/lib/rbac/catalogue";
-import { requirePermission } from "@/lib/rbac/guards";
+import { requireAdmin } from "@/lib/rbac/guards";
 import { permissionMatrix } from "@/lib/rbac/matrix";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminRolesPage() {
-  await requirePermission("admin.configure_roles");
+  await requireAdmin();
 
   const matrix = await permissionMatrix();
   const allowed = ROLE_KEYS.flatMap((role) =>

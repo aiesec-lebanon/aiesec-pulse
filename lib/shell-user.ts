@@ -26,7 +26,6 @@ export const getShellUser = cache(async (): Promise<ShellUser | null> => {
       permissions.has("post.approve") ||
       permissions.has("moderation.hide") ||
       permissions.has("moderation.report_triage"),
-    canAdminister: permissions.has("admin.configure"),
     searchEnabled,
   };
 });

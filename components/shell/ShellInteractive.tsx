@@ -17,7 +17,6 @@ export type ShellUser = {
   entityName: string | null;
   canPublish: boolean;
   canModerate: boolean;
-  canAdminister: boolean;
   searchEnabled: boolean;
 };
 

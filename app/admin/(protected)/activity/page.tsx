@@ -3,24 +3,29 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { ActivityChart, type ChartPoint } from "@/components/admin/ActivityChart";
+import { getAdminSession } from "@/lib/auth/admin-session";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { db } from "@/lib/db";
 import { can } from "@/lib/rbac/can";
-import { requireSession } from "@/lib/rbac/guards";
 import { postScopeWhere, resolveScopeFilter } from "@/lib/rbac/scope-filter";
 import { isoWeekShortLabel, lastNIsoWeeks } from "@/lib/week";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminActivityPage() {
-  const user = await requireSession();
+  // The credential admin sees the whole network; a position sees its own
+  // subtree and no further.
+  const admin = await getAdminSession();
+  const user = admin ? null : await getCurrentUser();
 
-  const network = await can(user, "analytics.view_network");
-  const entity = await can(user, "analytics.view_entity");
-  if (!network && !entity) redirect("/unauthorized");
+  if (!admin && (!user || !(await can(user, "analytics.view_entity")))) {
+    redirect(user ? "/unauthorized" : "/admin/login");
+  }
 
-  const scope = network
-    ? { kind: "all" as const }
-    : await resolveScopeFilter(user, "analytics.view_entity");
+  const scope =
+    admin || !user
+      ? { kind: "all" as const }
+      : await resolveScopeFilter(user, "analytics.view_entity");
 
   const scopeWhere: Prisma.PostWhereInput = postScopeWhere(scope);
   const weeks = lastNIsoWeeks(8);
@@ -71,7 +76,7 @@ export default async function AdminActivityPage() {
     <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
       <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Publishing activity</h1>
       <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
-        {network ? "Across the whole network." : "Across the entities you administer."} Reach and
+        {scope.kind === "all" ? "Across the whole network." : "Across your own entities."} Reach and
         read rate arrive once the read beacon is collecting.
       </p>
 

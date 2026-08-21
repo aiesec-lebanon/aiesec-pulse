@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  isLockedFullAccess,
   PERMISSION_KEYS,
   PUBLISHING_TIERS,
   ROLE_KEYS,
@@ -22,6 +21,10 @@ import {
 const sql = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
 const MIGRATION_SQL = sql("prisma/migrations/20260821090001_position_classes/migration.sql");
+
+const ADMIN_SPLIT_SQL = sql(
+  "prisma/migrations/20260821120002_administration_off_positions/migration.sql"
+);
 
 const CATALOGUE_SQL =
   sql("prisma/migrations/20260814090002_m2_rbac_catalogue/migration.sql") + MIGRATION_SQL;
@@ -62,15 +65,36 @@ describe("position classes", () => {
   });
 
   it("defines every permission in the catalogue", () => {
-    expect(PERMISSION_KEYS).toHaveLength(24);
+    expect(PERMISSION_KEYS).toHaveLength(19);
     expect(PERMISSION_KEYS).toContain("post.promote");
     expect(PERMISSION_KEYS).toContain("post.demote");
-    expect(PERMISSION_KEYS).toContain("admin.configure_roles");
   });
 
   it("retires admin.grant_role — grants come from GIS, not from Pulse", () => {
     expect(PERMISSION_KEYS as readonly string[]).not.toContain("admin.grant_role");
     expect(MIGRATION_SQL).toContain(`DELETE FROM "Permission" WHERE "key" = 'admin.grant_role'`);
+  });
+
+  it("carries no administration capability at all", () => {
+    // Administering the platform is a separate credential login, so there is
+    // no permission for an AIESEC position to hold and no matrix state that
+    // could confer one.
+    for (const retired of [
+      "admin.configure_roles",
+      "admin.configure",
+      "admin.audit_view",
+      "admin.privacy_execute",
+      "analytics.view_network",
+    ]) {
+      expect(
+        PERMISSION_KEYS as readonly string[],
+        `'${retired}' is still a permission`
+      ).not.toContain(retired);
+      expect(ADMIN_SPLIT_SQL, `'${retired}' is not deleted by the migration`).toContain(
+        `'${retired}'`
+      );
+    }
+    expect(PERMISSION_KEYS.filter((key) => key.startsWith("admin."))).toEqual([]);
   });
 
   it("seeds the same role keys as the position-classes migration", () => {
@@ -85,19 +109,10 @@ describe("position classes", () => {
     }
   });
 
-  it("grants pai, ai_vp and ai_manager every permission", () => {
+  it("seeds pai, ai_vp and ai_manager the whole remaining catalogue", () => {
     for (const role of ["pai", "ai_vp", "ai_manager"] as const) {
       expect(seededPermissionsFor(role), `role ${role}`).toHaveLength(PERMISSION_KEYS.length);
     }
-  });
-
-  it("locks full access for pai and ai_vp only", () => {
-    expect(isLockedFullAccess("pai")).toBe(true);
-    expect(isLockedFullAccess("ai_vp")).toBe(true);
-    // Global in reach, but an ordinary editable row — an AI Manager can be
-    // scoped down without endangering the anti-lockout guarantee.
-    expect(isLockedFullAccess("ai_manager")).toBe(false);
-    expect(isLockedFullAccess("mc_president")).toBe(false);
   });
 });
 
@@ -105,13 +120,11 @@ describe("default permission matrix — what each class must NOT hold", () => {
   const holds = (role: Parameters<typeof seededPermissionsFor>[0], permission: string) =>
     (seededPermissionsFor(role) as readonly string[]).includes(permission);
 
-  it("a member cannot publish, approve, moderate or administer", () => {
+  it("a member cannot publish, approve or moderate", () => {
     expect(holds("member", "post.publish")).toBe(false);
     expect(holds("member", "post.draft")).toBe(false);
     expect(holds("member", "post.approve")).toBe(false);
     expect(holds("member", "moderation.hide")).toBe(false);
-    expect(holds("member", "admin.configure")).toBe(false);
-    expect(holds("member", "admin.privacy_execute")).toBe(false);
   });
 
   it("an LCVP publishes but neither approves nor moderates", () => {
@@ -126,7 +139,6 @@ describe("default permission matrix — what each class must NOT hold", () => {
     expect(holds("mc_vp", "post.edit_any")).toBe(true);
     expect(holds("mc_vp", "moderation.hide")).toBe(false);
     expect(holds("mc_vp", "moderation.restrict_user")).toBe(false);
-    expect(holds("mc_vp", "admin.audit_view")).toBe(false);
   });
 
   it("promotion is seeded to mc_president and above, and to nothing below", () => {
@@ -154,12 +166,10 @@ describe("default permission matrix — what each class must NOT hold", () => {
     expect(holds("mc_president", "moderation.restrict_user")).toBe(true);
   });
 
-  it("erasure and matrix configuration are reachable only at AI level", () => {
+  it("no class holds an administration capability, because none exists", () => {
     for (const role of ROLE_KEYS) {
-      const isAiLevel = role === "pai" || role === "ai_vp" || role === "ai_manager";
-      expect(holds(role, "admin.privacy_execute"), `role ${role}`).toBe(isAiLevel);
-      expect(holds(role, "admin.configure_roles"), `role ${role}`).toBe(isAiLevel);
-      expect(holds(role, "analytics.view_network"), `role ${role}`).toBe(isAiLevel);
+      const administrative = seededPermissionsFor(role).filter((key) => key.startsWith("admin."));
+      expect(administrative, `role ${role}`).toEqual([]);
     }
   });
 });

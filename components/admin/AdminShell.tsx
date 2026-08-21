@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { adminLogout } from "@/app/actions/admin-auth";
+
 export type AdminSections = {
   queue: boolean;
   posts: boolean;
@@ -32,13 +34,21 @@ const NAV_ITEMS: ReadonlyArray<{
 ];
 
 interface AdminShellProps {
-  userName: string;
+  memberName: string | null;
+  adminEmail: string | null;
   queuedCount: number;
   sections: AdminSections;
   children: React.ReactNode;
 }
 
-export function AdminShell({ userName, queuedCount, sections, children }: AdminShellProps) {
+export function AdminShell({
+  memberName,
+  adminEmail,
+  queuedCount,
+  sections,
+  children,
+}: AdminShellProps) {
+  const userName = memberName ?? adminEmail ?? "";
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -96,7 +106,7 @@ export function AdminShell({ userName, queuedCount, sections, children }: AdminS
             <span aria-hidden className="px-2 text-[color:var(--muted-foreground)]">
               /
             </span>
-            Moderation
+            {adminEmail ? "Administration" : "Moderation"}
           </span>
         </div>
 
@@ -104,12 +114,24 @@ export function AdminShell({ userName, queuedCount, sections, children }: AdminS
           <span className="hidden max-w-[200px] truncate text-[14px] text-[color:var(--muted-foreground)] sm:block">
             {userName}
           </span>
-          <Link
-            href="/feed"
-            className="pulse-underline rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-          >
-            Back to feed
-          </Link>
+          {memberName && (
+            <Link
+              href="/feed"
+              className="pulse-underline rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              Back to feed
+            </Link>
+          )}
+          {adminEmail && (
+            <form action={adminLogout}>
+              <button
+                type="submit"
+                className="pulse-underline min-h-[36px] rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              >
+                Sign out
+              </button>
+            </form>
+          )}
         </div>
       </header>
 

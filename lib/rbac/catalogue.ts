@@ -42,11 +42,6 @@ export const PERMISSION_KEYS = [
   "moderation.restrict_user",
   "analytics.view_own",
   "analytics.view_entity",
-  "analytics.view_network",
-  "admin.configure_roles",
-  "admin.configure",
-  "admin.audit_view",
-  "admin.privacy_execute",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -63,9 +58,9 @@ export const ROLE_NAMES: Record<RoleKey, string> = {
 };
 
 export const ROLE_DESCRIPTIONS: Record<RoleKey, string> = {
-  pai: "President of AIESEC International. Full access, locked in code.",
-  ai_vp: "Vice President of AIESEC International. Full access, locked in code.",
-  ai_manager: "AIESEC International manager — global reach, fully configurable.",
+  pai: "President of AIESEC International — global editorial reach.",
+  ai_vp: "Vice President of AIESEC International — global editorial reach.",
+  ai_manager: "AIESEC International manager — global editorial reach.",
   mc_president: "Member Committee President — own MC and every LC beneath it. Promotes posts.",
   mc_vp: "Member Committee Vice President — own MC and every LC beneath it.",
   lc_president: "Local Committee President — own LC.",
@@ -93,25 +88,7 @@ export const PERMISSION_NAMES: Record<PermissionKey, string> = {
   "moderation.restrict_user": "Restrict a user's posting rights",
   "analytics.view_own": "View own post analytics",
   "analytics.view_entity": "View entity analytics",
-  "analytics.view_network": "View network analytics",
-  "admin.configure_roles": "Edit the role → permission matrix",
-  "admin.configure": "Configure quotas, topics, feature flags",
-  "admin.audit_view": "View the audit log",
-  "admin.privacy_execute": "Execute GDPR data subject requests",
 };
-
-// `pai` and `ai_vp` hold every permission unconditionally — a fixed floor in
-// code, not editable rows, so no matrix state can leave the platform with
-// nobody able to administer it (architecture.md §7.1). `lib/rbac/can.ts`
-// enforces the same floor ahead of the database lookup; these constants only
-// describe it for the seed and for read-only UI.
-export type LockedRoleKey = "pai" | "ai_vp";
-
-export const LOCKED_FULL_ACCESS_ROLES: readonly LockedRoleKey[] = ["pai", "ai_vp"];
-
-export function isLockedFullAccess(role: RoleKey): role is LockedRoleKey {
-  return (LOCKED_FULL_ACCESS_ROLES as readonly RoleKey[]).includes(role);
-}
 
 // Publishing tiers, most permissive first. A member holding several positions
 // is billed against the widest one, so the precedence has to be explicit rather
@@ -168,7 +145,6 @@ const DEFAULT_ROLE_PERMISSIONS: Record<
     "moderation.appeal_decide",
     "analytics.view_own",
     "analytics.view_entity",
-    "admin.audit_view",
   ],
 
   mc_vp: [
@@ -206,15 +182,15 @@ const DEFAULT_ROLE_PERMISSIONS: Record<
     "moderation.restrict_user",
     "analytics.view_own",
     "analytics.view_entity",
-    "admin.audit_view",
   ],
 };
 
-// `ai_manager` starts at full access like the two locked classes, but is an
-// ordinary editable row — an AI Manager can be scoped down without touching
-// the lockout guarantee.
+// The three AI classes are global in reach and start with the whole catalogue.
+// They are ordinary editable rows like every other class — nothing in the
+// matrix is locked, because administering the platform is no longer reachable
+// from any AIESEC position.
 export function seededPermissionsFor(role: RoleKey): readonly PermissionKey[] {
-  if (isLockedFullAccess(role) || role === "ai_manager") return PERMISSION_KEYS;
+  if (role === "pai" || role === "ai_vp" || role === "ai_manager") return PERMISSION_KEYS;
   return DEFAULT_ROLE_PERMISSIONS[role];
 }
 

@@ -1,4 +1,4 @@
-import { expect, isolationId, test } from "./fixtures";
+import { alertText, expect, isolationId, test } from "./fixtures";
 
 test.describe("a member", () => {
   test("cannot reach the composer", async ({ page, signInAs }) => {
@@ -20,8 +20,8 @@ test.describe("a member", () => {
   });
 
   test("cannot reach the data request queue", async ({ page, signInAs }) => {
-    // `admin.privacy_execute` is the only path in the product that destroys
-    // personal data, so it is deliberately unreachable from every other role.
+    // Erasure is the only path in the product that destroys personal data, so
+    // it is deliberately unreachable from any AIESEC position at all.
     await signInAs("member");
     await page.goto("/admin/privacy");
     await expect(page).toHaveURL(/\/unauthorized/);
@@ -90,37 +90,86 @@ test.describe("an MC vice president", () => {
   }) => {
     await signInAs("mc_vp");
     await page.goto("/admin/roles");
-    await expect(page).toHaveURL(/\/unauthorized/);
+    await expect(page).toHaveURL(/\/admin\/login/);
     await page.goto("/admin/privacy");
-    await expect(page).toHaveURL(/\/unauthorized/);
+    await expect(page).toHaveURL(/\/admin\/login/);
   });
 });
 
 test.describe("the PAI", () => {
-  test("edits what a class may do, and cannot edit who holds one", async ({ page, signInAs }) => {
+  test("holds the widest position in AIESEC and still cannot administer Pulse", async ({
+    page,
+    signInAs,
+  }) => {
     await signInAs("pai");
-    await page.goto("/admin/roles");
-    await expect(page.getByRole("heading", { name: /^permissions$/i })).toBeVisible();
 
-    // Authority is whatever GIS says it is, so there is deliberately nothing
-    // here that confers a position - not for an admin either.
-    await expect(page.locator("#grant-role")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^grant$/i })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^revoke$/i })).toHaveCount(0);
-
-    // The matrix itself is editable, except for the two locked classes.
-    await expect(
-      page.getByRole("checkbox", { name: /publish within quota for MCVP/i })
-    ).toBeEnabled();
-    await expect(
-      page.getByRole("checkbox", { name: /publish within quota for PAI/i })
-    ).toBeDisabled();
+    for (const route of ["/admin/roles", "/admin/flags", "/admin/privacy", "/admin/audit"]) {
+      await page.goto(route);
+      await expect(page, route).toHaveURL(/\/admin\/login/);
+    }
   });
 
-  test("reaches the data request queue", async ({ page, signInAs }) => {
+  test("still moderates, which is what the position is for", async ({ page, signInAs }) => {
     await signInAs("pai");
-    await page.goto("/admin/privacy");
-    await expect(page.getByRole("heading", { name: /data subject requests/i })).toBeVisible();
+    await page.goto("/admin/posts");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
+});
+
+test.describe("the platform administrator", () => {
+  test("signs in with a credential, not with AIESEC", async ({ page, signInAsAdmin }) => {
+    await signInAsAdmin();
+    await expect(page.getByRole("heading", { name: /^permissions$/i })).toBeVisible();
+  });
+
+  test("refuses a wrong password without saying which half was wrong", async ({ page }) => {
+    await page.goto("/admin/login");
+    await page.locator("#admin-email").fill("e2e-admin@example.invalid");
+    await page.locator("#admin-password").fill("not-the-password");
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+
+    await expect(alertText(page)).toContainText(/not accepted/i);
+    await expect(page).toHaveURL(/\/admin\/login/);
+  });
+
+  test("reaches every administrative surface", async ({ page, signInAsAdmin }) => {
+    await signInAsAdmin();
+    for (const [route, heading] of [
+      ["/admin/flags", /feature flags/i],
+      ["/admin/privacy", /data subject requests/i],
+      ["/admin/audit", /audit log/i],
+    ] as const) {
+      await page.goto(route);
+      await expect(page.getByRole("heading", { name: heading }), route).toBeVisible();
+    }
+  });
+
+  test("is not a member, so the feed is not theirs to read", async ({ page, signInAsAdmin }) => {
+    await signInAsAdmin();
+    await page.goto("/feed");
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test("edits the matrix, including the rows that used to be locked", async ({
+    page,
+    signInAsAdmin,
+  }) => {
+    await signInAsAdmin();
+    for (const role of ["PAI", "AIVP", "MCVP"]) {
+      await expect(
+        page.getByRole("checkbox", { name: new RegExp(`publish within quota for ${role}`, "i") }),
+        role
+      ).toBeEnabled();
+    }
+  });
+
+  test("signs out, and the console closes behind them", async ({ page, signInAsAdmin }) => {
+    await signInAsAdmin();
+    await page.getByRole("button", { name: /^sign out$/i }).click();
+    await page.waitForURL("**/admin/login");
+
+    await page.goto("/admin/roles");
+    await expect(page).toHaveURL(/\/admin\/login/);
   });
 });
 

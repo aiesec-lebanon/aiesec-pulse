@@ -63,13 +63,25 @@ test.describe("axe-core, WCAG 2.2 AA", () => {
     await expectNoA11yViolations(page, "/admin/queue");
   });
 
-  test("admin tables", async ({ page, signInAs }) => {
+  test("moderation tables", async ({ page, signInAs }) => {
     await signInAs("pai", "/admin/posts");
     await expectNoA11yViolations(page, "/admin/posts");
+    await page.goto("/admin/comments");
+    await expectNoA11yViolations(page, "/admin/comments");
+  });
+
+  test("admin sign-in", async ({ page }) => {
+    await page.goto("/admin/login");
+    await expectNoA11yViolations(page, "/admin/login");
+  });
+
+  test("administration surfaces", async ({ page, signInAsAdmin }) => {
+    await signInAsAdmin();
+    await expectNoA11yViolations(page, "/admin/roles");
     await page.goto("/admin/audit");
     await expectNoA11yViolations(page, "/admin/audit");
-    await page.goto("/admin/roles");
-    await expectNoA11yViolations(page, "/admin/roles");
+    await page.goto("/admin/privacy");
+    await expectNoA11yViolations(page, "/admin/privacy");
   });
 });
 

@@ -1,7 +1,6 @@
 import "server-only";
 
-import { ActorType } from "@/app/generated/prisma/enums";
-import { recordAudit, systemActor } from "@/lib/audit";
+import { type AuditActor, recordAudit, systemActor } from "@/lib/audit";
 import { revokeAllSessions } from "@/lib/auth/session";
 import { pseudonymise } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -167,7 +166,7 @@ export type ErasureChoice = "reattribute" | "remove";
 export async function executeErasure(
   userId: string,
   choice: ErasureChoice,
-  actor: { id: string; label: string }
+  actor: AuditActor
 ): Promise<{ postsAffected: number; commentsAffected: number; auditRowsPseudonymised: number }> {
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -236,7 +235,7 @@ export async function executeErasure(
   await revokeAllSessions(userId);
 
   await recordAudit(
-    { type: ActorType.USER, id: actor.id, label: actor.label },
+    actor,
     "privacy.erasure_executed",
     { type: "user", id: userId },
     { choice, ...result }

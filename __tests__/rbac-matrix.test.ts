@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The matrix is editable, so "nobody can administer the platform" is now a
-// state someone could try to save. These are the tests that say they cannot.
+// Two things this file exists to hold down: what a class may do comes from the
+// database and not from the seeded defaults, and no state of that database ever
+// resolves to administering the platform.
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -14,13 +15,13 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/rbac/guards", () => ({ checkPermission: vi.fn() }));
+vi.mock("@/lib/rbac/guards", () => ({ checkAdmin: vi.fn() }));
 
 import { setRolePermission } from "@/app/actions/role-permissions";
 import { db } from "@/lib/db";
 import { can, permissionsOf } from "@/lib/rbac/can";
-import { PERMISSION_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
-import { checkPermission } from "@/lib/rbac/guards";
+import { PERMISSION_KEYS, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
+import { checkAdmin } from "@/lib/rbac/guards";
 import { permissionMatrix } from "@/lib/rbac/matrix";
 import { __clearLocalCache } from "@/lib/redis";
 
@@ -31,7 +32,7 @@ const grantFindMany = vi.mocked(db.roleGrant.findMany);
 const upsert = vi.mocked(db.rolePermission.upsert);
 const deleteMany = vi.mocked(db.rolePermission.deleteMany);
 const auditCreate = vi.mocked(db.auditEvent.create);
-const authorise = vi.mocked(checkPermission);
+const authorise = vi.mocked(checkAdmin);
 
 /** One global grant of `role`, as `lib/rbac/can.ts` reads them. */
 function holds(role: RoleKey) {
@@ -50,12 +51,12 @@ function matrixRows(rows: Record<string, string[]>) {
   );
 }
 
-const admin = { id: "u_admin", fullName: "An Administrator" };
+const admin = { email: "admin@example.invalid" };
 
 beforeEach(() => {
   vi.clearAllMocks();
   __clearLocalCache();
-  authorise.mockResolvedValue({ ok: true, user: admin } as never);
+  authorise.mockResolvedValue({ ok: true, admin } as never);
   roleFindUnique.mockResolvedValue({ id: "role_x" } as never);
   permissionFindUnique.mockResolvedValue({ id: "perm_x" } as never);
 });
@@ -78,9 +79,21 @@ describe("what a class may do comes from the database", () => {
     expect(await can({ id: "u2" }, "post.publish")).toBe(false);
   });
 
+  it("holds no class at a fixed floor — every row is editable", async () => {
+    for (const role of ["pai", "ai_vp", "ai_manager"] as const) {
+      __clearLocalCache();
+      holds(role);
+      matrixRows({ [role]: [] });
+
+      expect(await permissionsOf({ id: `u_${role}` }), role).toEqual(new Set());
+      // Nothing short-circuits ahead of the lookup any more.
+      expect(roleFindMany, role).toHaveBeenCalled();
+    }
+  });
+
   it("ignores a row naming a key outside the closed catalogue", async () => {
     holds("mc_vp");
-    matrixRows({ mc_vp: ["post.publish", "post.teleport"], platform_admin: ["admin.configure"] });
+    matrixRows({ mc_vp: ["post.publish", "post.teleport"], platform_admin: ["post.publish"] });
 
     const matrix = await permissionMatrix();
     expect(matrix.mc_vp).toEqual(["post.publish"]);
@@ -88,43 +101,39 @@ describe("what a class may do comes from the database", () => {
   });
 });
 
-describe("matrix edits cannot revoke pai or ai_vp access", () => {
-  for (const locked of ["pai", "ai_vp"] as const) {
-    it(`resolves every permission for ${locked} with its rows deleted`, async () => {
-      holds(locked);
-      matrixRows({ [locked]: [] });
+describe("no AIESEC position reaches platform administration", () => {
+  it("resolves no administrative capability for any class, whatever its rows say", async () => {
+    for (const role of ROLE_KEYS) {
+      __clearLocalCache();
+      holds(role);
+      // Rows left behind by an older catalogue, offered back to the resolver.
+      matrixRows({
+        [role]: [
+          ...PERMISSION_KEYS,
+          "admin.configure_roles",
+          "admin.configure",
+          "admin.audit_view",
+          "admin.privacy_execute",
+          "analytics.view_network",
+        ],
+      });
 
-      expect(await permissionsOf({ id: "u3" })).toEqual(new Set(PERMISSION_KEYS));
-      // The floor is read off the position class ahead of the lookup, so a
-      // matrix that cannot be read at all still cannot lock an admin out.
-      expect(roleFindMany).not.toHaveBeenCalled();
-    });
+      const resolved = await permissionsOf({ id: `u_${role}` });
+      expect(
+        [...resolved].filter((key) => key.startsWith("admin.")),
+        role
+      ).toEqual([]);
+      expect(resolved.has("analytics.view_network"), role).toBe(false);
+    }
+  });
 
-    it(`keeps ${locked} at full access in the matrix itself`, async () => {
-      matrixRows({ [locked]: [] });
-      expect((await permissionMatrix())[locked]).toEqual([...PERMISSION_KEYS]);
-    });
-
-    it(`refuses to withdraw a permission from ${locked}`, async () => {
-      const result = await setRolePermission(locked, "admin.configure_roles", false);
-
-      expect(result).toEqual({ ok: false, error: expect.stringContaining("cannot be edited") });
-      expect(deleteMany).not.toHaveBeenCalled();
-      expect(upsert).not.toHaveBeenCalled();
-    });
-  }
-
-  it("refuses a locked class before it looks the row up, so a missing row is no bypass", async () => {
-    roleFindUnique.mockResolvedValue(null);
-    const result = await setRolePermission("pai", "post.publish", false);
-
-    expect(result.ok).toBe(false);
-    expect(roleFindUnique).not.toHaveBeenCalled();
+  it("offers no administrative permission to grant in the first place", () => {
+    expect(PERMISSION_KEYS.filter((key) => key.startsWith("admin."))).toEqual([]);
   });
 });
 
 describe("setRolePermission", () => {
-  it("withdraws a permission from an editable class and records it", async () => {
+  it("withdraws a permission from a class and records it against the admin", async () => {
     const result = await setRolePermission("mc_vp", "post.approve", false);
 
     expect(result).toEqual({ ok: true });
@@ -135,6 +144,8 @@ describe("setRolePermission", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           action: "role.permission_revoked",
+          actorType: "ADMIN",
+          actorLabel: admin.email,
           targetType: "role",
           targetId: "mc_vp",
         }),
@@ -142,7 +153,7 @@ describe("setRolePermission", () => {
     );
   });
 
-  it("allows a permission an editable class did not have", async () => {
+  it("allows a permission a class did not have", async () => {
     const result = await setRolePermission("lc_vp", "post.approve", true);
 
     expect(result).toEqual({ ok: true });
@@ -154,28 +165,35 @@ describe("setRolePermission", () => {
     );
   });
 
+  it("edits the AI classes like any other — nothing is locked", async () => {
+    for (const role of ["pai", "ai_vp"] as const) {
+      expect(await setRolePermission(role, "post.publish", false), role).toEqual({ ok: true });
+    }
+    expect(deleteMany).toHaveBeenCalledTimes(2);
+  });
+
   it("refuses a key outside either closed list", async () => {
     expect(await setRolePermission("platform_admin", "post.publish", true)).toEqual({
       ok: false,
       error: "Unknown position class.",
     });
-    expect(await setRolePermission("mc_vp", "post.teleport", true)).toEqual({
+    expect(await setRolePermission("mc_vp", "admin.configure_roles", true)).toEqual({
       ok: false,
       error: "Unknown permission.",
     });
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  it("refuses a caller who does not hold admin.configure_roles", async () => {
+  it("refuses a caller without an admin session, however privileged their position", async () => {
     authorise.mockResolvedValue({
       ok: false,
-      code: "forbidden",
-      error: "You do not have permission to do that.",
+      code: "unauthenticated",
+      error: "Sign in to the admin console to continue.",
     } as never);
 
     expect(await setRolePermission("mc_vp", "post.approve", false)).toEqual({
       ok: false,
-      error: "You do not have permission to do that.",
+      error: "Sign in to the admin console to continue.",
     });
     expect(deleteMany).not.toHaveBeenCalled();
   });

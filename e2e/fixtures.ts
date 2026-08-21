@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test as base, type TestInfo } from "@playwright/test";
 
+import { E2E_ADMIN } from "./admin-credentials";
 import type { PersonaKey } from "./gis-stub/fixtures";
 
 export type { PersonaKey } from "./gis-stub/fixtures";
@@ -40,6 +41,9 @@ function syntheticIp(testInfo: TestInfo): string {
 
 export type SignInAs = (persona: PersonaKey, returnTo?: string, isolate?: string) => Promise<void>;
 
+/** The credential admin. No AIESEC position reaches platform administration. */
+export type SignInAsAdmin = (returnTo?: string) => Promise<void>;
+
 /** Starts a sign-in without asserting where it lands — for the refusal cases. */
 export type AttemptSignIn = (persona: PersonaKey, isolate?: string) => Promise<void>;
 
@@ -62,6 +66,7 @@ async function startSignIn(
 
 export const test = base.extend<{
   signInAs: SignInAs;
+  signInAsAdmin: SignInAsAdmin;
   attemptSignIn: AttemptSignIn;
 }>({
   extraHTTPHeaders: async ({}, use, testInfo) => {
@@ -76,6 +81,20 @@ export const test = base.extend<{
     await use(async (persona, returnTo = "/feed", isolate) => {
       await startSignIn(page, persona, returnTo, isolate);
       await page.waitForURL(`**${returnTo}`);
+    });
+  },
+
+  signInAsAdmin: async ({ page }, use) => {
+    await use(async (returnTo = "/admin/roles") => {
+      await page.goto("/admin/login");
+      await page.locator("#admin-email").fill(E2E_ADMIN.email);
+      await page.locator("#admin-password").fill(E2E_ADMIN.password);
+      await page.getByRole("button", { name: /^sign in$/i }).click();
+      await page.waitForURL("**/admin/roles");
+      if (returnTo !== "/admin/roles") {
+        await page.goto(returnTo);
+        await page.waitForURL(`**${returnTo}`);
+      }
     });
   },
 });

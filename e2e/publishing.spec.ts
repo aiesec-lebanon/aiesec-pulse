@@ -35,8 +35,8 @@ async function publish(page: Page, title: string, body = BODY) {
   await page.getByRole("button", { name: /^publish$/i }).click();
 }
 
-// `pai` carries admin.configure, which is what /admin/flags gates on — this
-// drives the real console M2 built rather than writing to the database directly.
+// Feature flags belong to the credential admin, not to any AIESEC position —
+// this drives the real console rather than writing to the database directly.
 async function ensureFlagEnabled(page: Page, key: string) {
   await page.goto("/admin/flags");
   const button = page.getByRole("listitem").filter({ hasText: key }).getByRole("button");
@@ -246,12 +246,16 @@ test.describe("engagement", () => {
 });
 
 test.describe("scheduling", () => {
-  test("a scheduled post publishes once its time is due", async ({ page, signInAs }, testInfo) => {
+  test("a scheduled post publishes once its time is due", async ({
+    page,
+    signInAs,
+    signInAsAdmin,
+  }, testInfo) => {
     test.setTimeout(45_000);
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E scheduled");
 
-    await signInAs("pai", "/admin/flags", isolate);
+    await signInAsAdmin("/admin/flags");
     await ensureFlagEnabled(page, "posts.scheduling");
 
     await signInAs("lc_vp", "/feed", isolate);
@@ -280,9 +284,13 @@ test.describe("scheduling", () => {
     await expect(row.getByText(/^published$/i)).toBeVisible();
   });
 
-  test("scheduling for a past time is rejected", async ({ page, signInAs }, testInfo) => {
+  test("scheduling for a past time is rejected", async ({
+    page,
+    signInAs,
+    signInAsAdmin,
+  }, testInfo) => {
     const isolate = isolationId(testInfo);
-    await signInAs("pai", "/admin/flags", isolate);
+    await signInAsAdmin("/admin/flags");
     await ensureFlagEnabled(page, "posts.scheduling");
 
     await signInAs("lc_vp", "/feed", isolate);
@@ -309,9 +317,10 @@ test.describe("audience targeting", () => {
   test("a restricted publisher sees their own entity as a fixed audience, not a picker", async ({
     page,
     signInAs,
+    signInAsAdmin,
   }, testInfo) => {
     const isolate = isolationId(testInfo);
-    await signInAs("pai", "/admin/flags", isolate);
+    await signInAsAdmin("/admin/flags");
     await ensureFlagEnabled(page, "posts.targeting");
 
     await signInAs("lc_vp", "/posts/new", isolate);
@@ -324,11 +333,12 @@ test.describe("audience targeting", () => {
   test("the PAI gets the full picker and can publish with it visible", async ({
     page,
     signInAs,
+    signInAsAdmin,
   }, testInfo) => {
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E audience global");
 
-    await signInAs("pai", "/admin/flags", isolate);
+    await signInAsAdmin("/admin/flags");
     await ensureFlagEnabled(page, "posts.targeting");
     await signInAs("pai", "/posts/new", isolate);
 
@@ -343,9 +353,10 @@ test.describe("audience targeting", () => {
   test("the entity typeahead searches and reports no matches gracefully", async ({
     page,
     signInAs,
+    signInAsAdmin,
   }, testInfo) => {
     const isolate = isolationId(testInfo);
-    await signInAs("pai", "/admin/flags", isolate);
+    await signInAsAdmin("/admin/flags");
     await ensureFlagEnabled(page, "posts.targeting");
     await signInAs("pai", "/posts/new", isolate);
 
@@ -470,6 +481,7 @@ test.describe("search", () => {
   test("finds a post by keyword and excludes a post scoped outside the viewer's entity chain", async ({
     page,
     signInAs,
+    signInAsAdmin,
   }, testInfo) => {
     // Two full publish flows (each a real, char-by-char TipTap type) plus a
     // flag flip and an entity-typeahead pick is more sequential browser work
@@ -483,7 +495,7 @@ test.describe("search", () => {
     // rather than the two titles merely not matching the same query.
     const keyword = `kangaroo${Date.now()}`;
 
-    await signInAs("pai", "/admin/flags", isolate);
+    await signInAsAdmin("/admin/flags");
     await ensureFlagEnabled(page, "search.enabled");
     await ensureFlagEnabled(page, "posts.targeting");
 
@@ -523,12 +535,13 @@ test.describe("search", () => {
   test("a type filter narrows results to the matching post kind", async ({
     page,
     signInAs,
+    signInAsAdmin,
   }, testInfo) => {
     const isolate = isolationId(testInfo);
     const keyword = `narwhal${Date.now()}`;
     const title = uniqueTitle(`E2E ${keyword} announcement`);
 
-    await signInAs("pai", "/admin/flags", isolate);
+    await signInAsAdmin("/admin/flags");
     await ensureFlagEnabled(page, "search.enabled");
 
     await signInAs("lc_vp", "/posts/new", isolate);

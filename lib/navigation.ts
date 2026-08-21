@@ -65,11 +65,12 @@ export function buildNavigation(user: ShellUser | null): ShellNavigation {
     });
   }
 
-  if (user?.canModerate || user?.canAdminister) {
-    const items: NavItem[] = [];
-    if (user.canModerate) items.push({ href: "/admin/queue", label: "Moderation queue" });
-    if (user.canAdminister) items.push({ href: "/admin/roles", label: "Platform administration" });
-    groups.push({ id: "moderation", label: "Governance", items });
+  if (user?.canModerate) {
+    groups.push({
+      id: "moderation",
+      label: "Governance",
+      items: [{ href: "/admin/queue", label: "Moderation queue" }],
+    });
   }
 
   if (user) {

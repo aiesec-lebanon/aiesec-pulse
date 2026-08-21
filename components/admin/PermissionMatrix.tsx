@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 
 import { setRolePermission } from "@/app/actions/role-permissions";
 import {
-  isLockedFullAccess,
   PERMISSION_KEYS,
   PERMISSION_NAMES,
   type PermissionKey,
@@ -88,7 +87,7 @@ export function PermissionMatrix({ allowed }: { allowed: MatrixCell[] }) {
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">
             What each AIESEC position class may do. Tick a box to allow a permission, untick it to
-            withdraw it. PAI and AIVP hold every permission and cannot be changed.
+            withdraw it.
           </caption>
           <thead>
             <tr className="border-b border-[var(--border)]">
@@ -105,11 +104,6 @@ export function PermissionMatrix({ allowed }: { allowed: MatrixCell[] }) {
                   className="px-2 py-3 text-center text-[14px] font-medium text-[color:var(--foreground)]"
                 >
                   <span className="block whitespace-nowrap">{ROLE_NAMES[role]}</span>
-                  {isLockedFullAccess(role) && (
-                    <span className="mt-1 inline-block rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--muted-foreground)]">
-                      Locked
-                    </span>
-                  )}
                 </th>
               ))}
             </tr>
@@ -139,20 +133,18 @@ export function PermissionMatrix({ allowed }: { allowed: MatrixCell[] }) {
                   </th>
                   {ROLE_KEYS.map((role) => {
                     const key = cellKey(role, permission);
-                    const locked = isLockedFullAccess(role);
                     return (
                       <td key={role} className="px-2 py-2 text-center">
                         <label className="mx-auto flex min-h-[44px] min-w-[44px] items-center justify-center">
                           <input
                             type="checkbox"
-                            checked={locked || granted.has(key)}
-                            disabled={locked || busy === key}
+                            checked={granted.has(key)}
+                            disabled={busy === key}
                             onChange={() => toggle(role, permission)}
                             className="h-6 w-6 accent-[var(--primary-fill)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
                           />
                           <span className="sr-only">
                             {PERMISSION_NAMES[permission]} for {ROLE_NAMES[role]}
-                            {locked ? " (locked)" : ""}
                           </span>
                         </label>
                       </td>

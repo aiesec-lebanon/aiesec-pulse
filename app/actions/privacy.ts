@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { userActor, withAudit } from "@/lib/audit";
+import { adminActor, userActor, withAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import {
   buildExportBundle,
@@ -11,11 +11,11 @@ import {
   executeErasure,
   openRequest,
 } from "@/lib/privacy/dsr";
-import { checkPermission, requireSession } from "@/lib/rbac/guards";
+import { checkAdmin, requireSession } from "@/lib/rbac/guards";
 import { dataSubjectRequestSchema } from "@/lib/zod-schemas";
 
-// Erasure is the only hard deletion in the product, so it sits behind its own
-// permission: the moderation roles that touch content daily cannot reach it.
+// Erasure is the only hard deletion in the product. It is reachable only from
+// the credential admin console — no AIESEC position resolves to it.
 
 export type PrivacyResult = { ok: true; requestId?: string } | { ok: false; error: string };
 
@@ -71,7 +71,7 @@ export async function advanceRequest(
   status: "IN_PROGRESS" | "COMPLETED" | "REFUSED",
   notes: string
 ): Promise<PrivacyResult> {
-  const authorised = await checkPermission("admin.privacy_execute");
+  const authorised = await checkAdmin();
   if (!authorised.ok) return { ok: false, error: authorised.error };
 
   const request = await db.dataSubjectRequest.findUnique({
@@ -81,7 +81,7 @@ export async function advanceRequest(
   if (!request) return { ok: false, error: "Request not found." };
 
   return withAudit(
-    userActor(authorised.user),
+    adminActor(authorised.admin),
     `dsr.${status.toLowerCase()}`,
     { type: "data_subject_request", id: requestId },
     { kind: request.kind, notes },
@@ -91,7 +91,7 @@ export async function advanceRequest(
         data: {
           status,
           notes,
-          handledById: authorised.user.id,
+          handledById: null,
           completedAt: status === "COMPLETED" || status === "REFUSED" ? new Date() : null,
         },
       });
@@ -105,7 +105,7 @@ export async function executeErasureRequest(
   requestId: string,
   choice: ErasureChoice
 ): Promise<PrivacyResult> {
-  const authorised = await checkPermission("admin.privacy_execute");
+  const authorised = await checkAdmin();
   if (!authorised.ok) return { ok: false, error: authorised.error };
 
   const request = await db.dataSubjectRequest.findUnique({
@@ -123,17 +123,14 @@ export async function executeErasureRequest(
   }
   if (request.status === "COMPLETED") return { ok: false, error: "Already completed." };
 
-  await executeErasure(request.userId, choice, {
-    id: authorised.user.id,
-    label: authorised.user.fullName,
-  });
+  await executeErasure(request.userId, choice, adminActor(authorised.admin));
 
   await db.dataSubjectRequest.update({
     where: { id: requestId },
     data: {
       status: "COMPLETED",
       completedAt: new Date(),
-      handledById: authorised.user.id,
+      handledById: null,
       notes: `Erasure executed with content election: ${choice}.`,
     },
   });
