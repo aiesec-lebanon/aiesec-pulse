@@ -105,6 +105,7 @@ model User {
 
   grants            RoleGrant[]
   posts             Post[]                   @relation("PostAuthor")
+  promotedPosts     Post[]                   @relation("PostPromoter")
   postVersions      PostVersion[]
   comments          Comment[]
   mentions          CommentMention[]
@@ -240,6 +241,16 @@ enum PostStatus {
   HIDDEN
 }
 
+/// How far a published post reaches. LOCAL is the default for everything an LC or
+/// MC publishes: visible only inside the publisher's own MC subtree. NETWORK is
+/// visible to every MC, and is reached only by an MCP's promotion, which is
+/// quota-limited so the cross-MC feed cannot be flooded. Distinct from
+/// `PostStatus`: level is reach, status is lifecycle, and they move independently.
+enum PostLevel {
+  LOCAL
+  NETWORK
+}
+
 enum TopicKind {
   FUNCTION
   PROGRAMME
@@ -276,6 +287,17 @@ model Post {
   pinnedUntil DateTime?
   expiresAt   DateTime?
 
+  /// Reach. Defaults to LOCAL — nothing becomes network-visible by accident.
+  level           PostLevel @default(LOCAL)
+  promotedAt      DateTime?
+  promotedById    String?
+  /// Why it was promoted. Required at the action, so the quota is always spent
+  /// against a stated reason.
+  promotionNote   String?
+  /// Quota window the *promotion* consumed. Separate from `quotaPeriod`, because
+  /// promoting is a distinct budgeted act from publishing.
+  promotionPeriod String?
+
   scheduledAt     DateTime?
   publishedAt     DateTime?
   archivedAt      DateTime?
@@ -305,6 +327,8 @@ model Post {
   publisher Entity @relation(fields: [publisherEntityId], references: [id])
   cover     Media? @relation("PostCover", fields: [coverMediaId], references: [id])
 
+  promotedBy User? @relation("PostPromoter", fields: [promotedById], references: [id])
+
   versions   PostVersion[]
   audiences  PostAudience[]
   topics     PostTopic[]
@@ -323,6 +347,10 @@ model Post {
   @@index([authorId, quotaPeriod, status])
   @@index([status, scheduledAt])
   @@index([kind, status, publishedAt(sort: Desc)])
+  /// Serves the network arm of the feed union.
+  @@index([level, status, publishedAt(sort: Desc)])
+  /// Promotion quota counting, per promoter per window.
+  @@index([promotedById, promotionPeriod])
   /// Full-text index over the generated column. Created by the M16 raw
   /// migration; declared here so the CI drift check passes.
   @@index([searchVector(ops: raw("tsvector_ops"))], map: "Post_searchVector_idx", type: Gin)
@@ -792,19 +820,23 @@ model UserRestriction {
   @@index([userId, endsAt])
 }
 
-/// Publishing quotas as configuration, administered at runtime.
+/// Publishing quotas as configuration, administered at runtime. Budgets two
+/// different acts, discriminated by `postLevel`: LOCAL caps how many posts a
+/// publisher puts into their own MC, NETWORK caps how many an MC may promote to
+/// the whole network.
 model QuotaPolicy {
   id        String      @id @default(cuid())
   scopeType ScopeType
   entityId  String?
   roleKey   String
+  postLevel PostLevel   @default(LOCAL)
   period    QuotaPeriod @default(ISO_WEEK)
   maxPosts  Int
   isActive  Boolean     @default(true)
 
   entity Entity? @relation(fields: [entityId], references: [id])
 
-  @@unique([scopeType, entityId, roleKey, period])
+  @@unique([scopeType, entityId, roleKey, postLevel, period])
 }
 
 /// Unified append-only audit — one ordered stream for every actor.

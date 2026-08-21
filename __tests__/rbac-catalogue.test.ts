@@ -26,6 +26,8 @@ const ADMIN_SPLIT_SQL = sql(
   "prisma/migrations/20260821120002_administration_off_positions/migration.sql"
 );
 
+const POST_LEVEL_SQL = sql("prisma/migrations/20260822090001_m19_post_level/migration.sql");
+
 const CATALOGUE_SQL =
   sql("prisma/migrations/20260814090002_m2_rbac_catalogue/migration.sql") + MIGRATION_SQL;
 
@@ -187,6 +189,31 @@ describe("publishing tiers", () => {
   it("has a quota policy seeded for every tier", () => {
     for (const key of PUBLISHING_TIERS) {
       expect(MIGRATION_SQL, `no quota default for '${key}'`).toContain(`'quota_default_${key}'`);
+    }
+  });
+});
+
+describe("promotion quota", () => {
+  it("seeds a NETWORK budget for every class that may promote", () => {
+    // Holding `post.promote` with no NETWORK policy behind it is a class that
+    // can reach the control and never use it — resolveQuotaPolicy returns null
+    // and the action refuses. The two have to be seeded together.
+    const promoters = ROLE_KEYS.filter((role) =>
+      (seededPermissionsFor(role) as readonly string[]).includes("post.promote")
+    );
+    expect(promoters.length).toBeGreaterThan(0);
+
+    for (const key of promoters) {
+      expect(POST_LEVEL_SQL, `no NETWORK quota for '${key}'`).toContain(`'quota_network_${key}'`);
+    }
+  });
+
+  it("gives no promotion budget to a class that cannot promote", () => {
+    for (const key of ROLE_KEYS) {
+      if ((seededPermissionsFor(key) as readonly string[]).includes("post.promote")) continue;
+      expect(POST_LEVEL_SQL, `'${key}' has a NETWORK quota it can never spend`).not.toContain(
+        `'quota_network_${key}'`
+      );
     }
   });
 });

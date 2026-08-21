@@ -3,6 +3,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../app/generated/prisma/client";
+import type { PostLevel } from "../app/generated/prisma/enums";
 import {
   PERMISSION_KEYS,
   PERMISSION_NAMES,
@@ -101,27 +102,48 @@ async function seedTopics() {
   console.log(`  topics: ${TOPICS.length}`);
 }
 
-// The per-author LOCAL publishing allowance, one row per position class that
-// may publish. The NETWORK promotion quota is counted per MC, not per author,
-// and lands with the promotion model.
-const QUOTAS: Array<{ id: string; roleKey: RoleKey; maxPosts: number }> = [
-  { id: "quota_default_lc_vp", roleKey: "lc_vp", maxPosts: 2 },
-  { id: "quota_default_lc_president", roleKey: "lc_president", maxPosts: 2 },
-  { id: "quota_default_mc_vp", roleKey: "mc_vp", maxPosts: 2 },
-  { id: "quota_default_mc_president", roleKey: "mc_president", maxPosts: 2 },
-  { id: "quota_default_ai_manager", roleKey: "ai_manager", maxPosts: 20 },
-  { id: "quota_default_ai_vp", roleKey: "ai_vp", maxPosts: 100 },
-  { id: "quota_default_pai", roleKey: "pai", maxPosts: 100 },
+// Two budgets, discriminated by post level. LOCAL is the per-author publishing
+// allowance, one row per position class that may publish. NETWORK is the
+// promotion allowance, counted per MC rather than per officer, and seeded only
+// for the classes that hold `post.promote`.
+const QUOTAS: Array<{
+  id: string;
+  roleKey: RoleKey;
+  postLevel: PostLevel;
+  maxPosts: number;
+}> = [
+  { id: "quota_default_lc_vp", roleKey: "lc_vp", postLevel: "LOCAL", maxPosts: 2 },
+  { id: "quota_default_lc_president", roleKey: "lc_president", postLevel: "LOCAL", maxPosts: 2 },
+  { id: "quota_default_mc_vp", roleKey: "mc_vp", postLevel: "LOCAL", maxPosts: 2 },
+  { id: "quota_default_mc_president", roleKey: "mc_president", postLevel: "LOCAL", maxPosts: 2 },
+  { id: "quota_default_ai_manager", roleKey: "ai_manager", postLevel: "LOCAL", maxPosts: 20 },
+  { id: "quota_default_ai_vp", roleKey: "ai_vp", postLevel: "LOCAL", maxPosts: 100 },
+  { id: "quota_default_pai", roleKey: "pai", postLevel: "LOCAL", maxPosts: 100 },
+
+  // An MC gets one promotion a week. The budget is the whole point of the
+  // mechanism, so it starts tight and an admin widens it per MC rather than
+  // starting wide and hoping.
+  { id: "quota_network_mc_president", roleKey: "mc_president", postLevel: "NETWORK", maxPosts: 1 },
+  { id: "quota_network_ai_manager", roleKey: "ai_manager", postLevel: "NETWORK", maxPosts: 20 },
+  { id: "quota_network_ai_vp", roleKey: "ai_vp", postLevel: "NETWORK", maxPosts: 100 },
+  { id: "quota_network_pai", roleKey: "pai", postLevel: "NETWORK", maxPosts: 100 },
 ];
 
 async function seedQuotas() {
-  // `QuotaPolicy` is uniquely keyed on [scopeType, entityId, roleKey, period],
-  // and `entityId` is NULL for every network-wide default. Postgres treats NULLs
-  // as distinct inside a unique index, so upserting on that constraint would
-  // insert a duplicate default on every run — find-then-write instead.
+  // `QuotaPolicy` is uniquely keyed on [scopeType, entityId, roleKey, postLevel,
+  // period], and `entityId` is NULL for every network-wide default. Postgres
+  // treats NULLs as distinct inside a unique index, so upserting on that
+  // constraint would insert a duplicate default on every run — find-then-write
+  // instead.
   for (const quota of QUOTAS) {
     const existing = await db.quotaPolicy.findFirst({
-      where: { scopeType: "GLOBAL", entityId: null, roleKey: quota.roleKey, period: "ISO_WEEK" },
+      where: {
+        scopeType: "GLOBAL",
+        entityId: null,
+        roleKey: quota.roleKey,
+        postLevel: quota.postLevel,
+        period: "ISO_WEEK",
+      },
       select: { id: true },
     });
 
@@ -137,6 +159,7 @@ async function seedQuotas() {
           scopeType: "GLOBAL",
           entityId: null,
           roleKey: quota.roleKey,
+          postLevel: quota.postLevel,
           period: "ISO_WEEK",
           maxPosts: quota.maxPosts,
         },
