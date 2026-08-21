@@ -39,6 +39,12 @@ const serverSchema = z.object({
 
   NEXT_PUBLIC_BASE_URL: url,
 
+  // Platform administration is a separate credential login, not an AIESEC
+  // position — no GIS response confers it.
+  ADMIN_EMAIL: z.string().trim().email("ADMIN_EMAIL must be an email address"),
+  ADMIN_PASSWORD: z.string().min(8, "ADMIN_PASSWORD must be at least 8 characters"),
+  ADMIN_SESSION_SECRET: z.string().min(32, "ADMIN_SESSION_SECRET must be at least 32 characters"),
+
   // SUPABASE_URL is the S3 endpoint used for presigned uploads. Public object
   // URLs are derived from it by `publicStorageBase()`; SUPABASE_PUBLIC_URL
   // overrides that for a custom media domain or a self-hosted deployment.

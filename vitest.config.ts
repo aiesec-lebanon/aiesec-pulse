@@ -26,6 +26,9 @@ export default defineConfig({
       AIESEC_OAUTH_REDIRECT_URI: "http://localhost:3000/api/auth/callback",
       GIS_GRAPHQL_URL: "https://gis.example.invalid/graphql",
       NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+      ADMIN_EMAIL: "admin@example.invalid",
+      ADMIN_PASSWORD: "test-admin-password",
+      ADMIN_SESSION_SECRET: "test-admin-session-secret-at-least-32-chars",
     },
   },
 });

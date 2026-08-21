@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import type { User } from "@/app/generated/prisma/client";
+import { getAdminSession } from "@/lib/auth/admin-session";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { logger } from "@/lib/logger";
 import { can, GLOBAL_SCOPE, type ScopeRef } from "@/lib/rbac/can";
@@ -16,6 +17,16 @@ export async function requireSession(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   return user;
+}
+
+export type AdminPrincipal = { email: string };
+
+// Platform administration. Deliberately not a permission check: no AIESEC
+// position grants it, so there is nothing for `can()` to resolve.
+export async function requireAdmin(): Promise<AdminPrincipal> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  return { email: session.email };
 }
 
 // GLOBAL_SCOPE asks "anywhere at all", which is right for a nav item and wrong
@@ -72,4 +83,16 @@ export async function checkPermission(
     };
   }
   return { ok: true, user };
+}
+
+export async function checkAdmin(): Promise<{ ok: true; admin: AdminPrincipal } | AuthzFailure> {
+  const session = await getAdminSession();
+  if (!session) {
+    return {
+      ok: false,
+      code: "unauthenticated",
+      error: "Sign in to the admin console to continue.",
+    };
+  }
+  return { ok: true, admin: { email: session.email } };
 }

@@ -7,6 +7,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 const PUBLIC_PREFIXES = [
   "/login",
+  "/admin/login",
   "/unauthorized",
   "/legal",
   "/api/auth",
@@ -15,9 +16,24 @@ const PUBLIC_PREFIXES = [
 ];
 
 const SESSION_COOKIE = "pulse_session";
+const ADMIN_SESSION_COOKIE = "pulse_admin_session";
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+async function verifies(token: string, rawSecret: string | undefined, audience: string) {
+  if (!rawSecret || rawSecret.length < 32) return false;
+  try {
+    await jwtVerify(token, new TextEncoder().encode(rawSecret), {
+      issuer: "aiesec-pulse",
+      audience,
+      algorithms: ["HS256"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function contentSecurityPolicy(nonce: string, isDev: boolean): string {
@@ -77,29 +93,47 @@ export async function proxy(request: NextRequest) {
 
   if (isPublicPath(pathname)) return proceed();
 
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return applySecurityHeaders(redirectToLogin(request), csp, isProd);
-
-  // Missing secret redirects rather than throws, so a misconfiguration cannot
-  // turn into an open door.
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) {
-    return applySecurityHeaders(redirectToLogin(request), csp, isProd);
+  // The console carries both identities: platform administration signs in with
+  // a credential, moderation with an AIESEC position. Either cookie gets past
+  // this gate; which pages it actually opens is settled by the page guards.
+  const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
+  if (isAdminArea) {
+    const adminToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+    if (
+      adminToken &&
+      (await verifies(adminToken, process.env.ADMIN_SESSION_SECRET, "aiesec-pulse-admin"))
+    ) {
+      return proceed();
+    }
   }
 
-  try {
-    await jwtVerify(token, new TextEncoder().encode(secret), {
-      issuer: "aiesec-pulse",
-      audience: "aiesec-pulse",
-      algorithms: ["HS256"],
-    });
-  } catch {
-    const response = redirectToLogin(request);
-    response.cookies.set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
+  const refuse = () =>
+    applySecurityHeaders(
+      isAdminArea ? redirectToAdminLogin(request) : redirectToLogin(request),
+      csp,
+      isProd
+    );
+
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!token) return refuse();
+
+  // Missing secret redirects rather than throws, so a misconfiguration cannot
+  // turn into an open door. The cookie is left alone in that case — it may well
+  // be valid, and signing everyone out is not the right answer to a bad deploy.
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) return refuse();
+
+  if (!(await verifies(token, secret, "aiesec-pulse"))) {
+    const response = isAdminArea ? redirectToAdminLogin(request) : redirectToLogin(request);
+    response.cookies.delete(SESSION_COOKIE);
     return applySecurityHeaders(response, csp, isProd);
   }
 
   return proceed();
+}
+
+function redirectToAdminLogin(request: NextRequest): NextResponse {
+  return NextResponse.redirect(new URL("/admin/login", request.url));
 }
 
 function redirectToLogin(request: NextRequest): NextResponse {

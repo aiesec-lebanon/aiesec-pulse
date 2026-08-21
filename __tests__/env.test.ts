@@ -17,6 +17,9 @@ const VALID = {
   SESSION_SECRET: "a".repeat(32),
   TOKEN_ENCRYPTION_KEY: "b".repeat(32),
   NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+  ADMIN_EMAIL: "admin@example.invalid",
+  ADMIN_PASSWORD: "admin-password",
+  ADMIN_SESSION_SECRET: "c".repeat(32),
 };
 
 /** Every optional variable, written the way a `.env` template writes them. */
@@ -91,10 +94,19 @@ describe("required variables", () => {
     expect(serverSchema.safeParse({ ...VALID, DATABASE_URL: "" }).success).toBe(false);
   });
 
-  it("enforces the 32-character floor on both secrets", () => {
+  it("enforces the 32-character floor on every signing secret", () => {
     // 32 bytes is the floor for HS256 and the exact width of an AES-256 key.
     expect(serverSchema.safeParse({ ...VALID, SESSION_SECRET: "short" }).success).toBe(false);
     expect(serverSchema.safeParse({ ...VALID, TOKEN_ENCRYPTION_KEY: "short" }).success).toBe(false);
+    expect(serverSchema.safeParse({ ...VALID, ADMIN_SESSION_SECRET: "short" }).success).toBe(false);
+  });
+
+  it("refuses admin credentials that are missing, malformed or too short", () => {
+    const withoutEmail: Record<string, string> = { ...VALID };
+    delete withoutEmail.ADMIN_EMAIL;
+    expect(serverSchema.safeParse(withoutEmail).success).toBe(false);
+    expect(serverSchema.safeParse({ ...VALID, ADMIN_EMAIL: "not-an-email" }).success).toBe(false);
+    expect(serverSchema.safeParse({ ...VALID, ADMIN_PASSWORD: "short" }).success).toBe(false);
   });
 
   it("reports every problem at once, not one per deploy", () => {

@@ -18,6 +18,8 @@ const GUARD_NAMES = new Set([
   "requirePermission",
   "requireSelfOrPermission",
   "checkPermission",
+  "requireAdmin",
+  "checkAdmin",
 ]);
 
 /**
