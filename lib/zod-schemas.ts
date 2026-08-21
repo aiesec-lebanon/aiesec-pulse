@@ -151,6 +151,19 @@ export const hideContentSchema = z.object({
     .max(500, "Reasons are limited to 500 characters"),
 });
 
+/**
+ * architecture.md §8.6 requires the note: the promotion quota is always spent
+ * against a stated reason, so the audit record says why the network's attention
+ * was bought and not only that it was.
+ */
+export const promotePostSchema = z.object({
+  note: z
+    .string()
+    .trim()
+    .min(5, "Say why this is worth the whole network's attention")
+    .max(500, "Notes are limited to 500 characters"),
+});
+
 export const dataSubjectRequestSchema = z.object({
   kind: z.enum(["ACCESS", "EXPORT", "RECTIFICATION", "ERASURE", "OBJECTION"]),
   notes: z.string().trim().max(2_000).optional(),

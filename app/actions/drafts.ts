@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import type { Prisma } from "@/app/generated/prisma/client";
-import { PostStatus } from "@/app/generated/prisma/enums";
+import { PostLevel, PostStatus } from "@/app/generated/prisma/enums";
 import { userActor, withAudit } from "@/lib/audit";
 import {
   excerptFrom,
@@ -15,7 +15,7 @@ import {
   auditActionFor,
   decidePublishStatus,
   materializeInlineImages,
-  publishingRoleFor,
+  quotaRoleFor,
 } from "@/lib/content/publish";
 import { uniqueSlug } from "@/lib/content/slug";
 import { resolveValidTopicIds } from "@/lib/content/topics";
@@ -271,9 +271,8 @@ export async function publishDraft(
     parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
-  const roleKey =
-    (await publishingRoleFor(user, post.publisherEntityId)) ?? NARROWEST_PUBLISHING_TIER;
-  const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey);
+  const roleKey = (await quotaRoleFor(user, post.publisherEntityId)) ?? NARROWEST_PUBLISHING_TIER;
+  const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey, PostLevel.LOCAL);
   if (!policy) {
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
   }

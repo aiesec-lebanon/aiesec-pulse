@@ -235,6 +235,19 @@ export async function searchEntitiesByName(
   });
 }
 
+/**
+ * The MC a post or a person belongs to — the nearest MC on the chain, or the
+ * entity itself when it is one. Null above the MC tier, which is a real answer
+ * rather than a failure: an AI-level office belongs to no MC.
+ *
+ * Resolved by `kind` rather than by counting path segments, so it survives the
+ * tree gaining or losing a tier the way a hard-coded depth would not.
+ */
+export async function mcAncestorOf(entityId: string): Promise<Entity | null> {
+  const chain = await ancestorChain(entityId);
+  return chain.find((e) => e.kind === EntityKind.MC) ?? null;
+}
+
 export async function ancestorChain(entityId: string): Promise<Entity[]> {
   const entity = await db.entity.findUnique({ where: { id: entityId } });
   if (!entity) return [];

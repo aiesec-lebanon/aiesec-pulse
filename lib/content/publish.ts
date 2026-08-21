@@ -13,7 +13,7 @@ import { db } from "@/lib/db";
 import type { ResolvedQuota } from "@/lib/quota";
 import { usedInPeriod } from "@/lib/quota";
 import { can } from "@/lib/rbac/can";
-import { PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
+import { type PermissionKey, PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
 
 // Shared by every path that turns a submission into a PUBLISHED/IN_REVIEW
 // post — createPost, resubmitPost, and publishDraft. Not exported from a
@@ -22,11 +22,22 @@ import { PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
 // guessMimeType/CONTAINER_BLOCK_TYPES walking is plain sync/async utility
 // code that "use server" files aren't allowed to export directly.
 
-export async function publishingRoleFor(
+/**
+ * The class a quota is billed against at `entityId`: the widest tier the user
+ * holds, provided they may actually exercise `permission` there. Null when they
+ * may not, which is a refusal rather than a fallback to the narrowest tier.
+ *
+ * Takes the permission rather than assuming `post.publish`, because promotion
+ * is budgeted the same way against a different capability (architecture.md
+ * §8.6) — and because the matrix is admin-editable, so a class that may promote
+ * cannot be assumed to publish.
+ */
+export async function quotaRoleFor(
   user: { id: string },
-  entityId: string
+  entityId: string,
+  permission: PermissionKey = "post.publish"
 ): Promise<RoleKey | null> {
-  if (await can(user, "post.publish", { type: "ENTITY", entityId })) {
+  if (await can(user, permission, { type: "ENTITY", entityId })) {
     const grants = await db.roleGrant.findMany({
       where: {
         userId: user.id,

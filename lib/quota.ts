@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/app/generated/prisma/client";
-import { PostStatus, QuotaPeriod, ScopeType } from "@/app/generated/prisma/enums";
+import { PostLevel, PostStatus, QuotaPeriod, ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { ancestorPaths, depthOf } from "@/lib/org/path";
 import { currentIsoWeek } from "@/lib/week";
@@ -19,6 +19,7 @@ export function quotaPeriodFor(period: QuotaPeriod, at: Date = new Date()): stri
 export type ResolvedQuota = {
   policyId: string;
   roleKey: string;
+  postLevel: PostLevel;
   period: QuotaPeriod;
   maxPosts: number;
   periodLabel: string;
@@ -54,10 +55,18 @@ export function nearestByScope<T extends { entityId: string | null }>(
   return nearest;
 }
 
-/** Nearest scope wins, so an entity can be given a bespoke allowance. */
+/**
+ * Nearest scope wins, so an entity can be given a bespoke allowance.
+ *
+ * `postLevel` picks between the two budgets a role carries: LOCAL is how many
+ * posts it may publish into its own MC, NETWORK how many it may promote to the
+ * whole network (context.md §8.4). They are separate policy rows at the same
+ * scope, so the level is part of the question, never inferred.
+ */
 export async function resolveQuotaPolicy(
   entityId: string | null,
   roleKey: string,
+  postLevel: PostLevel,
   at: Date = new Date()
 ): Promise<ResolvedQuota | null> {
   // This used to walk the candidate scopes with one `findFirst` each, stopping
@@ -93,6 +102,7 @@ export async function resolveQuotaPolicy(
       where: {
         isActive: true,
         roleKey,
+        postLevel,
         OR: [
           { scopeType: ScopeType.GLOBAL, entityId: null },
           ...(chainPaths.length > 0
@@ -111,6 +121,7 @@ export async function resolveQuotaPolicy(
   return {
     policyId: policy.id,
     roleKey: policy.roleKey,
+    postLevel: policy.postLevel,
     period: policy.period,
     maxPosts: policy.maxPosts,
     periodLabel: quotaPeriodFor(policy.period, at),
@@ -153,7 +164,7 @@ export async function quotaStateFor(
   roleKey: string,
   at: Date = new Date()
 ): Promise<QuotaState> {
-  const policy = await resolveQuotaPolicy(entityId, roleKey, at);
+  const policy = await resolveQuotaPolicy(entityId, roleKey, PostLevel.LOCAL, at);
   if (!policy) {
     return {
       used: 0,
@@ -172,4 +183,53 @@ export async function quotaStateFor(
     atLimit: used >= policy.maxPosts,
     policy,
   };
+}
+
+/**
+ * The pool a promotion is billed against. context.md §8.4: the NETWORK budget
+ * is counted per MC, not per officer, so an MC cannot buy extra network reach
+ * by spreading promotions across several MCVPs. A promoter above the MC tier
+ * shares an MC with nobody, so their pool is themselves — the same rule, not an
+ * exception to it.
+ */
+export type PromotionPool = { mcPath: string } | { promoterId: string };
+
+export function promotionPoolFor(promoterId: string, mc: { path: string } | null): PromotionPool {
+  return mc ? { mcPath: mc.path } : { promoterId };
+}
+
+/**
+ * How much of the window's promotion budget the pool has already spent.
+ *
+ * Counted on `promotionPeriod` alone — deliberately **not** also on
+ * `level = NETWORK`, which architecture.md §8.6's illustrative SQL adds.
+ * Including it would make demotion refund the promotion, and §8.6's own prose
+ * (and the `@@index([promotedById, promotionPeriod])` it specifies) says the
+ * opposite: the window's promotion is spent whether or not it is later
+ * withdrawn, or promote/demote cycling becomes an unbounded reach budget.
+ *
+ * The post being promoted is excluded from its own count, so re-promoting
+ * something this window already paid for is free while a second post is not.
+ */
+export async function promotionsUsedInPeriod(
+  client: Prisma.TransactionClient | typeof db,
+  pool: PromotionPool,
+  periodLabel: string,
+  excludePostId: string
+): Promise<number> {
+  return client.post.count({
+    where: {
+      promotionPeriod: periodLabel,
+      id: { not: excludePostId },
+      ...("mcPath" in pool
+        ? {
+            promotedBy: {
+              primaryEntity: {
+                OR: [{ path: pool.mcPath }, { path: { startsWith: `${pool.mcPath}/` } }],
+              },
+            },
+          }
+        : { promotedById: pool.promoterId }),
+    },
+  });
 }
