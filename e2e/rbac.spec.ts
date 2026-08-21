@@ -60,9 +60,8 @@ test.describe("an LC vice president", () => {
     await page.goto("/posts/new");
     await expect(page.getByRole("heading", { name: /share an update/i })).toBeVisible();
     // Two `role="status"` regions render on this page (the quota pill and the
-    // composer's own draft-autosave indicator) — both individually correct
-    // per the design system's §8.3 live-region rule, so the locator narrows
-    // by content instead of assuming a single match.
+    // composer's own draft-autosave indicator) — both individually correct,
+    // so the locator narrows by content instead of assuming a single match.
     await expect(page.getByRole("status").filter({ hasText: /posts this week/i })).toContainText(
       /posts this week: \d+ of 2/i
     );
@@ -103,7 +102,13 @@ test.describe("the PAI", () => {
   }) => {
     await signInAs("pai");
 
-    for (const route of ["/admin/roles", "/admin/flags", "/admin/privacy", "/admin/audit"]) {
+    for (const route of [
+      "/admin/roles",
+      "/admin/flags",
+      "/admin/quotas",
+      "/admin/privacy",
+      "/admin/audit",
+    ]) {
       await page.goto(route);
       await expect(page, route).toHaveURL(/\/admin\/login/);
     }
@@ -136,6 +141,7 @@ test.describe("the platform administrator", () => {
     await signInAsAdmin();
     for (const [route, heading] of [
       ["/admin/flags", /feature flags/i],
+      ["/admin/quotas", /publishing quotas/i],
       ["/admin/privacy", /data subject requests/i],
       ["/admin/audit", /audit log/i],
     ] as const) {
@@ -161,6 +167,37 @@ test.describe("the platform administrator", () => {
         role
       ).toBeEnabled();
     }
+  });
+
+  // Farland is deliberate: no fixture holds an MC vice presidency there, so the
+  // override this writes changes nobody's budget while it exists.
+  test("gives one MC its own budget and takes it away again", async ({ page, signInAsAdmin }) => {
+    await signInAsAdmin();
+    await page.goto("/admin/quotas");
+
+    const mcField = page.getByLabel("Member Committee");
+    await mcField.fill("Farland");
+    await page.getByRole("button", { name: /AIESEC in Farland/i }).click();
+
+    await page.getByLabel("Budget", { exact: true }).selectOption("LOCAL");
+    await page.getByLabel("Position class").selectOption("mc_vp");
+    await page.getByLabel("Posts allowed").fill("7");
+    await page.getByRole("button", { name: /set the override/i }).click();
+
+    // Scoped to the overrides section: the defaults table above carries an MCVP
+    // budget of its own, which is the point of an override.
+    const overrides = page.getByRole("region", { name: /per-MC overrides/i });
+    await expect(overrides.getByRole("heading", { name: /AIESEC in Farland/i })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(overrides.getByRole("spinbutton", { name: /budget for MCVP/i })).toHaveValue("7");
+
+    // The default is what an MC returns to, so removing the override has to be
+    // as reachable as setting it.
+    await overrides.getByRole("button", { name: /remove the MCVP override/i }).click();
+    await expect(overrides.getByText(/no MC has a bespoke allowance/i)).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("signs out, and the console closes behind them", async ({ page, signInAsAdmin }) => {

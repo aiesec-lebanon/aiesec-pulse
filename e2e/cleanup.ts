@@ -184,7 +184,7 @@ async function purge(db: Db): Promise<PurgeSummary> {
   await db.media.deleteMany({ where: { ownerId: { in: userIds } } });
 
   // Appeals point at reports, so they unwind in that order. Neither is written
-  // by any spec today — moderation is out of MVP scope (context.md §6) — but
+  // by any spec today — moderation is out of MVP scope — but
   // both are Restrict relations onto User, so leaving them out would turn a
   // future moderation spec into a confusing foreign-key failure here.
   await db.appeal.deleteMany({ where: { appellantId: { in: userIds } } });
@@ -200,6 +200,10 @@ async function purge(db: Db): Promise<PurgeSummary> {
   const feedKeys = (await db.entity.findMany({ select: { id: true } })).map((entity) =>
     cacheKeys.feedRanked(entity.id)
   );
+
+  // An entity-scoped quota policy holds a Restrict relation onto the entity,
+  // so an override left by the quota console would keep its MC alive here.
+  await db.quotaPolicy.deleteMany({ where: { entityId: { in: entityIds } } });
 
   // Deepest first: Entity.parent is a self-relation, and a single deleteMany
   // gives Postgres no ordering guarantee between the rows it removes.
