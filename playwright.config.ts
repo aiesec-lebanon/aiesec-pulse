@@ -4,7 +4,15 @@ import { E2E_ADMIN } from "./e2e/admin-credentials";
 
 // Runs against a real `next build` output: the CSP nonce, dynamic rendering and
 // the security headers all behave differently under the dev server.
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+//
+// `PULSE_E2E_PORT` moves the whole run off 3000. Worth having because
+// `reuseExistingServer` cannot tell this suite's server from a `next dev` a
+// developer already had running there, and a dev server carries the real
+// `.env` — so sign-in leaves for auth.aiesec.org and every spec fails on a
+// timeout that says nothing about the code. Same escape hatch the GIS stub
+// already has, for the same reason.
+const APP_PORT = process.env.PULSE_E2E_PORT ?? "3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${APP_PORT}`;
 
 // The stub that answers as auth.aiesec.org and gis-api.aiesec.org. Sign-in is
 // otherwise the production path end to end — see e2e/gis-stub/server.ts for why
@@ -26,7 +34,7 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
       },
       {
         command: "npm run build && npm run start",
-        url: "http://localhost:3000/api/health",
+        url: `${baseURL}/api/health`,
         reuseExistingServer: !process.env.CI,
         // A cold `next build` is the whole of this budget and then some on a
         // machine without a warm .next cache; 180s was not enough to get to a
@@ -51,6 +59,7 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
           // redirects at whatever else is listening on that port.
           NEXT_PUBLIC_BASE_URL: baseURL,
           AIESEC_OAUTH_REDIRECT_URI: `${baseURL}/api/auth/callback`,
+          PORT: APP_PORT,
           // One long-lived server takes every worker's traffic at once, and each
           // request spends most of its life waiting on a remote round trip
           // rather than working — so the 10-connection default (right for a
