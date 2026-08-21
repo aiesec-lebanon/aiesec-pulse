@@ -22,7 +22,15 @@ import { warnIfPositionless } from "@/server-utils/gis";
 // keep their attribution through a handover.
 
 export type SyncResult = {
-  user: User;
+  /**
+   * `null` only when nothing resolved *and* no account exists yet: a person who
+   * cannot sign in should not leave a row behind for having tried. An existing
+   * account is always reconciled, even down to zero grants, because losing every
+   * position is exactly the case where the old ones must stop working.
+   */
+  user: User | null;
+  /** Zero means sign-in is refused. Nothing else in the result changes that. */
+  recognisedPositions: number;
   grantsAdded: number;
   grantsExpired: number;
   denied: PositionDenial[];
@@ -89,11 +97,33 @@ function logDenials(userId: string, denied: readonly PositionDenial[]): void {
   }
 }
 
+/**
+ * There is no implicit `member` grant. Membership is a position like any other
+ * and has to come back from GIS as one; granting it to whoever completed the
+ * OAuth handshake would mean a renamed or expired position quietly downgrading
+ * someone to a working account instead of failing loudly (architecture.md §7.1).
+ */
 export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult> {
   warnIfPositionless(person);
 
   const positions = await toPositionInputs(person);
   const { grants: derived, denied } = derivePositionGrants(positions);
+
+  const existing = await db.user.findUnique({ where: { aiesecPersonId: person.id } });
+
+  if (derived.length === 0 && !existing) {
+    logger.warn("Sign-in refused: no GIS position resolved to a Pulse role", {
+      aiesecPersonId: person.id,
+      positionCount: positions.length,
+      denied: denied.map((d) => ({
+        roleName: d.roleName,
+        officeName: d.officeName,
+        officeTag: d.officeTag,
+        reason: d.reason,
+      })),
+    });
+    return { user: null, recognisedPositions: 0, grantsAdded: 0, grantsExpired: 0, denied };
+  }
 
   const primaryOfficeId = choosePrimaryOfficeId(derived);
   const primaryEntityId = primaryOfficeId
@@ -103,7 +133,9 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
           select: { id: true },
         })
       )?.id ?? ROOT_ENTITY_ID)
-    : ROOT_ENTITY_ID;
+    : // Nothing resolved, so there is nothing to move them to. Keeping the last
+      // known entity beats relocating an offboarded member to the global root.
+      (existing?.primaryEntityId ?? ROOT_ENTITY_ID);
 
   const now = new Date();
   const profile = {
@@ -123,7 +155,13 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
   if (user.status === "ERASED") {
     logger.warn("Sign-in attempted for an erased account", { userId: user.id });
-    return { user, grantsAdded: 0, grantsExpired: 0, denied };
+    return {
+      user,
+      recognisedPositions: derived.length,
+      grantsAdded: 0,
+      grantsExpired: 0,
+      denied,
+    };
   }
 
   logDenials(user.id, denied);
@@ -187,7 +225,20 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
   await invalidateUserAuthorisation(user.id);
 
-  return { user, grantsAdded, grantsExpired: stale.length, denied };
+  if (derived.length === 0) {
+    logger.warn("Every position for an existing account was denied; grants expired", {
+      userId: user.id,
+      grantsExpired: stale.length,
+    });
+  }
+
+  return {
+    user,
+    recognisedPositions: derived.length,
+    grantsAdded,
+    grantsExpired: stale.length,
+    denied,
+  };
 }
 
 export const STALENESS_CEILING_MS = 72 * 60 * 60 * 1000;

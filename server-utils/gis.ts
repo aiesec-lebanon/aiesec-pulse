@@ -201,7 +201,7 @@ export function warnIfPositionless(person: GisPerson): void {
   if (person.current_positions.length === 0) {
     logger.warn("GIS returned a person with no current positions", {
       aiesecPersonId: person.id,
-      consequence: "The member is granted `member` at global scope only.",
+      consequence: "Sign-in is refused: there is no position to derive a role from.",
     });
   }
 }

@@ -102,7 +102,27 @@ export async function GET(request: NextRequest) {
       return failure(baseUrl, "not_permitted");
     }
 
-    const { user, grantsAdded, grantsExpired, denied } = await syncIdentityFromGis(person);
+    const { user, recognisedPositions, grantsAdded, grantsExpired, denied } =
+      await syncIdentityFromGis(person);
+
+    // Authority is exactly what GIS says it is, so a person GIS gives us no
+    // recognised position for has no authority at all - not even to read. There
+    // is deliberately no bare `member` fallback: it would turn a renamed or
+    // expired position into a working account.
+    if (!user || recognisedPositions === 0) {
+      await recordAudit(
+        systemActor("auth"),
+        "auth.sign_in_refused",
+        // No Pulse account exists for a first-time refusal, so the GIS person
+        // is the only identifier the record can carry.
+        user ? { type: "user", id: user.id } : { type: "gis_person", id: person.id },
+        {
+          reason: "No GIS position resolved to a Pulse role",
+          deniedReasons: denied.map((d) => d.reason),
+        }
+      );
+      return NextResponse.redirect(new URL("/unauthorized?reason=no_position", baseUrl));
+    }
 
     if (user.status === "ERASED" || user.status === "SUSPENDED") {
       return failure(baseUrl, "not_permitted");
