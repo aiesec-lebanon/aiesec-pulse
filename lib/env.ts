@@ -22,6 +22,9 @@ const serverSchema = z.object({
 
   DATABASE_URL: nonEmpty,
   DIRECT_URL: blankAsAbsent(nonEmpty),
+  // pg pool size per process. Unset is right on serverless; raise it only for a
+  // long-lived server taking concurrent traffic — see lib/db.ts.
+  DATABASE_POOL_MAX: blankAsAbsent(z.coerce.number().int().positive()),
 
   // Not NEXT_PUBLIC_*: /api/auth/start performs the redirect server-side, so the
   // client id never needs to reach the browser.

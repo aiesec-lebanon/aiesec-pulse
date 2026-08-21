@@ -51,6 +51,12 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
           // redirects at whatever else is listening on that port.
           NEXT_PUBLIC_BASE_URL: baseURL,
           AIESEC_OAUTH_REDIRECT_URI: `${baseURL}/api/auth/callback`,
+          // One long-lived server takes every worker's traffic at once, and each
+          // request spends most of its life waiting on a remote round trip
+          // rather than working — so the 10-connection default (right for a
+          // serverless instance, see lib/db.ts) becomes the queue everything
+          // waits in.
+          DATABASE_POOL_MAX: "25",
           // Platform administration is a credential login, so the suite needs
           // one it owns rather than whatever a developer's .env carries.
           ADMIN_EMAIL: E2E_ADMIN.email,

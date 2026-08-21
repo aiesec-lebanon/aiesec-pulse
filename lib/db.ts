@@ -6,10 +6,32 @@ import { PrismaClient } from "@/app/generated/prisma/client";
 // recreated, which is necessary after a migration adds models.
 const CLIENT_ID = "20260527200507";
 
+/**
+ * `PrismaPg` hands its config straight to `pg.Pool`, whose `max` defaults to 10.
+ * That is the right order of magnitude on Vercel, where each serverless instance
+ * serves roughly one request at a time and a large per-instance pool multiplied
+ * by the instance count is how a database runs out of connections — so the
+ * default here stays 10 and production behaviour is unchanged.
+ *
+ * It is the wrong number for a single long-lived server taking concurrent
+ * traffic: one `next start` process fielding four parallel Playwright workers,
+ * where every request spends most of its life waiting on a remote round trip,
+ * queues behind those 10 slots. `DATABASE_POOL_MAX` raises it for that shape of
+ * deployment — architecture.md §"Connection limits" names raising the pool size
+ * as the mitigation, the Supabase pooler in transaction mode being the thing
+ * that multiplexes it back down.
+ */
+const DEFAULT_POOL_MAX = 10;
+
+function poolMax(): number {
+  const configured = Number(process.env.DATABASE_POOL_MAX);
+  return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_POOL_MAX;
+}
+
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not set");
-  const adapter = new PrismaPg(connectionString);
+  const adapter = new PrismaPg({ connectionString, max: poolMax() });
   return new PrismaClient({ adapter });
 }
 
