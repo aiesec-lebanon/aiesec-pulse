@@ -28,11 +28,19 @@ const uniqueTitle = (label: string) =>
 
 const POST_SLUG_URL = /\/posts\/(?!new$|queued$)[a-z0-9-]+$/;
 
-/** Publishes as whoever is signed in, and returns the post's URL path. */
-async function publish(page: Page, title: string): Promise<string> {
+/**
+ * Publishes as whoever is signed in, and returns the post's URL path. Passing a
+ * note takes the composer's own reach control — the second route to a promotion
+ * (architecture.md §8.6), spending the same budget as the panel on post detail.
+ */
+async function publish(page: Page, title: string, networkNote?: string): Promise<string> {
   await page.goto("/posts/new");
   await page.locator("#title").fill(title);
   await page.locator("#content").pressSequentially(BODY);
+  if (networkNote) {
+    await page.getByRole("button", { name: /^the whole network$/i }).click();
+    await page.locator("#promotion-note").fill(networkNote);
+  }
   await page.getByRole("button", { name: /^publish$/i }).click();
   await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 20_000 });
   return new URL(page.url()).pathname;
@@ -63,6 +71,30 @@ async function promote(page: Page, note: string) {
 const promotionPanel = (page: Page) => page.getByRole("region", { name: /^network reach$/i });
 
 test.describe("post level", () => {
+  test("an AI-level office publishes at network reach without spending anything", async ({
+    page,
+    signInAs,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    const isolate = isolationId(testInfo);
+    const title = uniqueTitle("E2E AI announcement");
+
+    // No reach control to operate: an AI office sits above the MC tier, so
+    // there is no MC for LOCAL to mean anything relative to and nothing to
+    // decide. The composer says so rather than offering a choice.
+    await signInAs("pai", "/posts/new", isolate);
+    await expect(page.getByText(/your office publishes at network level/i)).toBeVisible();
+    const path = await publish(page, title);
+
+    // Born NETWORK, not promoted into it — the panel reports the level, and the
+    // budget behind it is untouched because no promotion was spent.
+    await expect(promotionPanel(page).getByText(/every MC sees this post/i)).toBeVisible();
+    await expect(promotionPanel(page)).toContainText(/100 of 100 promotions left/i);
+
+    await signInAs("far_member", "/feed", isolate);
+    expect(await canSee(page, path, title)).toBe(true);
+  });
+
   test("refuses a class without post.promote, even with the control bypassed", async ({
     page,
     context,
@@ -143,17 +175,25 @@ test.describe("post level", () => {
     const firstTitle = uniqueTitle("E2E budget first");
     const secondTitle = uniqueTitle("E2E budget second");
 
-    // Farland's own MCP and Farland's own budget, untouched by the test above.
+    // Farland's own MCP and Farland's own budget, untouched by the tests above.
     await signInAs("far_mc_president", "/feed", isolate);
-    const firstPath = await publish(page, firstTitle);
-    const secondPath = await publish(page, secondTitle);
 
-    await page.goto(firstPath);
-    await expect(promotionPanel(page)).toContainText(/1 of 1 promotion left/i);
-    await promote(page, "Spending Farland's only promotion for this window.");
+    // The first post takes the composer's route: promoted at publication rather
+    // than in a second visit. Same permission, same budget, same mandatory note.
+    const firstPath = await publish(
+      page,
+      firstTitle,
+      "Spending Farland's only promotion for this window."
+    );
     await expect(promotionPanel(page).getByText(/every MC sees this post/i)).toBeVisible({
       timeout: 15_000,
     });
+    await expect(promotionPanel(page)).toContainText(/0 of 1 promotion left/i);
+
+    const secondPath = await publish(page, secondTitle);
+
+    // Back to the first post — publishing the second navigated away from it.
+    await page.goto(firstPath);
 
     // Demote it. The post goes back to local; the window's promotion does not
     // come back with it (architecture.md §8.6), or promote/demote cycling would
