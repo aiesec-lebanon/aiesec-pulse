@@ -107,15 +107,32 @@ export const PUBLISHING_TIERS: readonly RoleKey[] = [
 /** The narrowest publishing allowance — the safe default when no tier matches. */
 export const NARROWEST_PUBLISHING_TIER: RoleKey = "lc_vp";
 
+/**
+ * The classes whose reach is the whole network by position rather than by
+ * promotion. An AI-level office sits above the MC tier and has no MC to be
+ * local to, so `LOCAL` would be a level with nothing to mean; what they publish
+ * is born `NETWORK` (context.md §7.2, architecture.md §8.6).
+ *
+ * This is deliberately the class list and not "the publisher has no MC
+ * ancestor". A leaf office whose parent has not been synced yet is parked under
+ * the root by `resolveOfficeEntity`, which would also read as having no MC —
+ * and that mistake would hand a whole LC network reach. Keying on the class
+ * fails closed instead: a mis-parked LC is still held by an LCP or LCVP.
+ */
+export const AI_LEVEL_ROLES = ["pai", "ai_vp", "ai_manager"] as const;
+
+export type AiLevelRole = (typeof AI_LEVEL_ROLES)[number];
+
+export function isAiLevelRole(role: RoleKey): role is AiLevelRole {
+  return (AI_LEVEL_ROLES as readonly RoleKey[]).includes(role);
+}
+
 // Seed data, and only seed data. The live answer to "what may this class do"
 // is the `RolePermission` table, read by `lib/rbac/matrix.ts` and re-assignable
 // at runtime by an AI-level admin (`admin.configure_roles`). What follows is
 // the starting point that table is seeded with and the state a reset returns
 // it to — never consult it to authorise anything.
-const DEFAULT_ROLE_PERMISSIONS: Record<
-  Exclude<RoleKey, "pai" | "ai_vp" | "ai_manager">,
-  readonly PermissionKey[]
-> = {
+const DEFAULT_ROLE_PERMISSIONS: Record<Exclude<RoleKey, AiLevelRole>, readonly PermissionKey[]> = {
   member: ["comment.create", "comment.delete_own"],
 
   lc_vp: [
@@ -190,7 +207,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<
 // matrix is locked, because administering the platform is no longer reachable
 // from any AIESEC position.
 export function seededPermissionsFor(role: RoleKey): readonly PermissionKey[] {
-  if (role === "pai" || role === "ai_vp" || role === "ai_manager") return PERMISSION_KEYS;
+  if (isAiLevelRole(role)) return PERMISSION_KEYS;
   return DEFAULT_ROLE_PERMISSIONS[role];
 }
 

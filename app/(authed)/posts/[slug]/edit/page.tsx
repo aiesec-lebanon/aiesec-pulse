@@ -5,6 +5,7 @@ import { VersionHistoryPanel } from "@/components/drafts/VersionHistoryPanel";
 import { PostComposer } from "@/components/PostComposer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { sanitiseDocument } from "@/lib/content/document";
+import { reachOptionsFor } from "@/lib/content/level";
 import { listActiveTopics } from "@/lib/content/topics";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
@@ -53,6 +54,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
   const audienceOptions = targetingEnabled
     ? await availableAudiencesFor(user, post.publisherEntityId)
     : undefined;
+  const reachOptions = await reachOptionsFor(user, post.publisherEntityId, roleKey);
 
   return (
     <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24">
@@ -92,6 +94,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
         timezone={user.timezone}
         audienceOptions={audienceOptions}
         topics={topics}
+        reachOptions={reachOptions}
         postId={post.id}
         initialValues={{
           title: post.title,

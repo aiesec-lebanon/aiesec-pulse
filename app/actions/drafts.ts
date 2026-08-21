@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import type { Prisma } from "@/app/generated/prisma/client";
-import { PostLevel, PostStatus } from "@/app/generated/prisma/enums";
+import { PostLevel, PostStatus, ScopeType } from "@/app/generated/prisma/enums";
 import { userActor, withAudit } from "@/lib/audit";
 import {
   excerptFrom,
@@ -11,6 +11,7 @@ import {
   plainTextFromDocument,
   readingMinutes,
 } from "@/lib/content/document";
+import { decideReach, reachContextFor } from "@/lib/content/level";
 import {
   auditActionFor,
   decidePublishStatus,
@@ -267,8 +268,19 @@ export async function publishDraft(
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience, topicIds } =
-    parsed.data;
+  const {
+    title,
+    bodyJson,
+    summary,
+    linkUrl,
+    mediaUrl,
+    mediaAlt,
+    scheduledAt,
+    audience,
+    topicIds,
+    promoteToNetwork,
+    promotionNote,
+  } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
   const roleKey = (await quotaRoleFor(user, post.publisherEntityId)) ?? NARROWEST_PUBLISHING_TIER;
@@ -311,8 +323,24 @@ export async function publishDraft(
   const audienceSize = await resolveAudienceSize(audiences);
   const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
-  const { status, slug } = await serializableTransaction(async (tx) => {
+  // Publishing a draft is a publication like any other, so it makes the same
+  // reach decision createPost does — the composer is shared and offers the
+  // choice on both routes.
+  const reach = await reachContextFor(
+    user,
+    post.publisherEntityId,
+    roleKey,
+    audiences.some((a) => a.scopeType === ScopeType.GLOBAL)
+  );
+
+  const outcome = await serializableTransaction(async (tx) => {
     const status = await decidePublishStatus(tx, user.id, policy, scheduledAt);
+
+    const decision = await decideReach(tx, reach, user.id, status, {
+      promoteToNetwork: promoteToNetwork ?? false,
+      note: promotionNote,
+    });
+    if (!decision.ok) return { refused: decision, status, slug: null, decision: null };
 
     const latest = await tx.postVersion.findFirst({
       where: { postId },
@@ -334,6 +362,8 @@ export async function publishDraft(
         scheduledAt: status === PostStatus.SCHEDULED ? scheduledAt : null,
         quotaPeriod: policy.periodLabel,
         publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
+        level: decision.level,
+        ...(decision.stamp ?? {}),
         audienceSize,
         // The draft was created with saveDraft's placeholder GLOBAL audience
         // (lib/zod-schemas.ts has no audience field on the draft path, only
@@ -357,8 +387,13 @@ export async function publishDraft(
       select: { slug: true },
     });
 
-    return { status, slug: updated.slug };
+    return { refused: null, status, slug: updated.slug, decision };
   });
+
+  if (outcome.refused) {
+    return { ok: false, errors: { [outcome.refused.field]: outcome.refused.error } };
+  }
+  const { status, slug, decision } = outcome;
 
   await withAudit(
     userActor(user),
@@ -366,12 +401,29 @@ export async function publishDraft(
     { type: "post", id: postId, entityId: post.publisherEntityId },
     {
       title,
+      level: decision.level,
       quotaPeriod: policy.periodLabel,
       quotaMax: policy.maxPosts,
       ...(status === PostStatus.SCHEDULED ? { scheduledAt: scheduledAt!.toISOString() } : {}),
     },
     async () => undefined
   );
+
+  if (decision.stamp) {
+    await withAudit(
+      userActor(user),
+      "post.promote",
+      { type: "post", id: postId, entityId: post.publisherEntityId },
+      {
+        title,
+        note: decision.stamp.promotionNote,
+        from: PostLevel.LOCAL,
+        at: "publication",
+        quotaPeriod: decision.stamp.promotionPeriod,
+      },
+      async () => undefined
+    );
+  }
 
   revalidateTag("feed", "max");
   revalidatePath("/feed");

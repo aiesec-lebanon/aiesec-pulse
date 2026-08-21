@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import type { Prisma, User } from "@/app/generated/prisma/client";
-import { PostLevel, PostStatus } from "@/app/generated/prisma/enums";
+import { PostLevel, PostStatus, ScopeType } from "@/app/generated/prisma/enums";
 import { userActor, withAudit } from "@/lib/audit";
 import { revalidatePositions } from "@/lib/auth/positions";
 import {
@@ -12,6 +12,7 @@ import {
   plainTextFromDocument,
   readingMinutes,
 } from "@/lib/content/document";
+import { decideReach, reachContextFor } from "@/lib/content/level";
 import {
   auditActionFor,
   decidePublishStatus,
@@ -88,8 +89,19 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience, topicIds } =
-    parsed.data;
+  const {
+    title,
+    bodyJson,
+    summary,
+    linkUrl,
+    mediaUrl,
+    mediaAlt,
+    scheduledAt,
+    audience,
+    topicIds,
+    promoteToNetwork,
+    promotionNote,
+  } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
 
   const roleKey = (await quotaRoleFor(user, entityId)) ?? NARROWEST_PUBLISHING_TIER;
@@ -105,6 +117,17 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   }
   const audiences = audienceDecision.audiences;
   const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
+
+  // How far this post reaches the moment it publishes. After the audience,
+  // because an AI-level office's network default gives way to a narrowed
+  // audience. Resolved outside the transaction; only the budget count has to
+  // happen inside it.
+  const reach = await reachContextFor(
+    user,
+    entityId,
+    roleKey,
+    audiences.some((a) => a.scopeType === ScopeType.GLOBAL)
+  );
 
   const slug = await uniqueSlug(title);
   const audienceSize = await resolveAudienceSize(audiences);
@@ -127,8 +150,16 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
 
   const materializedBodyJson = await materializeInlineImages(bodyJson, user.id);
 
-  const { post, status } = await serializableTransaction(async (tx) => {
+  const outcome = await serializableTransaction(async (tx) => {
     const status = await decidePublishStatus(tx, user.id, policy, scheduledAt);
+
+    const decision = await decideReach(tx, reach, user.id, status, {
+      promoteToNetwork: promoteToNetwork ?? false,
+      note: promotionNote,
+    });
+    // Returned before anything is written, so the transaction commits empty
+    // rather than leaving a post behind that nobody asked to publish locally.
+    if (!decision.ok) return { refused: decision, post: null, status, decision: null };
 
     const post = await tx.post.create({
       data: {
@@ -136,6 +167,8 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
         authorId: user.id,
         publisherEntityId: entityId,
         termLabel: currentTermLabel(),
+        level: decision.level,
+        ...(decision.stamp ?? {}),
         title,
         summary: summary?.trim() || excerptFrom(bodyText),
         bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
@@ -164,8 +197,13 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
       select: { id: true, slug: true },
     });
 
-    return { post, status };
+    return { refused: null, post, status, decision };
   });
+
+  if (outcome.refused) {
+    return { ok: false, errors: { [outcome.refused.field]: outcome.refused.error } };
+  }
+  const { post, status, decision } = outcome;
 
   await withAudit(
     userActor(user),
@@ -173,12 +211,32 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     { type: "post", id: post.id, entityId },
     {
       title,
+      level: decision.level,
       quotaPeriod: policy.periodLabel,
       quotaMax: policy.maxPosts,
       ...(status === PostStatus.SCHEDULED ? { scheduledAt: scheduledAt!.toISOString() } : {}),
     },
     async () => undefined
   );
+
+  // A promotion spent at publication is still a promotion: the same action name
+  // an auditor searches for, so the reach decisions are one stream rather than
+  // two depending on which route was taken.
+  if (decision.stamp) {
+    await withAudit(
+      userActor(user),
+      "post.promote",
+      { type: "post", id: post.id, entityId },
+      {
+        title,
+        note: decision.stamp.promotionNote,
+        from: PostLevel.LOCAL,
+        at: "publication",
+        quotaPeriod: decision.stamp.promotionPeriod,
+      },
+      async () => undefined
+    );
+  }
 
   revalidateTag("feed", "max");
   revalidatePath("/feed");

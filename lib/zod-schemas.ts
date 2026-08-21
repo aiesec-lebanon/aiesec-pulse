@@ -88,10 +88,21 @@ export const createPostSchema = z
     scheduledAt: scheduledAtField,
     audience: audienceField,
     topicIds: topicIdsField,
+    // Reach, chosen at publication (architecture.md §8.6). Ignored unless the
+    // publisher may actually promote — the server re-derives that; this is only
+    // what the composer asked for.
+    promoteToNetwork: z.boolean().optional(),
+    promotionNote: z.string().trim().max(500, "Notes are limited to 500 characters").optional(),
   })
   .refine((data) => !data.mediaUrl || (data.mediaAlt?.trim().length ?? 0) > 0, {
     message: "Describe the image for people using a screen reader",
     path: ["mediaAlt"],
+  })
+  .refine((data) => !data.promoteToNetwork || (data.promotionNote?.trim().length ?? 0) >= 5, {
+    // Same rule as promotePostSchema: the quota is never spent without a stated
+    // reason, whichever route spends it.
+    message: "Say why the network should see this — at least 5 characters",
+    path: ["promotionNote"],
   });
 
 // z.input, not z.infer/z.output: this is the parameter type for createPost/

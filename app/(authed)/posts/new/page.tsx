@@ -1,5 +1,6 @@
 import { PostComposer } from "@/components/PostComposer";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { reachOptionsFor } from "@/lib/content/level";
 import { listActiveTopics } from "@/lib/content/topics";
 import { isEnabled } from "@/lib/flags";
 import { availableAudiencesFor, publishingRoleKeyFor } from "@/lib/org/scope";
@@ -20,6 +21,11 @@ export default async function NewPostPage() {
     targetingEnabled && user.primaryEntityId
       ? await availableAudiencesFor(user, user.primaryEntityId)
       : undefined;
+  // Unflagged, like the promotion panel on post detail: reach is the level
+  // model itself, not one of the Phase 1 authoring features behind a switch.
+  const reachOptions = user.primaryEntityId
+    ? await reachOptionsFor(user, user.primaryEntityId, roleKey)
+    : undefined;
 
   return (
     <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24">
@@ -59,6 +65,7 @@ export default async function NewPostPage() {
         timezone={user.timezone}
         audienceOptions={audienceOptions}
         topics={topics}
+        reachOptions={reachOptions}
       />
     </main>
   );

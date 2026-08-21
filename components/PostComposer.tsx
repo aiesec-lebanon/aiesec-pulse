@@ -11,15 +11,20 @@ import {
   type AudiencePickerOptions,
   DEFAULT_AUDIENCE_VALUE,
 } from "@/components/composer/AudiencePicker";
+import { ReachPicker, type ReachValue } from "@/components/composer/ReachPicker";
 import { TopicPicker } from "@/components/composer/TopicPicker";
 import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import type { ReachOptions } from "@/lib/content/level";
 import type { TopicOption } from "@/lib/content/topics";
 import { formatAsWallTime, timeZoneOffsetLabel, zonedWallTimeToUtc } from "@/lib/timezone";
 import { createPostSchema } from "@/lib/zod-schemas";
 
 type FieldErrors = Partial<
-  Record<"title" | "bodyJson" | "linkUrl" | "mediaAlt" | "scheduledAt" | "audience", string>
+  Record<
+    "title" | "bodyJson" | "linkUrl" | "mediaAlt" | "scheduledAt" | "audience" | "promotionNote",
+    string
+  >
 >;
 
 // architecture.md §8.1 — verbatim interval.
@@ -35,6 +40,8 @@ export type PostComposerProps = {
   audienceOptions?: AudiencePickerOptions;
   /** The 13 pre-seeded, active topics. Empty hides the picker — nothing to choose from. */
   topics?: TopicOption[];
+  /** How far this post may travel. Absent means LOCAL with nothing to decide. */
+  reachOptions?: ReachOptions;
   /** An already-saved DRAFT being resumed; absent when starting fresh. */
   postId?: string;
   initialValues?: ComposerInitialValues;
@@ -46,6 +53,7 @@ export function PostComposer({
   timezone = "UTC",
   audienceOptions,
   topics = [],
+  reachOptions,
   postId,
   initialValues,
 }: PostComposerProps) {
@@ -95,6 +103,12 @@ export function PostComposer({
   // starts with nothing selected rather than re-fetching what was chosen
   // last time, since topics were never part of what saveDraft persisted.
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
+
+  // Reach starts local for everyone who has a choice: spending one of the MC's
+  // promotions is never the default (context.md §7.2). An AI-level office has
+  // no choice to make, and the server decides its level regardless of this.
+  const [reachValue, setReachValue] = useState<ReachValue>("local");
+  const [promotionNote, setPromotionNote] = useState("");
 
   // Seeded from the postId prop when resuming an already-saved draft;
   // undefined otherwise until the first save (autosave or explicit) creates
@@ -185,6 +199,10 @@ export function PostComposer({
         ? { scopeType: audienceValue.scopeType, entityId: audienceValue.entityId }
         : undefined;
 
+    // Only sent when there is a choice to have made — the "network" shape is
+    // information, and the server settles that level from the position.
+    const promoteToNetwork = reachOptions?.kind === "choice" && reachValue === "network";
+
     const validationResult = createPostSchema.safeParse({
       title,
       bodyJson,
@@ -194,6 +212,8 @@ export function PostComposer({
       scheduledAt: scheduledAtIso,
       audience: audiencePayload,
       topicIds: selectedTopicIds,
+      promoteToNetwork,
+      promotionNote: promoteToNetwork ? promotionNote : undefined,
     });
     if (!validationResult.success) {
       const errors: FieldErrors = {};
@@ -205,7 +225,8 @@ export function PostComposer({
           field === "linkUrl" ||
           field === "mediaAlt" ||
           field === "scheduledAt" ||
-          field === "audience"
+          field === "audience" ||
+          field === "promotionNote"
         ) {
           errors[field] = issue.message;
         }
@@ -227,6 +248,8 @@ export function PostComposer({
         scheduledAt: scheduledAtIso,
         audience: audiencePayload,
         topicIds: selectedTopicIds,
+        promoteToNetwork,
+        promotionNote: promoteToNetwork ? promotionNote : undefined,
       };
       // A draft created by autosave (or being resumed) publishes in place;
       // otherwise this is a from-scratch submission with nothing saved yet.
@@ -254,6 +277,7 @@ export function PostComposer({
         else if (key === "mediaAlt") newFieldErrors.mediaAlt = msg;
         else if (key === "scheduledAt") newFieldErrors.scheduledAt = msg;
         else if (key === "audience") newFieldErrors.audience = msg;
+        else if (key === "promotionNote") newFieldErrors.promotionNote = msg;
         else formError = msg; // _form or unexpected key
       }
       setFieldErrors(newFieldErrors);
@@ -600,6 +624,20 @@ export function PostComposer({
           value={audienceValue}
           onChange={setAudienceValue}
           error={fieldErrors.audience}
+          disabled={isSubmitting || isUploading}
+        />
+      )}
+
+      {/* ── Reach ── */}
+      {reachOptions && (
+        <ReachPicker
+          options={reachOptions}
+          narrowed={audienceValue.scopeType !== "GLOBAL"}
+          value={reachValue}
+          onChange={setReachValue}
+          note={promotionNote}
+          onNoteChange={setPromotionNote}
+          error={fieldErrors.promotionNote}
           disabled={isSubmitting || isUploading}
         />
       )}
