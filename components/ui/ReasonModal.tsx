@@ -2,11 +2,35 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 
-export function HideContentModal({
+/**
+ * Design system §10.6, as one component instead of a copy per feature.
+ *
+ * This is `HideContentModal`'s implementation — §10.6 names it the reference
+ * for §9.4 (focus trap, Escape-to-close, focus return) — generalised over its
+ * labels and its confirm tone so moderation and promotion share it. Reach for
+ * this before writing another dialog; a third ad hoc copy is exactly what §11's
+ * "no second copy" rule exists to stop.
+ *
+ * `tone` picks the confirm button's fill: `destructive` for an action that
+ * takes something away (hide, reject), `primary` for one that grants reach.
+ */
+export type ReasonModalTone = "destructive" | "primary";
+
+const TONE_FILL: Record<ReasonModalTone, string> = {
+  destructive: "var(--destructive-text)",
+  primary: "var(--primary-fill)",
+};
+
+export function ReasonModal({
   open,
   title,
   description,
   targetLabel,
+  reasonLabel,
+  reasonHint,
+  confirmLabel,
+  pendingLabel,
+  tone = "destructive",
   onClose,
   onConfirm,
 }: {
@@ -14,6 +38,12 @@ export function HideContentModal({
   title: string;
   description: string;
   targetLabel: string;
+  reasonLabel: string;
+  /** Shown when the reason is too short, so the requirement is stated once. */
+  reasonHint: string;
+  confirmLabel: string;
+  pendingLabel: string;
+  tone?: ReasonModalTone;
   onClose: () => void;
   onConfirm: (reason: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
@@ -64,7 +94,7 @@ export function HideContentModal({
     e.preventDefault();
     const trimmed = reason.trim();
     if (trimmed.length < 5) {
-      setError("Record a reason of at least 5 characters — the author will see it.");
+      setError(reasonHint);
       return;
     }
     setError(null);
@@ -81,10 +111,13 @@ export function HideContentModal({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="hide-modal-title"
+        aria-labelledby="reason-modal-title"
         className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-6"
       >
-        <h2 id="hide-modal-title" className="text-[18px] font-bold text-[color:var(--foreground)]">
+        <h2
+          id="reason-modal-title"
+          className="text-[18px] font-bold text-[color:var(--foreground)]"
+        >
           {title}
         </h2>
         <p className="mt-2 text-[14px] leading-[1.5] text-[color:var(--muted-foreground)]">
@@ -96,28 +129,28 @@ export function HideContentModal({
 
         <form onSubmit={handleSubmit} className="mt-4">
           <label
-            htmlFor="hide-reason"
+            htmlFor="reason-modal-reason"
             className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
-            Reason{" "}
+            {reasonLabel}{" "}
             <span aria-hidden className="text-[color:var(--destructive-text)]">
               *
             </span>
           </label>
           <textarea
-            id="hide-reason"
+            id="reason-modal-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             maxLength={500}
             required
-            aria-describedby={error ? "hide-reason-error" : undefined}
+            aria-describedby={error ? "reason-modal-error" : undefined}
             aria-invalid={error ? true : undefined}
             className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
           />
           {error && (
             <p
-              id="hide-reason-error"
+              id="reason-modal-error"
               role="alert"
               className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
             >
@@ -137,9 +170,10 @@ export function HideContentModal({
             <button
               type="submit"
               disabled={pending}
-              className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--destructive-text)] px-4 py-2 text-[14px] font-bold text-white transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
+              style={{ background: TONE_FILL[tone] }}
+              className="min-h-[36px] rounded-[var(--radius-sm)] px-4 py-2 text-[14px] font-bold text-white transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
             >
-              {pending ? "Hiding…" : "Hide"}
+              {pending ? pendingLabel : confirmLabel}
             </button>
           </div>
         </form>

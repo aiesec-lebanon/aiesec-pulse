@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { hideComment, restoreComment } from "@/app/actions/comments";
-
-import { HideContentModal } from "./HideContentModal";
+import { ReasonModal } from "@/components/ui/ReasonModal";
 
 export type CommentRow = {
   id: string;
@@ -94,12 +93,16 @@ export function CommentsTable({ rows }: { rows: CommentRow[] }) {
         ))}
       </div>
 
-      <HideContentModal
+      <ReasonModal
         key={hideTarget?.id ?? "closed"}
         open={hideTarget !== null}
         title="Hide this comment?"
         description="It becomes a tombstone in the thread so replies keep their place. The author is shown your reason and can appeal."
         targetLabel={hideTarget?.excerpt ?? ""}
+        reasonLabel="Reason"
+        reasonHint="Record a reason of at least 5 characters — the author will see it."
+        confirmLabel="Hide"
+        pendingLabel="Hiding…"
         onClose={() => setHideTarget(null)}
         onConfirm={async (reason) => hideComment(hideTarget!.id, reason)}
       />

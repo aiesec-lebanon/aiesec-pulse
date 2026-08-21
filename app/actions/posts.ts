@@ -35,6 +35,7 @@ import {
   resolveQuotaPolicy,
 } from "@/lib/quota";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
+import { can } from "@/lib/rbac/can";
 import { NARROWEST_PUBLISHING_TIER } from "@/lib/rbac/catalogue";
 import { checkPermission, requireSession } from "@/lib/rbac/guards";
 import { currentTermLabel } from "@/lib/term";
@@ -456,8 +457,19 @@ export async function restorePost(
 
 export type PromotionResult = { ok: true } | { ok: false; error: string };
 
-/** How much of the window's promotion budget is left, for the control's label. */
-export type PromotionBudget = { used: number; max: number; periodLabel: string };
+export type PromotionBudget = {
+  /** What the pool has spent this window, this post included. The label's number. */
+  used: number;
+  max: number;
+  periodLabel: string;
+  /**
+   * Whether *this* post may still be promoted, which is not the same question:
+   * a post the window already paid for can be promoted again after a demotion
+   * without spending anything, so the budget can read as fully spent while this
+   * one action remains available.
+   */
+  available: boolean;
+};
 
 type PromotionContext =
   | { ok: true; user: User; post: PromotablePost; pool: PromotionPool; policy: ResolvedQuota }
@@ -541,13 +553,29 @@ async function promotionContextFor(
  * stale label; the write behind it still refuses.
  */
 export async function promotionBudgetFor(postId: string): Promise<PromotionBudget | null> {
-  await requireSession();
+  const user = await requireSession();
+
+  // GLOBAL scope asks "may they promote anywhere at all", which is the right
+  // question for whether to render a control and answers from the per-request
+  // grant cache. Every member who cannot promote leaves here without touching
+  // Post; the scoped check below is still what decides this post.
+  if (!(await can(user, "post.promote"))) return null;
 
   const context = await promotionContextFor(postId, "post.promote");
   if (!context.ok) return null;
 
-  const used = await promotionsUsedInPeriod(db, context.pool, context.policy.periodLabel, postId);
-  return { used, max: context.policy.maxPosts, periodLabel: context.policy.periodLabel };
+  const { pool, policy } = context;
+  const [used, spentElsewhere] = await Promise.all([
+    promotionsUsedInPeriod(db, pool, policy.periodLabel),
+    promotionsUsedInPeriod(db, pool, policy.periodLabel, postId),
+  ]);
+
+  return {
+    used,
+    max: policy.maxPosts,
+    periodLabel: policy.periodLabel,
+    available: spentElsewhere < policy.maxPosts,
+  };
 }
 
 export async function promotePost(postId: string, note: string): Promise<PromotionResult> {

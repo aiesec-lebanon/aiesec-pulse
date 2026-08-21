@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { Tilt } from "@/components/motion/Parallax";
 import { TopicChip } from "@/components/topics/TopicChip";
+import { LevelBadge } from "@/components/ui/LevelBadge";
 import { relativeTime } from "@/lib/relative-time";
 import type { FeedPost } from "@/types/feed";
 
@@ -59,11 +60,19 @@ export function SecondaryPostCard({ post }: { post: FeedPost }) {
               </Link>
             </h3>
 
-            <p className="pulse-label mt-auto pt-5 text-[10px]">
-              <span className="block truncate normal-case tracking-[0.06em]">
-                {post.author.entityName ?? post.author.fullName}
-              </span>
-            </p>
+            {/* Above the byline, not beside it: the entity line truncates, and a
+                badge sharing that row would be the first thing to lose. The
+                hero frame and the sidebar rows deliberately go without — both
+                already carry a dense micro-label rule, and a third element in
+                either competes rather than informs. */}
+            <div className="mt-auto pt-5">
+              <LevelBadge level={post.level} className="mb-2" />
+              <p className="pulse-label text-[10px]">
+                <span className="block truncate normal-case tracking-[0.06em]">
+                  {post.author.entityName ?? post.author.fullName}
+                </span>
+              </p>
+            </div>
 
             <div className="tabular mt-2.5 flex items-center gap-3 text-[13px] text-[color:var(--muted-foreground)]">
               <time dateTime={post.publishedAt.toISOString()}>

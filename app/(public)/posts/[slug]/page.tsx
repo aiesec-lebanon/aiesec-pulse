@@ -4,17 +4,20 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { promotionBudgetFor } from "@/app/actions/posts";
 import { CommentStatus, PostStatus } from "@/app/generated/prisma/enums";
 import { Parallax } from "@/components/motion/Parallax";
 import { Reveal } from "@/components/motion/Reveal";
 import { CommentsSection } from "@/components/post-detail/CommentsSection";
 import { DocumentRenderer, type MediaLookup } from "@/components/post-detail/DocumentRenderer";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
+import { PromotionControls } from "@/components/post-detail/PromotionControls";
 import { ReadingProgress } from "@/components/post-detail/ReadingProgress";
 import { RelatedPosts } from "@/components/post-detail/RelatedPosts";
 import { WhyThisAppeared } from "@/components/post-detail/WhyThisAppeared";
 import { PostAvatar } from "@/components/posts/_shared";
 import { TopicChip } from "@/components/topics/TopicChip";
+import { LevelBadge } from "@/components/ui/LevelBadge";
 import { collectImageMediaIds, sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
 import { getPostRankingBreakdown, getRelatedPosts, mediaUrl } from "@/lib/feed";
@@ -74,6 +77,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
       bodyJson: true,
       linkUrl: true,
       readingMinutes: true,
+      level: true,
       publishedAt: true,
       createdAt: true,
       reactionCount: true,
@@ -95,26 +99,30 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   // render function over whatever lookup its caller already has.
   const imageMediaIds = collectImageMediaIds(sanitiseDocument(post.bodyJson));
 
-  const [initialComments, inlineMedia, rankingBreakdown, relatedPosts] = await Promise.all([
-    db.comment.findMany({
-      where: { postId: post.id, status: { not: CommentStatus.HIDDEN } },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: commentSelect,
-    }),
-    imageMediaIds.length > 0
-      ? db.media.findMany({
-          where: { id: { in: imageMediaIds } },
-          select: { id: true, bucket: true, path: true },
-        })
-      : Promise.resolve([]),
-    showWhyThisAppeared ? getPostRankingBreakdown(post.id) : Promise.resolve(null),
-    getRelatedPosts(
-      post.id,
-      post.publisherEntityId,
-      post.topics.map((t) => t.topicId)
-    ),
-  ]);
+  const [initialComments, inlineMedia, rankingBreakdown, relatedPosts, promotionBudget] =
+    await Promise.all([
+      db.comment.findMany({
+        where: { postId: post.id, status: { not: CommentStatus.HIDDEN } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: commentSelect,
+      }),
+      imageMediaIds.length > 0
+        ? db.media.findMany({
+            where: { id: { in: imageMediaIds } },
+            select: { id: true, bucket: true, path: true },
+          })
+        : Promise.resolve([]),
+      showWhyThisAppeared ? getPostRankingBreakdown(post.id) : Promise.resolve(null),
+      getRelatedPosts(
+        post.id,
+        post.publisherEntityId,
+        post.topics.map((t) => t.topicId)
+      ),
+      // Null for everyone who cannot promote this post, which is what hides
+      // the control rather than rendering a disabled one.
+      promotionBudgetFor(post.id),
+    ]);
 
   const bodyMedia: MediaLookup = Object.fromEntries(
     inlineMedia
@@ -180,7 +188,9 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
               </p>
             </div>
 
-            <p className="pulse-label ml-auto flex shrink-0 items-center gap-3 text-[10px]">
+            <LevelBadge level={post.level} className="ml-auto" />
+
+            <p className="pulse-label flex shrink-0 items-center gap-3 text-[10px]">
               <time dateTime={publishedAt.toISOString()} className="tracking-[0.12em]">
                 {relativeTime(publishedAt)}
               </time>
@@ -240,6 +250,15 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
           initialBookmarked={post.bookmarks.length > 0}
           commentCount={post.commentCount}
         />
+
+        {promotionBudget && (
+          <PromotionControls
+            postId={post.id}
+            postTitle={post.title}
+            level={post.level}
+            budget={promotionBudget}
+          />
+        )}
 
         {rankingBreakdown && <WhyThisAppeared breakdown={rankingBreakdown} />}
 

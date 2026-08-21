@@ -5,9 +5,8 @@ import { useState } from "react";
 
 import { hidePost, restorePost } from "@/app/actions/posts";
 import { PostStatus } from "@/app/generated/prisma/enums";
+import { ReasonModal } from "@/components/ui/ReasonModal";
 import { StatusPill } from "@/components/ui/StatusPill";
-
-import { HideContentModal } from "./HideContentModal";
 
 export type PostRow = {
   id: string;
@@ -92,12 +91,16 @@ export function PostsTable({ rows }: { rows: PostRow[] }) {
         ))}
       </div>
 
-      <HideContentModal
+      <ReasonModal
         key={hideTarget?.id ?? "closed"}
         open={hideTarget !== null}
         title="Hide this post?"
         description="It disappears from the feed immediately. The author is shown your reason and can appeal. Nothing is deleted."
         targetLabel={hideTarget?.title ?? ""}
+        reasonLabel="Reason"
+        reasonHint="Record a reason of at least 5 characters — the author will see it."
+        confirmLabel="Hide"
+        pendingLabel="Hiding…"
         onClose={() => setHideTarget(null)}
         onConfirm={async (reason) => hidePost(hideTarget!.id, reason)}
       />

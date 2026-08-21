@@ -1,4 +1,5 @@
 import { PostStatus } from "@/app/generated/prisma/enums";
+import { Pill } from "@/components/ui/Pill";
 
 /**
  * Status pill (§10.7a), as one component instead of two maps.
@@ -7,7 +8,8 @@ import { PostStatus } from "@/app/generated/prisma/enums";
  * independent copies that had already drifted — the profile map added borders
  * and mixed its tints into `--card` rather than `transparent`, so the same
  * post status rendered differently depending on which page you were on. §10.7a
- * describes one shape; this is it, and both call sites now use it.
+ * describes one shape; this is the lifecycle vocabulary over it, and both call
+ * sites now use it. The shape itself lives in `Pill`, shared with `LevelBadge`.
  */
 
 type PillTone = { label: string; tint: string; text: string };
@@ -40,19 +42,7 @@ const TONE: Record<PostStatus, PillTone> = {
 
 export function StatusPill({ status, className }: { status: PostStatus; className?: string }) {
   const tone = TONE[status];
-  return (
-    <span
-      className={[
-        "inline-flex shrink-0 items-center rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      style={{ background: tone.tint, color: tone.text }}
-    >
-      {tone.label}
-    </span>
-  );
+  return <Pill label={tone.label} tint={tone.tint} text={tone.text} className={className} />;
 }
 
 export function statusLabel(status: PostStatus): string {

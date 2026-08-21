@@ -2,7 +2,7 @@ import "server-only";
 
 import type { FollowState } from "@/app/actions/follows";
 import type { Prisma } from "@/app/generated/prisma/client";
-import { FollowTarget, PostStatus } from "@/app/generated/prisma/enums";
+import { FollowTarget, type PostLevel, PostStatus } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { type ScopeSet, scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
@@ -21,6 +21,7 @@ const feedSelect = {
   summary: true,
   bodyText: true,
   readingMinutes: true,
+  level: true,
   publishedAt: true,
   createdAt: true,
   reactionCount: true,
@@ -40,6 +41,7 @@ type FeedRow = {
   summary: string | null;
   bodyText: string;
   readingMinutes: number;
+  level: PostLevel;
   publishedAt: Date | null;
   createdAt: Date;
   reactionCount: number;
@@ -85,6 +87,7 @@ export function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowS
     title: row.title,
     excerpt: row.summary ?? row.bodyText.slice(0, 200),
     readingMinutes: row.readingMinutes,
+    level: row.level,
     mediaUrl: mediaUrl(row.cover),
     mediaAlt: row.cover?.altText ?? null,
     author: {

@@ -199,7 +199,9 @@ export function promotionPoolFor(promoterId: string, mc: { path: string } | null
 }
 
 /**
- * How much of the window's promotion budget the pool has already spent.
+ * The window's spend, as a where clause. Kept apart from the count so the rule
+ * can be asserted without a database — it is the subtlest decision in the
+ * promotion model and the easiest to undo by accident.
  *
  * Counted on `promotionPeriod` alone — deliberately **not** also on
  * `level = NETWORK`, which architecture.md §8.6's illustrative SQL adds.
@@ -208,28 +210,38 @@ export function promotionPoolFor(promoterId: string, mc: { path: string } | null
  * opposite: the window's promotion is spent whether or not it is later
  * withdrawn, or promote/demote cycling becomes an unbounded reach budget.
  *
- * The post being promoted is excluded from its own count, so re-promoting
- * something this window already paid for is free while a second post is not.
+ * `excludePostId` leaves the post being promoted out of its own count, so
+ * re-promoting something this window already paid for is free while a second
+ * post is not. Omit it to ask what the pool has actually spent — the number a
+ * budget label should show, since two posts in one MC must not report different
+ * remaining budgets.
  */
+export function promotionCountWhere(
+  pool: PromotionPool,
+  periodLabel: string,
+  excludePostId?: string
+): Prisma.PostWhereInput {
+  return {
+    promotionPeriod: periodLabel,
+    ...(excludePostId ? { id: { not: excludePostId } } : {}),
+    ...("mcPath" in pool
+      ? {
+          promotedBy: {
+            primaryEntity: {
+              // Segment-boundary aware, so /ai/r/lb never matches /ai/r/lbx.
+              OR: [{ path: pool.mcPath }, { path: { startsWith: `${pool.mcPath}/` } }],
+            },
+          },
+        }
+      : { promotedById: pool.promoterId }),
+  };
+}
+
 export async function promotionsUsedInPeriod(
   client: Prisma.TransactionClient | typeof db,
   pool: PromotionPool,
   periodLabel: string,
-  excludePostId: string
+  excludePostId?: string
 ): Promise<number> {
-  return client.post.count({
-    where: {
-      promotionPeriod: periodLabel,
-      id: { not: excludePostId },
-      ...("mcPath" in pool
-        ? {
-            promotedBy: {
-              primaryEntity: {
-                OR: [{ path: pool.mcPath }, { path: { startsWith: `${pool.mcPath}/` } }],
-              },
-            },
-          }
-        : { promotedById: pool.promoterId }),
-    },
-  });
+  return client.post.count({ where: promotionCountWhere(pool, periodLabel, excludePostId) });
 }
