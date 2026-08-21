@@ -121,7 +121,7 @@ export function PermissionMatrix({ allowed }: { allowed: MatrixCell[] }) {
                 <th
                   scope="colgroup"
                   colSpan={ROLE_KEYS.length + 1}
-                  className="sticky left-0 bg-[var(--muted)] px-4 py-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[color:var(--muted-foreground)]"
+                  className="pulse-label sticky left-0 bg-[var(--muted)] px-4 py-2 text-left"
                 >
                   {group.label}
                 </th>
@@ -130,10 +130,10 @@ export function PermissionMatrix({ allowed }: { allowed: MatrixCell[] }) {
                 <tr key={permission} className="border-b border-[var(--border)] last:border-0">
                   <th
                     scope="row"
-                    className="sticky left-0 z-10 bg-[var(--card)] px-4 py-2 text-[14px] font-normal text-[color:var(--foreground)]"
+                    className="sticky left-0 z-10 bg-[var(--card)] px-4 py-2 text-[14px] font-medium text-[color:var(--foreground)]"
                   >
                     <span className="block whitespace-nowrap">{PERMISSION_NAMES[permission]}</span>
-                    <span className="block whitespace-nowrap text-[13px] text-[color:var(--muted-foreground)]">
+                    <span className="block whitespace-nowrap text-[12px] font-medium text-[color:var(--muted-foreground)]">
                       {permission}
                     </span>
                   </th>
@@ -148,7 +148,7 @@ export function PermissionMatrix({ allowed }: { allowed: MatrixCell[] }) {
                             checked={locked || granted.has(key)}
                             disabled={locked || busy === key}
                             onChange={() => toggle(role, permission)}
-                            className="h-6 w-6 accent-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-6 w-6 accent-[var(--primary-fill)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
                           />
                           <span className="sr-only">
                             {PERMISSION_NAMES[permission]} for {ROLE_NAMES[role]}
