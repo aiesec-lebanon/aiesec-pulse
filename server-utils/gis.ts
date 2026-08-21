@@ -142,8 +142,8 @@ const CURRENT_PERSON_QUERY = `
   }
 }`;
 
-// Throws GisUnavailableError on transport failure, so the caller can choose
-// between the cached-identity grace window and failing closed.
+// Throws GisUnavailableError on transport failure. The callback treats that as
+// a refusal, not a degradation: there is no cached-identity grace window.
 export async function fetchCurrentPerson(accessToken: string): Promise<GisPerson> {
   return gisQuery(
     accessToken,

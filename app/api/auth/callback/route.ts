@@ -1,17 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { recordAudit, systemActor, userActor } from "@/lib/audit";
-import { isWithinStalenessCeiling, syncIdentityFromGis } from "@/lib/auth/identity";
+import { syncIdentityFromGis } from "@/lib/auth/identity";
 import { completeHandshake } from "@/lib/auth/oauth";
 import {
   createSession,
   LEGACY_COOKIES,
   SESSION_COOKIE,
   sessionCookieAttributes,
-  verifySessionToken,
 } from "@/lib/auth/session";
 import { exchangeCode, storeTokens } from "@/lib/auth/token-store";
-import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { clientIp, userAgent } from "@/lib/request";
@@ -22,8 +20,7 @@ const REDIRECT_ERRORS = {
   state_mismatch: "That sign-in link could not be verified. Please start again.",
   exchange_failed: "AIESEC could not complete the sign-in. Please try again.",
   not_permitted: "Your AIESEC account is not permitted to use Pulse.",
-  gis_unavailable:
-    "AIESEC's member directory is unavailable and we have no recent record of your account.",
+  gis_unavailable: "AIESEC's member directory is unavailable. Please try again shortly.",
 } as const;
 
 type ErrorCode = keyof typeof REDIRECT_ERRORS;
@@ -34,30 +31,6 @@ function failure(baseUrl: string, code: ErrorCode): NextResponse {
   const url = new URL("/login", baseUrl);
   url.searchParams.set("error", code);
   return NextResponse.redirect(url);
-}
-
-type CachedIdentity = { id: string; fullName: string; lastSyncedAt: Date | null; status: string };
-
-async function resolveCachedIdentity(token: string | undefined): Promise<CachedIdentity | null> {
-  if (!token) return null;
-
-  const claims = await verifySessionToken(token);
-  if (!claims) return null;
-
-  const session = await db.session.findUnique({
-    where: { id: claims.jti },
-    select: {
-      userId: true,
-      revokedAt: true,
-      expiresAt: true,
-      user: { select: { id: true, fullName: true, lastSyncedAt: true, status: true } },
-    },
-  });
-
-  if (!session || session.revokedAt || session.expiresAt <= new Date()) return null;
-  if (session.userId !== claims.sub) return null;
-
-  return session.user;
 }
 
 export async function GET(request: NextRequest) {
@@ -144,36 +117,18 @@ export async function GET(request: NextRequest) {
       return failure(baseUrl, "exchange_failed");
     }
 
-    // GIS outage: fall back to a cached identity within the staleness ceiling.
-    // The account is taken from the signed token and a live session row, never
-    // from the raw cookie — otherwise an outage becomes a way to sign in as
-    // whoever logged in most recently.
-    const fallback = await resolveCachedIdentity(request.cookies.get(SESSION_COOKIE)?.value);
-
-    if (
-      !fallback ||
-      fallback.status !== "ACTIVE" ||
-      !isWithinStalenessCeiling(fallback.lastSyncedAt)
-    ) {
-      logger.error("GIS unavailable and no identity within the staleness ceiling", { error });
-      return failure(baseUrl, "gis_unavailable");
-    }
-
-    userId = fallback.id;
-    userLabel = fallback.fullName;
-    await storeTokens(fallback.id, tokens);
-    logger.warn("Signed in on cached identity during a GIS outage", {
-      userId: fallback.id,
-      lastSyncedAt: fallback.lastSyncedAt?.toISOString(),
+    // Fail closed. There used to be a grace window here that signed a caller in
+    // on their last-known identity when GIS was unreachable, and it was wrong in
+    // the case it existed for: an outage is precisely when Pulse cannot tell
+    // whether a position was revoked an hour ago, so the window let stale
+    // authority keep working for up to three days. Authority is what GIS says it
+    // is right now, or it is nothing (architecture.md ADR-027).
+    logger.error("GIS unavailable; sign-in refused rather than served from cache", {
+      error,
+      severity: "HIGH",
+      consequence: "Nobody can sign in until GIS recovers. Existing sessions are unaffected.",
     });
-    await recordAudit(
-      systemActor("auth"),
-      "auth.sign_in_degraded",
-      { type: "user", id: fallback.id },
-      {
-        reason: "GIS unavailable; served from cached identity within the 72h ceiling",
-      }
-    );
+    return failure(baseUrl, "gis_unavailable");
   }
 
   const session = await createSession(userId, {

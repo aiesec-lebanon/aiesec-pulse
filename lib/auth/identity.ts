@@ -240,10 +240,3 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
     denied,
   };
 }
-
-export const STALENESS_CEILING_MS = 72 * 60 * 60 * 1000;
-
-export function isWithinStalenessCeiling(lastSyncedAt: Date | null): boolean {
-  if (!lastSyncedAt) return false;
-  return Date.now() - lastSyncedAt.getTime() < STALENESS_CEILING_MS;
-}

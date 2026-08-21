@@ -16,7 +16,7 @@ const ERROR_COPY: Record<string, string> = {
   exchange_failed: "AIESEC couldn't complete the sign-in. Please try again in a moment.",
   not_permitted: "Your AIESEC account isn't permitted to use Pulse.",
   gis_unavailable:
-    "AIESEC's member directory is unavailable right now and we have no recent record of your account. Please try again shortly.",
+    "AIESEC's member directory is unavailable right now, so we can't confirm your positions. Please try again shortly.",
 };
 
 export const metadata = { title: "Sign in · AIESEC Pulse" };
