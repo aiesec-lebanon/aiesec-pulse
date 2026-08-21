@@ -146,7 +146,7 @@ export function ReasonModal({
             required
             aria-describedby={error ? "reason-modal-error" : undefined}
             aria-invalid={error ? true : undefined}
-            className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none"
+            className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
           />
           {error && (
             <p
@@ -171,7 +171,7 @@ export function ReasonModal({
               type="submit"
               disabled={pending}
               style={{ background: TONE_FILL[tone] }}
-              className="min-h-[36px] rounded-[var(--radius-sm)] px-4 py-2 text-[14px] font-bold text-white transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
+              className="min-h-[36px] rounded-[var(--radius-sm)] px-4 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
             >
               {pending ? pendingLabel : confirmLabel}
             </button>

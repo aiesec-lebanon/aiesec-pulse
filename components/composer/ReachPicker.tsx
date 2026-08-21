@@ -119,7 +119,7 @@ export function ReachPicker({
             disabled={disabled}
             aria-describedby={error ? "promotion-note-error" : undefined}
             aria-invalid={error ? true : undefined}
-            className="min-h-[44px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none disabled:opacity-50"
+            className="min-h-[44px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
           />
           {error && (
             <p

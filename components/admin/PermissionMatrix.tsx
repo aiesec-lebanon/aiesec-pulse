@@ -17,19 +17,21 @@ export type MatrixCell = `${RoleKey}:${PermissionKey}`;
 const cellKey = (role: RoleKey, permission: PermissionKey): MatrixCell => `${role}:${permission}`;
 
 // The catalogue is already ordered by domain; this only names the runs so the
-// 24 rows read as five short lists rather than one long one.
+// rows read as a few short lists rather than one long one. A band with nothing
+// under it is dropped rather than rendered as an empty heading — administration
+// left the catalogue when it moved to a credential login, and the band outlived
+// its permissions.
 const GROUPS: ReadonlyArray<{ label: string; prefix: string }> = [
   { label: "Posts", prefix: "post." },
   { label: "Comments", prefix: "comment." },
   { label: "Moderation", prefix: "moderation." },
   { label: "Analytics", prefix: "analytics." },
-  { label: "Administration", prefix: "admin." },
 ];
 
 const groupedPermissions = GROUPS.map((group) => ({
   ...group,
   permissions: PERMISSION_KEYS.filter((key) => key.startsWith(group.prefix)),
-}));
+})).filter((group) => group.permissions.length > 0);
 
 export function PermissionMatrix({ allowed }: { allowed: MatrixCell[] }) {
   const [granted, setGranted] = useState(() => new Set<string>(allowed));

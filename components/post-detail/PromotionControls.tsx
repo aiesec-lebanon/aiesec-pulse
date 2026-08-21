@@ -31,6 +31,7 @@ export function PromotionControls({
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState("");
   const [pending, startTransition] = useTransition();
 
   const promoted = level === PostLevel.NETWORK;
@@ -40,8 +41,12 @@ export function PromotionControls({
     setError(null);
     startTransition(async () => {
       const result = await demotePost(postId);
-      if (result.ok) router.refresh();
-      else setError(result.error);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setStatus("Returned to local. Only your MC and its LCs can see this post.");
+      router.refresh();
     });
   }
 
@@ -87,7 +92,7 @@ export function PromotionControls({
               setModalOpen(true);
             }}
             disabled={!budget.available}
-            className="inline-flex min-h-[36px] items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-4 py-2 text-[14px] font-bold text-white transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
+            className="inline-flex min-h-[36px] items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-4 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
           >
             <Globe size={15} strokeWidth={2.5} aria-hidden />
             Promote to the network
@@ -101,9 +106,12 @@ export function PromotionControls({
         </p>
       )}
 
-      {/* §9.5: the outcome of a non-navigating action is announced, never left
-          to a colour change nobody is looking at. Always rendered, so the
-          region exists before it has anything to say. */}
+      {/* The outcome of a non-navigating action is announced, never left to a
+          colour change nobody is looking at. Both regions are always rendered,
+          so each exists before it has anything to say. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {status}
+      </p>
       <p role="alert" className="mt-3 text-[13px] text-[color:var(--destructive-text)]">
         {error}
       </p>
@@ -122,7 +130,10 @@ export function PromotionControls({
         onClose={() => setModalOpen(false)}
         onConfirm={async (note) => {
           const result = await promotePost(postId, note);
-          if (result.ok) router.refresh();
+          if (result.ok) {
+            setStatus("Promoted. Every MC can now see this post.");
+            router.refresh();
+          }
           return result;
         }}
       />
