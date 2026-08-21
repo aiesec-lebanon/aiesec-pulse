@@ -52,7 +52,7 @@ export function AudiencePicker({ options, value, onChange, error, disabled }: Pr
       <div>
         <p className="mb-1.5 text-[14px] font-medium text-[color:var(--foreground)]">Audience</p>
         <p className="text-[15px] text-[color:var(--muted-foreground)]">
-          This post will reach{" "}
+          This post will reach AIESEC in{" "}
           <span className="font-medium text-[color:var(--foreground)]">{options.label}</span>.
         </p>
       </div>
