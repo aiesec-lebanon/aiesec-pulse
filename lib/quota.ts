@@ -4,6 +4,7 @@ import type { Prisma } from "@/app/generated/prisma/client";
 import { PostLevel, PostStatus, QuotaPeriod, ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { ancestorPaths, depthOf } from "@/lib/org/path";
+import { type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { currentIsoWeek } from "@/lib/week";
 
 // The window is computed, never stored as a counter: the count is a query over
@@ -126,6 +127,25 @@ export async function resolveQuotaPolicy(
     maxPosts: policy.maxPosts,
     periodLabel: quotaPeriodFor(policy.period, at),
   };
+}
+
+/**
+ * Which classes need a budget at each level: the ones holding the permission
+ * that spends it. A class that holds the permission and has no policy cannot
+ * publish or promote at all — a missing policy reads as at-limit, not as
+ * unlimited — so the administration surface shows those rows as unset rather
+ * than hiding them.
+ */
+export const SPENDING_PERMISSION: Record<PostLevel, PermissionKey> = {
+  [PostLevel.LOCAL]: "post.publish",
+  [PostLevel.NETWORK]: "post.promote",
+};
+
+export function rolesSpendingAt(
+  level: PostLevel,
+  matrix: Record<RoleKey, readonly PermissionKey[]>
+): RoleKey[] {
+  return ROLE_KEYS.filter((role) => matrix[role].includes(SPENDING_PERMISSION[level]));
 }
 
 export const QUOTA_CONSUMING_STATUSES = [

@@ -25,6 +25,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     activity: Boolean(admin) || permissions.has("analytics.view_entity"),
     audit: Boolean(admin),
     roles: Boolean(admin),
+    quotas: Boolean(admin),
     privacy: Boolean(admin),
     flags: Boolean(admin),
   };

@@ -13,6 +13,7 @@ export type AdminSections = {
   activity: boolean;
   audit: boolean;
   roles: boolean;
+  quotas: boolean;
   privacy: boolean;
   flags: boolean;
 };
@@ -29,6 +30,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { href: "/admin/activity", label: "Publishing activity", section: "activity" },
   { href: "/admin/audit", label: "Audit log", section: "audit" },
   { href: "/admin/roles", label: "Permissions", section: "roles" },
+  { href: "/admin/quotas", label: "Publishing quotas", section: "quotas" },
   { href: "/admin/privacy", label: "Data requests", section: "privacy" },
   { href: "/admin/flags", label: "Feature flags", section: "flags" },
 ];
