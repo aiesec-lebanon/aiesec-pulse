@@ -3,10 +3,10 @@
 /* ── Design-system semantic tokens: light defaults ────────────────────────── */
 :root {
   /* Backgrounds / surfaces */
-  --background: #f5f5f5;
-  --foreground: #1d2129;
+  --background: #eceef1;
+  --foreground: #11141a;
   --card: #ffffff;
-  --card-foreground: #1d2129;
+  --card-foreground: #11141a;
 
   /* Brand / primary */
   --primary: #037ef3;
@@ -25,9 +25,11 @@
      tints. These derivatives are used only where the colour *is* the text, or
      is a fill carrying body-size white text. */
   --primary-fill: #0063c1; /* white on this: 5.83:1 */
-  --primary-text: #0063c1; /* on --card 5.83:1 · on --background 5.30:1 */
-  --destructive-text: #a85700; /* on --card 5.21:1 · on --background 4.74:1 */
-  --success-text: #007a80; /* on --card 5.13:1 · on --background 4.66:1 */
+  --primary-text: #0063c1; /* on --card 5.91:1 · on --background 5.08:1 */
+  /* Both moved a step darker when the page ground did: on the v2 --background
+     the previous values measured 4.48:1 and 4.41:1, under the 4.5:1 floor. */
+  --destructive-text: #a35400; /* on --card 5.49:1 · on --background 4.72:1 */
+  --success-text: #00767c; /* on --card 5.41:1 · on --background 4.65:1 */
 
   /* Neutral / muted */
   --muted: #f5f5f5;
@@ -37,7 +39,7 @@
   --muted-foreground: #5d6675;
 
   /* Structural */
-  --border: #e3e5e9;
+  --border: #dfe3e7;
 
   /* Semantic accents */
   --destructive: #f48924;
@@ -49,6 +51,36 @@
   --chart-3: #f48924;
   --chart-4: #52565e;
   --chart-5: #9ca7ae;
+
+  /* ── Topic colour ──────────────────────────────────────────────
+     One colour per TopicKind rather than per topic: the palette carries three
+     accents and the data model has three kinds, so a reader learns the code
+     once — blue is a programme, teal is a function, orange is everything the
+     network decides together. Keyed on `kind` because `Topic` has no colour
+     column, and inventing one would put a design decision in a migration.
+
+     Only blue carries white text. Orange and teal are light enough that white
+     on them fails at label size, so their fills carry ink instead. */
+  --topic-programme: var(--primary);
+  --topic-programme-fill: var(--primary-fill);
+  --topic-programme-on: #ffffff;
+  --topic-programme-text: var(--primary-text);
+
+  --topic-function: var(--success);
+  --topic-function-fill: var(--success);
+  --topic-function-on: #11141a;
+  --topic-function-text: var(--success-text);
+
+  --topic-general: var(--destructive);
+  --topic-general-fill: var(--destructive);
+  --topic-general-on: #11141a;
+  --topic-general-text: var(--destructive-text);
+
+  /* ── Editorial layout constants ──────────────────────────────────
+     The page margin is the one measurement that holds across every screen, and
+     the rail height is what anything pinned beneath it offsets from. */
+  --rail-h: 54px;
+  --page-x: clamp(20px, 4.6vw, 60px);
 
   /* Border radius */
   --radius-sm: 4px;
@@ -84,7 +116,7 @@
   --stage: color-mix(in srgb, var(--background) 94%, var(--foreground) 6%);
   --stage-deep: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
   --scrim: color-mix(in srgb, var(--card) 78%, transparent);
-  --hairline: color-mix(in srgb, var(--border) 70%, transparent);
+  --hairline: var(--border);
   /* Light thrown by the brand accent, at three intensities. Used as fields
      and glows, never as text. */
   --glow-primary: color-mix(in srgb, var(--primary) 26%, transparent);
@@ -119,13 +151,13 @@
 
 /* ── Dark mode overrides ──────────────────────────────────────────────────── */
 .dark {
-  --background: #11141a;
+  --background: #0b0e13;
   --foreground: #f5f5f5;
-  --card: #1d2129;
+  --card: #151a21;
   --card-foreground: #f5f5f5;
-  --muted: #1d2129;
+  --muted: #151a21;
   --muted-foreground: #9ca7ae;
-  --border: #52565e;
+  --border: #2a3038;
 
   /* On dark surfaces the specified accents already clear 4.5:1, while the
      light-mode derivatives would not — so the text variants revert. The fill
@@ -149,7 +181,7 @@
   --stage: color-mix(in srgb, var(--background) 92%, #000 8%);
   --stage-deep: color-mix(in srgb, var(--background) 80%, #000 20%);
   --scrim: color-mix(in srgb, var(--card) 72%, transparent);
-  --hairline: color-mix(in srgb, var(--border) 55%, transparent);
+  --hairline: var(--border);
   --glow-primary: color-mix(in srgb, var(--primary) 30%, transparent);
   --glow-primary-soft: color-mix(in srgb, var(--primary) 14%, transparent);
   --glow-success: color-mix(in srgb, var(--success) 24%, transparent);
@@ -180,7 +212,8 @@
 
   /* Typography */
   --font-sans: var(--font-lato), "Arial", sans-serif;
-  --font-mono: "Consolas", "Monaco", monospace;
+  --font-serif: var(--font-instrument), "Iowan Old Style", Georgia, serif;
+  --font-mono: var(--font-plex), "Consolas", "Monaco", monospace;
 }
 
 /* ── Global resets ────────────────────────────────────────────────────────── */
@@ -264,6 +297,48 @@ body {
 .aiesec-btn-secondary:hover {
   color: var(--primary);
   border-color: var(--primary);
+}
+
+/* The editorial action: a flat rectangle of ink carrying a tracked mono label.
+   Where `.aiesec-btn-primary` is the brand's call to action — blue, Lato, the
+   thing you press to publish — this is the way out of a page: back to the
+   feed, search instead, read the story. No shadow, no gradient, a 3px corner.
+   It reads as a printed rule rather than as a control, which is the point on a
+   page that is otherwise all type. */
+.pulse-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px 22px;
+  border-radius: 3px;
+  background: var(--foreground);
+  color: var(--background);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: var(--transition-standard);
+  cursor: pointer;
+}
+
+.pulse-action:hover {
+  background: var(--primary-fill);
+  color: var(--primary-foreground);
+}
+
+.pulse-action:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pulse-action[disabled],
+.pulse-action[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Status indicators */
@@ -655,18 +730,82 @@ body {
   line-height: 1.05;
 }
 
-/* Tracked micro-label. The one register the old system lacked, and the reason
-   metadata rows read as debris: at 12px/500 with wide tracking and uppercase,
-   a label stops competing with the content it labels. */
+/* ── Editorial register ─────────────────────────────────────
+   Instrument Serif carries the journalism: headlines, big numerals, drop caps,
+   pull-quote attribution. Never body copy and never a UI label — it has one
+   weight and no small-size legibility to spare.
+
+   It sets small for its size, so each step is a little larger than the Lato
+   display step it replaces. Tracking stays near zero: a serif at 96px needs no
+   help, and negative tracking closes the counters that make it readable. */
+.pulse-serif {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+
+/* Balance is a headline setting, not a face setting, and it is kept off
+   `.pulse-serif` deliberately: `text-wrap` is a shorthand that resets
+   `text-wrap-mode`, so an unlayered `balance` silently beats a `truncate`
+   utility on the same element and a one-line value wraps to two. */
+.pulse-balance {
+  text-wrap: balance;
+}
+
+.pulse-serif-xl {
+  font-size: clamp(44px, 7.4vw, 96px);
+  line-height: 0.94;
+}
+.pulse-serif-lg {
+  font-size: clamp(34px, 5vw, 68px);
+  line-height: 0.98;
+}
+.pulse-serif-md {
+  font-size: clamp(28px, 3.4vw, 44px);
+  line-height: 1.04;
+}
+.pulse-serif-sm {
+  font-size: clamp(22px, 2.2vw, 28px);
+  line-height: 1.16;
+}
+
+/* One word of the headline, set italic in the topic's colour. The accent is
+   the whole device: it names what the story is about inside the sentence
+   rather than beside it. Colour is never the only cue — the italic carries it
+   for anyone who cannot see the hue. */
+.pulse-serif-accent {
+  font-style: italic;
+  color: var(--accent-color, var(--primary-text));
+}
+
+/* ── Instrument register ───────────────────────────────────
+   IBM Plex Mono for everything that measures rather than says: eyebrows,
+   timestamps, counters, stat labels, breadcrumbs. Always tracked, almost
+   always uppercase, always tabular so a column of numbers lines up.
+
+   11px rather than the 10.5/9.5 the reference file uses. Uppercase mono at
+   9.5px is legible on a designer's display and marginal on a laptop at arm's
+   length; 11px keeps the register without asking anyone to lean in. */
 .pulse-label {
-  font-size: 12px;
-  font-weight: 700;
-  /* Not 1: a label long enough to wrap (a breadcrumb on a narrow viewport, a
-     multi-part metadata rule) collided with its own next line. */
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  /* Not 1: a label long enough to wrap — a breadcrumb on a narrow viewport, a
+     multi-part metadata rule — collided with its own next line. */
   line-height: 1.4;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
   color: var(--muted-foreground);
+}
+
+/* Wider tracking for a standalone overline; tighter for a long metadata run
+   that has to fit on one line. */
+.pulse-label-wide {
+  letter-spacing: 0.2em;
+}
+.pulse-label-tight {
+  letter-spacing: 0.08em;
 }
 
 /* Per-line masked headline reveal. The mask is the effect — the line rises

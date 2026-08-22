@@ -1,16 +1,33 @@
 import "./globals.css";
 
 import type { Metadata } from "next";
-import { Lato } from "next/font/google";
+import { IBM_Plex_Mono, Instrument_Serif, Lato } from "next/font/google";
 import { headers } from "next/headers";
 
 import { BootScript } from "@/components/boot-script";
 import { Providers } from "@/components/providers";
 
+// Three faces, three jobs. Lato speaks as the product, Instrument Serif as the
+// journalism, IBM Plex Mono as the instrumentation around it.
 const lato = Lato({
   variable: "--font-lato",
   subsets: ["latin"],
   weight: ["400", "700", "900"],
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  display: "swap",
+});
+
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
@@ -40,7 +57,7 @@ export default async function RootLayout({
       // member has chosen Reduced. `suppressHydrationWarning` above covers the
       // divergence, exactly as it already does for the theme class.
       data-motion="full"
-      className={`${lato.variable} h-full antialiased`}
+      className={`${lato.variable} ${instrumentSerif.variable} ${plexMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
