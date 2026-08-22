@@ -1,0 +1,76 @@
+import type { TopicKind } from "@/app/generated/prisma/enums";
+import { TopicPill } from "@/components/ui/TopicPill";
+import { TopicPlate } from "@/components/ui/TopicPlate";
+import { excerptFrom, readingMinutes } from "@/lib/content/document";
+
+export type ComposerPreviewProps = {
+  title: string;
+  bodyText: string;
+  summary: string;
+  imagePreview: string | null;
+  topic: { name: string; kind: TopicKind } | null;
+  authorDisplayName: string;
+  authorEntityName: string | null;
+  status: "Draft" | "Scheduled";
+};
+
+/**
+ * A live mirror of how the post will actually read, beside the fields that
+ * produce it — 7a's split editor. Purely derived from the form state its
+ * caller already owns: no state of its own, no network calls.
+ *
+ * The standfirst fallback and the word-count/reading-time line both call the
+ * exact same functions the server uses to fill in a blank summary and to
+ * store `readingMinutes` — so the preview is never a rounder, prettier lie
+ * about what actually gets persisted.
+ */
+export function ComposerPreview({
+  title,
+  bodyText,
+  summary,
+  imagePreview,
+  topic,
+  authorDisplayName,
+  authorEntityName,
+  status,
+}: ComposerPreviewProps) {
+  const standfirst = summary.trim() || (bodyText ? excerptFrom(bodyText) : "");
+  const words = bodyText.trim() ? bodyText.trim().split(/\s+/).filter(Boolean).length : 0;
+  const mins = readingMinutes(bodyText);
+  const plateEntity = authorEntityName ?? authorDisplayName;
+
+  return (
+    <div>
+      <p className="pulse-label mb-4">Preview · {status}</p>
+      <div className="border border-[var(--hairline)] bg-[var(--card)]">
+        <div className="relative h-[190px] overflow-hidden">
+          {imagePreview ? (
+            // eslint-disable-next-line @next/next/no-img-element -- local object URL, same rationale as PostComposer's own dropzone preview
+            <img src={imagePreview} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <TopicPlate entityName={plateEntity} kind={topic?.kind ?? "GENERAL"} />
+          )}
+        </div>
+        <div className="p-7">
+          <p className="pulse-label mb-4 flex flex-wrap items-center gap-2.5">
+            {topic && <TopicPill name={topic.name} kind={topic.kind} />}
+            {authorEntityName && (
+              <span className="normal-case tracking-[0.06em] text-[color:var(--muted-foreground)]">
+                {authorEntityName}
+              </span>
+            )}
+          </p>
+          <h2 className="pulse-serif pulse-serif-sm pulse-balance break-words text-[color:var(--foreground)]">
+            {title.trim() || "Your headline will appear here"}
+          </h2>
+          <p className="mt-4 text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
+            {standfirst || "Your standfirst will appear here."}
+          </p>
+        </div>
+      </div>
+      <p className="pulse-label mt-3 tracking-[0.1em]">
+        {words} words · {mins} min read
+      </p>
+    </div>
+  );
+}

@@ -33,10 +33,10 @@ export function TopicPicker({ topics, selectedIds, onChange, disabled }: Props) 
               disabled={disabled}
               onClick={() => toggle(topic.id)}
               className={[
-                "rounded-[var(--radius-md)] border px-3 py-1.5 text-[14px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50",
+                "rounded-[3px] border px-3.5 py-2 text-[13px] font-medium tracking-[0.02em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50",
                 active
                   ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[color:var(--primary-text)]"
-                  : "border-[var(--border)] bg-[var(--card)] text-[color:var(--foreground)] hover:border-[var(--primary)]/60",
+                  : "border-[var(--border)] bg-[var(--card)] text-[color:var(--muted-foreground)] hover:border-[var(--primary)]/60 hover:text-[color:var(--foreground)]",
               ].join(" ")}
             >
               {topic.name}

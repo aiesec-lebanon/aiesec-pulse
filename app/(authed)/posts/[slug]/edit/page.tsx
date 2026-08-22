@@ -30,6 +30,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
       status: true,
       title: true,
       bodyJson: true,
+      summary: true,
       linkUrl: true,
       publisherEntityId: true,
       cover: { select: { bucket: true, path: true, altText: true } },
@@ -44,20 +45,22 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
   }
 
   const roleKey = await publishingRoleKeyFor(user.id);
-  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled, topics] = await Promise.all([
-    quotaStateFor(user.id, user.primaryEntityId, roleKey),
-    isEnabled("posts.rich_text"),
-    isEnabled("posts.scheduling"),
-    isEnabled("posts.targeting"),
-    listActiveTopics(),
-  ]);
+  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled, topics, authorEntity] =
+    await Promise.all([
+      quotaStateFor(user.id, user.primaryEntityId, roleKey),
+      isEnabled("posts.rich_text"),
+      isEnabled("posts.scheduling"),
+      isEnabled("posts.targeting"),
+      listActiveTopics(),
+      db.entity.findUnique({ where: { id: post.publisherEntityId }, select: { name: true } }),
+    ]);
   const audienceOptions = targetingEnabled
     ? await availableAudiencesFor(user, post.publisherEntityId)
     : undefined;
   const reachOptions = await reachOptionsFor(user, post.publisherEntityId, roleKey);
 
   return (
-    <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24">
+    <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24 lg:max-w-[1360px]">
       <PageHeader
         title="Edit your draft"
         standfirst="Your changes save automatically as you go."
@@ -96,24 +99,29 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
         topics={topics}
         reachOptions={reachOptions}
         postId={post.id}
+        authorDisplayName={user.fullName}
+        authorEntityName={authorEntity?.name ?? null}
         initialValues={{
           title: post.title,
           bodyJson: sanitiseDocument(post.bodyJson),
+          summary: post.summary ?? "",
           linkUrl: post.linkUrl ?? "",
           mediaUrl: mediaUrl(post.cover),
           mediaAlt: post.cover?.altText ?? "",
         }}
       />
 
-      <VersionHistoryPanel
-        postId={post.id}
-        versions={post.versions.map((v) => ({
-          version: v.version,
-          title: v.title,
-          changeNote: v.changeNote,
-          createdAt: v.createdAt.toISOString(),
-        }))}
-      />
+      <div className="lg:max-w-[820px]">
+        <VersionHistoryPanel
+          postId={post.id}
+          versions={post.versions.map((v) => ({
+            version: v.version,
+            title: v.title,
+            changeNote: v.changeNote,
+            createdAt: v.createdAt.toISOString(),
+          }))}
+        />
+      </div>
     </main>
   );
 }

@@ -196,6 +196,32 @@ export function sanitiseDocument(input: unknown): PulseDocument {
   };
 }
 
+export type DocumentSection = { id: string; label: string };
+
+/**
+ * Top-level level-2 headings, in document order, as a flat "on this page"
+ * index. Ids are positional (`section-0`, `section-1`, …) rather than
+ * slugified from the heading text — no collision handling, no unicode edge
+ * cases needed — and DocumentRenderer stamps the identical rule
+ * independently on its own render pass, so the two stay in sync by
+ * construction rather than by cross-checking against each other.
+ */
+export function extractSections(doc: PulseDocument): DocumentSection[] {
+  const sections: DocumentSection[] = [];
+  let index = 0;
+  for (const node of doc.content) {
+    if (node.type !== "heading" || (node.attrs?.level ?? 2) !== 2) continue;
+    const label = (node.content ?? [])
+      .map((t) => t.text)
+      .join("")
+      .trim();
+    const id = `section-${index}`;
+    index += 1;
+    if (label) sections.push({ id, label });
+  }
+  return sections;
+}
+
 export function readingMinutes(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(words / 200));

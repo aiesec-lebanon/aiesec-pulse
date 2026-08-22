@@ -4,6 +4,7 @@ import { useRef, useTransition } from "react";
 
 import { loadMoreComments } from "@/app/actions/comments";
 import { PostAvatar } from "@/components/posts/_shared";
+import { MetaLine } from "@/components/ui/MetaLine";
 import { relativeTime } from "@/lib/relative-time";
 import type { CommentDto } from "@/types/comment";
 
@@ -53,26 +54,23 @@ export function CommentList({ postId, comments, allLoaded, onLoadMore }: Props) 
           ) : (
             <li key={comment.id} ref={i === 0 ? firstNewRef : undefined} className="flex gap-3">
               <div className="shrink-0 pt-0.5">
-                <PostAvatar fullName={comment.author!.fullName} avatarUrl={null} size="sm" />
+                <PostAvatar fullName={comment.author!.fullName} avatarUrl={null} size="md" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                   <span className="text-[14px] font-bold text-[color:var(--foreground)]">
                     {comment.author!.fullName}
                   </span>
-                  {comment.author!.entityName && (
-                    <span className="text-[12px] text-[color:var(--muted-foreground)]">
-                      {comment.author!.entityName}
-                    </span>
-                  )}
-                  <time
-                    dateTime={comment.createdAt}
-                    className="text-[12px] text-[color:var(--muted-foreground)]"
-                  >
-                    {relativeTime(new Date(comment.createdAt))}
-                  </time>
+                  <MetaLine
+                    items={[
+                      comment.author!.entityName,
+                      <time key="age" dateTime={comment.createdAt}>
+                        {relativeTime(new Date(comment.createdAt))}
+                      </time>,
+                    ]}
+                  />
                 </div>
-                <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-[1.6] text-[color:var(--foreground)]">
+                <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-[1.6] text-[color:var(--foreground)]">
                   {comment.body}
                 </p>
               </div>

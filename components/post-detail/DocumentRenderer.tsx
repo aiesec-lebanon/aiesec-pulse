@@ -22,10 +22,26 @@ export function DocumentRenderer({ doc, media = {} }: { doc: unknown; media?: Me
     );
   }
 
-  return <>{document.content.map((node, i) => renderBlock(node, i, media))}</>;
+  let sectionIndex = 0;
+  return (
+    <>
+      {document.content.map((node, i) => {
+        const sectionId =
+          node.type === "heading" && (node.attrs?.level ?? 2) === 2
+            ? `section-${sectionIndex++}`
+            : undefined;
+        return renderBlock(node, i, media, sectionId);
+      })}
+    </>
+  );
 }
 
-function renderBlock(node: BlockNode, key: number, media: MediaLookup): React.ReactNode {
+function renderBlock(
+  node: BlockNode,
+  key: number,
+  media: MediaLookup,
+  sectionId?: string
+): React.ReactNode {
   switch (node.type) {
     case "paragraph":
       return (
@@ -41,13 +57,13 @@ function renderBlock(node: BlockNode, key: number, media: MediaLookup): React.Re
       const level = node.attrs?.level ?? 2;
       const className =
         level === 2
-          ? "mt-8 mb-3 text-[24px] font-bold leading-tight text-[color:var(--foreground)]"
+          ? "scroll-mt-24 mt-8 mb-3 text-[24px] font-bold leading-tight text-[color:var(--foreground)]"
           : level === 3
-            ? "mt-6 mb-2 text-[20px] font-bold leading-tight text-[color:var(--foreground)]"
-            : "mt-5 mb-2 text-[18px] font-bold leading-tight text-[color:var(--foreground)]";
+            ? "scroll-mt-24 mt-6 mb-2 text-[20px] font-bold leading-tight text-[color:var(--foreground)]"
+            : "scroll-mt-24 mt-5 mb-2 text-[18px] font-bold leading-tight text-[color:var(--foreground)]";
       if (level === 2)
         return (
-          <h2 key={key} className={className}>
+          <h2 key={key} id={sectionId} className={className}>
             {renderInline(node.content)}
           </h2>
         );

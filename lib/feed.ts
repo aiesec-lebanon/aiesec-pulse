@@ -2,7 +2,12 @@ import "server-only";
 
 import type { FollowState } from "@/app/actions/follows";
 import type { Prisma } from "@/app/generated/prisma/client";
-import { FollowTarget, type PostLevel, PostStatus } from "@/app/generated/prisma/enums";
+import {
+  FollowTarget,
+  type PostLevel,
+  PostStatus,
+  type TopicKind,
+} from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { type ScopeSet, scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
@@ -12,7 +17,7 @@ import type { FeedPost } from "@/types/feed";
 // Scope filtering lives in the query, not in application code, so a missing
 // guard cannot leak rows through this path.
 
-const POSTS_PER_PAGE = 7; // 1 hero + 3 sidebar + 3 secondary
+const POSTS_PER_PAGE = 8; // 5-post lead pool (1 hero + 4 "also today", rotating) + 3 "elsewhere"
 
 const feedSelect = {
   id: true,
@@ -31,7 +36,7 @@ const feedSelect = {
     select: { id: true, fullName: true, avatarUrl: true },
   },
   publisher: { select: { id: true, name: true, tag: true } },
-  topics: { select: { topic: { select: { slug: true, name: true } } } },
+  topics: { select: { topic: { select: { slug: true, name: true, kind: true } } } },
 } as const;
 
 type FeedRow = {
@@ -49,7 +54,7 @@ type FeedRow = {
   cover: { path: string; altText: string | null; bucket: string } | null;
   author: { id: string; fullName: string; avatarUrl: string | null };
   publisher: { id: string; name: string; tag: string | null };
-  topics: Array<{ topic: { slug: string; name: string } }>;
+  topics: Array<{ topic: { slug: string; name: string; kind: TopicKind } }>;
 };
 
 // SUPABASE_URL is the S3 endpoint used for uploads; public objects are served
@@ -717,15 +722,36 @@ export type TrendingAuthor = {
   postCount: number;
 };
 
-export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
+// A real count for the "Elsewhere in the network" headline, not a fabricated
+// one: distinct publishing entities visible to this viewer in the last 7
+// days. Same scope-filtered access pattern as getTrendingAuthors below —
+// audience is never bypassed for a headline number.
+export async function getWeeklyPublishingStat(): Promise<number> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  const visible = await db.post.findMany({
+  const rows = await db.post.findMany({
     where: {
       status: PostStatus.PUBLISHED,
       publishedAt: { gte: since },
+      ...visibilityFilter(scope),
+    },
+    distinct: ["publisherEntityId"],
+    select: { publisherEntityId: true },
+  });
+
+  return rows.length;
+}
+
+async function topAuthorsBy(
+  scope: ScopeSet,
+  publishedAt?: { gte: Date }
+): Promise<TrendingAuthor[]> {
+  const visible = await db.post.findMany({
+    where: {
+      status: PostStatus.PUBLISHED,
+      ...(publishedAt ? { publishedAt } : {}),
       ...visibilityFilter(scope),
     },
     select: { authorId: true },
@@ -755,4 +781,22 @@ export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
         : null;
     })
     .filter((a): a is TrendingAuthor => a !== null);
+}
+
+/**
+ * "Publishing most this month" — falling back to all-time top publishers
+ * when nothing has gone out in the last 30 days, rather than rendering
+ * nothing. A quiet month doesn't mean the strip should disappear; it means
+ * "trending" isn't the right lens for it, so the fallback answers a
+ * different, always-answerable question: who publishes the most, period.
+ */
+export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const recent = await topAuthorsBy(scope, { gte: since });
+  if (recent.length > 0) return recent;
+
+  return topAuthorsBy(scope);
 }

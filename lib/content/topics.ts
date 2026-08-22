@@ -1,14 +1,15 @@
 import "server-only";
 
+import type { TopicKind } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 
-export type TopicOption = { id: string; slug: string; name: string };
+export type TopicOption = { id: string; slug: string; name: string; kind: TopicKind };
 
 export async function listActiveTopics(): Promise<TopicOption[]> {
   return db.topic.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
-    select: { id: true, slug: true, name: true },
+    select: { id: true, slug: true, name: true, kind: true },
   });
 }
 

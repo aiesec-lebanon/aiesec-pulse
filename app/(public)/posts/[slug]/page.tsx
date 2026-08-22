@@ -1,24 +1,21 @@
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { cookies } from "next/headers";
-import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { promotionBudgetFor } from "@/app/actions/posts";
 import { CommentStatus, PostStatus } from "@/app/generated/prisma/enums";
-import { Parallax } from "@/components/motion/Parallax";
 import { Reveal } from "@/components/motion/Reveal";
 import { CommentsSection } from "@/components/post-detail/CommentsSection";
 import { DocumentRenderer, type MediaLookup } from "@/components/post-detail/DocumentRenderer";
 import { EngagementBar } from "@/components/post-detail/EngagementBar";
 import { PromotionControls } from "@/components/post-detail/PromotionControls";
+import { ReadingIndex } from "@/components/post-detail/ReadingIndex";
 import { ReadingProgress } from "@/components/post-detail/ReadingProgress";
-import { RelatedPosts } from "@/components/post-detail/RelatedPosts";
+import { StoryHero } from "@/components/post-detail/StoryHero";
+import { UpNextRotator } from "@/components/post-detail/UpNextRotator";
 import { WhyThisAppeared } from "@/components/post-detail/WhyThisAppeared";
 import { PostAvatar } from "@/components/posts/_shared";
-import { TopicChip } from "@/components/topics/TopicChip";
-import { LevelBadge } from "@/components/ui/LevelBadge";
-import { collectImageMediaIds, sanitiseDocument } from "@/lib/content/document";
+import { collectImageMediaIds, extractSections, sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
 import { getPostRankingBreakdown, getRelatedPosts, mediaUrl } from "@/lib/feed";
 import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
@@ -87,7 +84,9 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
       publisher: { select: { name: true } },
       reactions: { where: { userId: user.id }, take: 1, select: { userId: true } },
       bookmarks: { where: { userId: user.id }, take: 1, select: { userId: true } },
-      topics: { select: { topicId: true, topic: { select: { slug: true, name: true } } } },
+      topics: {
+        select: { topicId: true, topic: { select: { slug: true, name: true, kind: true } } },
+      },
     },
   });
 
@@ -96,7 +95,12 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   // Inline image blocks store a mediaId, not a URL (lib/content/document.ts)
   // — resolved here rather than inside DocumentRenderer, which stays a pure
   // render function over whatever lookup its caller already has.
-  const imageMediaIds = collectImageMediaIds(sanitiseDocument(post.bodyJson));
+  const sanitisedBody = sanitiseDocument(post.bodyJson);
+  const imageMediaIds = collectImageMediaIds(sanitisedBody);
+  // A rail with zero or one entry is a table of contents for nothing —
+  // most short "update" posts carry no headings at all.
+  const sections = extractSections(sanitisedBody);
+  const hasIndex = sections.length >= 2;
 
   const [initialComments, inlineMedia, rankingBreakdown, relatedPosts, promotionBudget] =
     await Promise.all([
@@ -131,138 +135,140 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
 
   const publishedAt = post.publishedAt ?? post.createdAt;
   const cover = mediaUrl(post.cover);
+  const primaryTopic = post.topics[0]?.topic ?? null;
+
+  const specCells = [
+    { label: "Entity", value: post.publisher.name },
+    {
+      label: "Published",
+      value: (
+        <time dateTime={publishedAt.toISOString()}>
+          {publishedAt.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </time>
+      ),
+    },
+    { label: "Reading", value: `${post.readingMinutes} min` },
+    { label: "Reactions", value: <span className="tabular">{post.reactionCount}</span> },
+  ];
 
   return (
     <main className="pb-24 md:pb-16">
       <ReadingProgress />
 
-      {/* The cover breaks the reading measure deliberately: it is the one
-          cinematic beat on a page whose job is otherwise to get out of the
-          way. It drifts against the scroll inside a fixed frame, so the
-          headline below rises past a moving image rather than a static one. */}
-      {cover ? (
-        <header className="relative">
-          <div className="pulse-media-frame relative aspect-[4/3] w-full overflow-hidden rounded-none sm:aspect-[16/9] lg:aspect-[21/9]">
-            <Parallax depth={-70} scale={1.18} className="absolute inset-0">
-              <Image
-                src={cover}
-                alt={post.cover?.altText ?? ""}
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover"
-              />
-            </Parallax>
-            <span aria-hidden className="pulse-image-scrim" />
-          </div>
+      <StoryHero
+        title={post.title}
+        cover={cover}
+        coverAlt={post.cover?.altText ?? ""}
+        primaryTopic={primaryTopic}
+        entityName={post.publisher.name}
+        specCells={specCells}
+      />
 
-          <div className="mx-auto -mt-24 w-full max-w-[760px] px-6 sm:-mt-28">
-            <Reveal y={24} className="pulse-plate p-7 shadow-[var(--elev-4)] sm:p-10">
-              <PostHeading title={post.title} />
-            </Reveal>
-          </div>
-        </header>
-      ) : (
-        <header className="mx-auto w-full max-w-[760px] px-6 pt-16">
-          <Reveal y={24}>
-            <PostHeading title={post.title} />
-          </Reveal>
-        </header>
-      )}
-
-      <div className="mx-auto w-full max-w-[760px] px-6">
-        <Reveal y={20} delay={80}>
-          <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-3 border-y border-[var(--hairline)] py-5">
-            <PostAvatar
-              fullName={post.author.fullName}
-              avatarUrl={post.author.avatarUrl}
-              size="md"
-            />
-            <div className="min-w-0">
-              <p className="text-[15px] font-bold leading-tight text-[color:var(--foreground)]">
-                {post.author.fullName}
-              </p>
-              <p className="mt-0.5 text-[13px] text-[color:var(--muted-foreground)]">
-                {post.publisher.name}
-              </p>
-            </div>
-
-            <LevelBadge level={post.level} className="ml-auto" />
-
-            <p className="pulse-label flex shrink-0 items-center gap-3 text-[10px]">
-              <time dateTime={publishedAt.toISOString()} className="tracking-[0.12em]">
-                {relativeTime(publishedAt)}
-              </time>
-              <span aria-hidden>/</span>
-              <span className="tracking-[0.12em]">{post.readingMinutes} min read</span>
-            </p>
-          </div>
-        </Reveal>
-
-        {post.topics.length > 0 && (
-          <Reveal y={16} delay={140}>
-            <div className="mt-5 flex flex-wrap gap-1.5">
-              {post.topics.map(({ topic }) => (
-                <TopicChip key={topic.slug} slug={topic.slug} name={topic.name} />
-              ))}
-            </div>
-          </Reveal>
+      <div
+        className={[
+          "mx-auto w-full max-w-[1240px] px-6",
+          hasIndex ? "lg:grid lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start lg:gap-12" : "",
+        ].join(" ")}
+      >
+        {hasIndex && (
+          <aside className="hidden lg:sticky lg:top-[calc(var(--rail-h)+40px)] lg:block">
+            <p className="pulse-label mb-5">In this story</p>
+            <ReadingIndex sections={sections} contentId="story-content" />
+          </aside>
         )}
 
-        {/* ~70ch keeps line length in the comfortable reading range. */}
-        <Reveal y={20} delay={180} className="mt-10 max-w-[70ch]">
-          <DocumentRenderer doc={post.bodyJson} media={bodyMedia} />
-        </Reveal>
-
-        {post.linkUrl && (
-          <Reveal y={16}>
-            <a
-              href={post.linkUrl}
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-              className="pulse-plate pulse-plate-interactive mt-10 flex items-center justify-between gap-4 px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              <div className="min-w-0">
-                <p className="pulse-label text-[10px]">Source</p>
-                <p className="mt-1.5 truncate text-[15px] font-bold text-[color:var(--foreground)]">
-                  {extractDomain(post.linkUrl)}
-                </p>
-                <p className="mt-0.5 truncate text-[13px] text-[color:var(--muted-foreground)]">
-                  {post.linkUrl}
-                </p>
+        <div
+          id="story-content"
+          className={["mx-auto w-full max-w-[760px]", hasIndex ? "lg:mx-0" : ""].join(" ")}
+        >
+          <Reveal y={20} delay={80}>
+            <div className="mt-10 flex flex-wrap justify-between gap-x-3 gap-y-3 border-y border-[var(--hairline)] py-5">
+              <div className="flex items-center gap-3">
+                <PostAvatar
+                  fullName={post.author.fullName}
+                  avatarUrl={post.author.avatarUrl}
+                  size="md"
+                />
+                <div className="min-w-0">
+                  <p className="text-[15px] font-bold leading-tight text-[color:var(--foreground)]">
+                    {post.author.fullName}
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-[color:var(--muted-foreground)]">
+                    {post.publisher.name}
+                  </p>
+                </div>
               </div>
-              <ExternalLink
-                size={16}
-                strokeWidth={2}
-                className="shrink-0 text-[color:var(--muted-foreground)]"
-                aria-hidden
-              />
-              <span className="sr-only">Opens in a new tab</span>
-            </a>
+
+              <p className="pulse-label flex shrink-0 items-center gap-3 text-[10px]">
+                <time dateTime={publishedAt.toISOString()} className="tracking-[0.12em]">
+                  {relativeTime(publishedAt)}
+                </time>
+                <span aria-hidden>/</span>
+                <span className="tracking-[0.12em]">{post.readingMinutes} min read</span>
+              </p>
+            </div>
           </Reveal>
-        )}
 
-        <EngagementBar
-          postId={post.id}
-          initialReacted={post.reactions.length > 0}
-          initialReactionCount={post.reactionCount}
-          initialBookmarked={post.bookmarks.length > 0}
-          commentCount={post.commentCount}
-        />
+          <Reveal y={20} delay={180} className="mt-10 max-w-[70ch]">
+            <DocumentRenderer doc={post.bodyJson} media={bodyMedia} />
+          </Reveal>
 
-        {promotionBudget && (
-          <PromotionControls
+          {post.linkUrl && (
+            <Reveal y={16}>
+              <a
+                href={post.linkUrl}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="pulse-plate pulse-plate-interactive mt-10 flex items-center justify-between gap-4 px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              >
+                <div className="min-w-0">
+                  <p className="pulse-label text-[10px]">Source</p>
+                  <p className="mt-1.5 truncate text-[15px] font-bold text-[color:var(--foreground)]">
+                    {extractDomain(post.linkUrl)}
+                  </p>
+                  <p className="mt-0.5 truncate text-[13px] text-[color:var(--muted-foreground)]">
+                    {post.linkUrl}
+                  </p>
+                </div>
+                <ExternalLink
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0 text-[color:var(--muted-foreground)]"
+                  aria-hidden
+                />
+                <span className="sr-only">Opens in a new tab</span>
+              </a>
+            </Reveal>
+          )}
+
+          <EngagementBar
             postId={post.id}
-            postTitle={post.title}
-            level={post.level}
-            budget={promotionBudget}
+            initialReacted={post.reactions.length > 0}
+            initialReactionCount={post.reactionCount}
+            initialBookmarked={post.bookmarks.length > 0}
+            commentCount={post.commentCount}
           />
-        )}
 
-        {rankingBreakdown && <WhyThisAppeared breakdown={rankingBreakdown} />}
+          {promotionBudget && (
+            <PromotionControls
+              postId={post.id}
+              postTitle={post.title}
+              level={post.level}
+              budget={promotionBudget}
+            />
+          )}
 
-        <RelatedPosts posts={relatedPosts} />
+          {rankingBreakdown && <WhyThisAppeared breakdown={rankingBreakdown} />}
+        </div>
+      </div>
 
+      <UpNextRotator posts={relatedPosts} />
+
+      <div className="mx-auto mt-16 w-full max-w-[760px] px-6">
         <CommentsSection
           postId={post.id}
           totalCount={post.commentCount}
@@ -270,35 +276,6 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
           currentUserName={user.fullName}
         />
       </div>
-
-      <div className="mx-auto mt-16 w-full max-w-[1240px] px-6">
-        <BackToFeed />
-      </div>
     </main>
-  );
-}
-
-function PostHeading({ title }: { title: string }) {
-  return (
-    <h1 className="pulse-display pulse-display-md break-words text-[color:var(--foreground)]">
-      {title}
-    </h1>
-  );
-}
-
-function BackToFeed() {
-  return (
-    <Link
-      href="/feed"
-      className="group inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-sm)] text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-    >
-      <ArrowLeft
-        size={15}
-        strokeWidth={2.5}
-        aria-hidden
-        className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:-translate-x-[calc(3px*var(--motion-travel))]"
-      />
-      Back to feed
-    </Link>
   );
 }

@@ -2,6 +2,7 @@ import { PostComposer } from "@/components/PostComposer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { reachOptionsFor } from "@/lib/content/level";
 import { listActiveTopics } from "@/lib/content/topics";
+import { db } from "@/lib/db";
 import { isEnabled } from "@/lib/flags";
 import { availableAudiencesFor, publishingRoleKeyFor } from "@/lib/org/scope";
 import { quotaStateFor } from "@/lib/quota";
@@ -10,13 +11,17 @@ import { requirePermission } from "@/lib/rbac/guards";
 export default async function NewPostPage() {
   const user = await requirePermission("post.draft");
   const roleKey = await publishingRoleKeyFor(user.id);
-  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled, topics] = await Promise.all([
-    quotaStateFor(user.id, user.primaryEntityId, roleKey),
-    isEnabled("posts.rich_text"),
-    isEnabled("posts.scheduling"),
-    isEnabled("posts.targeting"),
-    listActiveTopics(),
-  ]);
+  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled, topics, authorEntity] =
+    await Promise.all([
+      quotaStateFor(user.id, user.primaryEntityId, roleKey),
+      isEnabled("posts.rich_text"),
+      isEnabled("posts.scheduling"),
+      isEnabled("posts.targeting"),
+      listActiveTopics(),
+      user.primaryEntityId
+        ? db.entity.findUnique({ where: { id: user.primaryEntityId }, select: { name: true } })
+        : Promise.resolve(null),
+    ]);
   const audienceOptions =
     targetingEnabled && user.primaryEntityId
       ? await availableAudiencesFor(user, user.primaryEntityId)
@@ -28,7 +33,7 @@ export default async function NewPostPage() {
     : undefined;
 
   return (
-    <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24">
+    <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24 lg:max-w-[1360px]">
       <PageHeader
         title="Share an update"
         standfirst="Your post will reach AIESEC members worldwide."
@@ -66,6 +71,8 @@ export default async function NewPostPage() {
         audienceOptions={audienceOptions}
         topics={topics}
         reachOptions={reachOptions}
+        authorDisplayName={user.fullName}
+        authorEntityName={authorEntity?.name ?? null}
       />
     </main>
   );

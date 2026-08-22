@@ -64,9 +64,9 @@ model Entity {
   timezone      String     @default("UTC")
   defaultLocale String     @default("en")
   isActive      Boolean    @default(true)
-  syncedAt      DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  syncedAt      DateTime?  @db.Timestamptz(3)
+  createdAt     DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime   @updatedAt @db.Timestamptz(3)
 
   parent   Entity?  @relation("EntityTree", fields: [parentId], references: [id])
   children Entity[] @relation("EntityTree")
@@ -95,11 +95,11 @@ model User {
   locale          String     @default("en")
   timezone        String     @default("UTC")
   status          UserStatus @default(ACTIVE)
-  lastSyncedAt    DateTime?
-  lastSeenAt      DateTime?
-  erasedAt        DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  lastSyncedAt    DateTime?  @db.Timestamptz(3)
+  lastSeenAt      DateTime?  @db.Timestamptz(3)
+  erasedAt        DateTime?  @db.Timestamptz(3)
+  createdAt       DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
 
   primaryEntity Entity? @relation(fields: [primaryEntityId], references: [id])
 
@@ -173,11 +173,11 @@ model RoleGrant {
   termLabel     String?
   gisPositionId String?
   source        GrantSource @default(GIS)
-  startsAt      DateTime    @default(now())
-  endsAt        DateTime?
-  revokedAt     DateTime?
+  startsAt      DateTime    @default(now()) @db.Timestamptz(3)
+  endsAt        DateTime?   @db.Timestamptz(3)
+  revokedAt     DateTime?   @db.Timestamptz(3)
   grantedById   String?
-  createdAt     DateTime    @default(now())
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
 
   user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   role  Role    @relation(fields: [roleId], references: [id])
@@ -196,10 +196,10 @@ model Session {
   userId     String
   userAgent  String?
   ipHash     String?
-  createdAt  DateTime  @default(now())
-  lastSeenAt DateTime  @default(now())
-  expiresAt  DateTime
-  revokedAt  DateTime?
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -211,9 +211,9 @@ model OauthToken {
   userId          String   @id
   accessTokenEnc  Bytes
   refreshTokenEnc Bytes
-  expiresAt       DateTime
+  expiresAt       DateTime @db.Timestamptz(3)
   scope           String?
-  updatedAt       DateTime @updatedAt
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -284,12 +284,12 @@ model Post {
   linkUrl      String?
 
   requiresAck Boolean   @default(false)
-  pinnedUntil DateTime?
-  expiresAt   DateTime?
+  pinnedUntil DateTime? @db.Timestamptz(3)
+  expiresAt   DateTime? @db.Timestamptz(3)
 
   /// Reach. Defaults to LOCAL — nothing becomes network-visible by accident.
   level           PostLevel @default(LOCAL)
-  promotedAt      DateTime?
+  promotedAt      DateTime? @db.Timestamptz(3)
   promotedById    String?
   /// Why it was promoted. Required at the action, so the quota is always spent
   /// against a stated reason.
@@ -298,10 +298,10 @@ model Post {
   /// promoting is a distinct budgeted act from publishing.
   promotionPeriod String?
 
-  scheduledAt     DateTime?
-  publishedAt     DateTime?
-  archivedAt      DateTime?
-  hiddenAt        DateTime?
+  scheduledAt     DateTime? @db.Timestamptz(3)
+  publishedAt     DateTime? @db.Timestamptz(3)
+  archivedAt      DateTime? @db.Timestamptz(3)
+  hiddenAt        DateTime? @db.Timestamptz(3)
   hiddenReason    String?
   rejectionReason String?
 
@@ -320,8 +320,8 @@ model Post {
   /// value is declared as database-generated and maintained by Postgres.
   searchVector Unsupported("tsvector")? @default(dbgenerated())
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   author    User   @relation("PostAuthor", fields: [authorId], references: [id])
   publisher Entity @relation(fields: [publisherEntityId], references: [id])
@@ -365,7 +365,7 @@ model PostVersion {
   bodyJson   Json
   editedById String
   changeNote String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
 
   post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   editedBy User @relation(fields: [editedById], references: [id])
@@ -415,8 +415,8 @@ model PostTopic {
 
 model EventDetail {
   postId   String    @id
-  startsAt DateTime
-  endsAt   DateTime?
+  startsAt DateTime  @db.Timestamptz(3)
+  endsAt   DateTime? @db.Timestamptz(3)
   timezone String    @default("UTC")
   location String?
   joinUrl  String?
@@ -441,7 +441,7 @@ model Media {
   altText    String?
   /// Derived renditions: { thumb, card, hero, blurhash }
   variants   Json?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
 
   owner    User?       @relation(fields: [ownerId], references: [id])
   coverFor Post[]      @relation("PostCover")
@@ -498,7 +498,7 @@ model Reaction {
   postId    String
   userId    String
   kind      ReactionKind @default(LIKE)
-  createdAt DateTime     @default(now())
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -518,11 +518,11 @@ model Comment {
   body         String        @db.Text
   status       CommentStatus @default(VISIBLE)
   depth        Int           @default(0)
-  editedAt     DateTime?
-  hiddenAt     DateTime?
+  editedAt     DateTime?     @db.Timestamptz(3)
+  hiddenAt     DateTime?     @db.Timestamptz(3)
   hiddenReason String?
-  deletedAt    DateTime?
-  createdAt    DateTime      @default(now())
+  deletedAt    DateTime?     @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
 
   post     Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
   parent   Comment?         @relation("CommentThread", fields: [parentId], references: [id])
@@ -549,7 +549,7 @@ model CommentMention {
 model Bookmark {
   userId    String
   postId    String
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -565,7 +565,7 @@ model Follow {
   targetType FollowTarget
   targetId   String
   muted      Boolean      @default(false)
-  createdAt  DateTime     @default(now())
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -577,8 +577,8 @@ model Follow {
 model PostRead {
   postId      String
   userId      String
-  firstReadAt DateTime   @default(now())
-  lastReadAt  DateTime   @default(now())
+  firstReadAt DateTime   @default(now()) @db.Timestamptz(3)
+  lastReadAt  DateTime   @default(now()) @db.Timestamptz(3)
   dwellMs     Int        @default(0)
   scrollPct   Int        @default(0)
   source      ReadSource @default(FEED)
@@ -594,7 +594,7 @@ model PostRead {
 model Acknowledgement {
   postId         String
   userId         String
-  acknowledgedAt DateTime @default(now())
+  acknowledgedAt DateTime @default(now()) @db.Timestamptz(3)
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -610,7 +610,7 @@ model PostDelivery {
   postId      String
   userId      String
   channel     NotificationChannel
-  deliveredAt DateTime            @default(now())
+  deliveredAt DateTime            @default(now()) @db.Timestamptz(3)
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -657,8 +657,8 @@ model Notification {
   kind      String
   payload   Json
   postId    String?
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
+  readAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -683,8 +683,8 @@ model UserDigestSetting {
   frequency      DigestFrequency @default(WEEKLY)
   /// Local hour of day, resolved against `User.timezone`.
   sendHour       Int             @default(8)
-  lastSentAt     DateTime?
-  unsubscribedAt DateTime?
+  lastSentAt     DateTime?       @db.Timestamptz(3)
+  unsubscribedAt DateTime?       @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -696,8 +696,8 @@ model PushSubscription {
   p256dh     String
   auth       String
   userAgent  String?
-  createdAt  DateTime  @default(now())
-  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastUsedAt DateTime? @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -710,9 +710,9 @@ model EmailDelivery {
   kind       String
   providerId String?
   status     String
-  sentAt     DateTime?
-  openedAt   DateTime?
-  createdAt  DateTime  @default(now())
+  sentAt     DateTime? @db.Timestamptz(3)
+  openedAt   DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -775,8 +775,8 @@ model Report {
   severity      ReportSeverity @default(MEDIUM)
   assigneeId    String?
   resolution    String?
-  resolvedAt    DateTime?
-  createdAt     DateTime       @default(now())
+  resolvedAt    DateTime?      @db.Timestamptz(3)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
 
   reporter User     @relation("Reporter", fields: [reporterId], references: [id])
   assignee User?    @relation("Assignee", fields: [assigneeId], references: [id])
@@ -797,8 +797,8 @@ model Appeal {
   status       AppealStatus @default(OPEN)
   decidedById  String?
   decisionNote String?
-  decidedAt    DateTime?
-  createdAt    DateTime     @default(now())
+  decidedAt    DateTime?    @db.Timestamptz(3)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
 
   report    Report? @relation(fields: [reportId], references: [id])
   appellant User    @relation(fields: [appellantId], references: [id])
@@ -811,8 +811,8 @@ model UserRestriction {
   userId     String
   kind       String
   reason     String
-  startsAt   DateTime  @default(now())
-  endsAt     DateTime?
+  startsAt   DateTime  @default(now()) @db.Timestamptz(3)
+  endsAt     DateTime? @db.Timestamptz(3)
   issuedById String
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -853,7 +853,7 @@ model AuditEvent {
   ipHash     String?
   userAgent  String?
   metadata   Json?
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
 
   @@index([createdAt(sort: Desc)])
   @@index([actorId, createdAt(sort: Desc)])
@@ -865,14 +865,14 @@ model FeatureFlag {
   key       String   @id
   enabled   Boolean  @default(false)
   rollout   Json?
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 /// Feed ranking weights, tunable by platform admins without a deploy.
 model RankingWeight {
   key       String   @id
   weight    Float
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 
 model DataSubjectRequest {
@@ -881,9 +881,9 @@ model DataSubjectRequest {
   email       String?
   kind        String
   status      String    @default("RECEIVED")
-  receivedAt  DateTime  @default(now())
-  dueAt       DateTime
-  completedAt DateTime?
+  receivedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  dueAt       DateTime  @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
   handledById String?
   notes       String?
 
@@ -893,8 +893,8 @@ model DataSubjectRequest {
 model SyncRun {
   id         String    @id @default(cuid())
   kind       String
-  startedAt  DateTime  @default(now())
-  finishedAt DateTime?
+  startedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
   status     String
   processed  Int       @default(0)
   failed     Int       @default(0)

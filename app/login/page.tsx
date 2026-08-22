@@ -2,10 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { MotionToggle } from "@/components/motion/MotionToggle";
-import { NetworkField } from "@/components/motion/NetworkField";
-import { Tilt } from "@/components/motion/Parallax";
 import { Reveal } from "@/components/motion/Reveal";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { safeReturnTo } from "@/lib/auth/oauth";
 import { getActiveSession } from "@/lib/auth/session";
 
@@ -35,120 +34,144 @@ export default async function LoginPage({
     : "/api/auth/start";
 
   return (
-    <main className="pulse-stage relative flex min-h-screen flex-col overflow-hidden">
-      {/* The network, drawn: a projected point cloud of connected nodes. It is
-          the product's own mechanism as an image, and the reason this screen
-          does not need a stock illustration. */}
+    <main className="relative flex min-h-screen flex-col overflow-hidden bg-[var(--stage)]">
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-0 grid grid-cols-4">
+        <span className="border-r border-[var(--hairline)]" />
+        <span className="border-r border-[var(--hairline)]" />
+        <span className="border-r border-[var(--hairline)]" />
+        <span />
+      </div>
+
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 z-0 aspect-square w-[min(160vw,1100px)] -translate-x-1/2 -translate-y-1/2 opacity-90 lg:left-[26%] lg:w-[min(90vw,880px)]"
-      >
-        <NetworkField density={280} intensity={1} />
+        className="pulse-ambient pointer-events-none absolute -left-[10%] -top-[14%] z-0 h-[66%] w-[56%] rounded-full opacity-90"
+        style={{
+          background: "radial-gradient(circle at 50% 50%, var(--glow-primary), transparent 65%)",
+          filter: "blur(50px)",
+          animation: "aurora-orbit 30s ease-in-out infinite",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pulse-ambient pointer-events-none absolute -right-[8%] top-[18%] z-0 h-[58%] w-[46%] rounded-full opacity-90"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 50%, var(--glow-destructive), transparent 65%)",
+          filter: "blur(55px)",
+          animation: "aurora-orbit 36s ease-in-out infinite reverse",
+        }}
+      />
+
+      <div className="relative z-20 flex items-center justify-between px-6 py-6 sm:px-10 sm:py-8">
+        <span className="flex select-none items-center gap-2">
+          <span
+            aria-hidden
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-[var(--radius-sm)] bg-[var(--primary-fill)]"
+          >
+            <svg viewBox="0 0 28 28" className="h-[17px] w-[17px]" fill="none" aria-hidden>
+              <path
+                d="M2 15h5.2l2.6-7.4 4.1 12.6 3-8.1 2 2.9H26"
+                stroke="var(--primary-foreground)"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          <span className="text-[13px] font-black uppercase leading-none tracking-[0.22em] text-[color:var(--foreground)]">
+            Pulse
+          </span>
+        </span>
+
+        <div className="flex items-center gap-1">
+          <MotionToggle />
+          <ThemeToggle />
+        </div>
       </div>
 
-      <div className="absolute right-4 top-4 z-20 flex items-center gap-1 sm:right-6 sm:top-6">
-        <MotionToggle />
-        <ThemeToggle />
-      </div>
+      <div className="relative z-10 mx-auto flex w-full max-w-[720px] flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+        <Reveal y={12}>
+          <span aria-hidden className="mb-6 inline-flex items-center gap-1">
+            <span className="h-[7px] w-[7px] bg-[var(--topic-programme)]" />
+            <span className="h-[7px] w-[7px] bg-[var(--topic-function)]" />
+            <span className="h-[7px] w-[7px] bg-[var(--topic-general)]" />
+          </span>
+        </Reveal>
 
-      <div className="relative z-10 mx-auto grid w-full max-w-[1240px] flex-1 grid-cols-1 items-center gap-16 px-6 py-20 lg:grid-cols-[1.05fr_minmax(380px,420px)] lg:gap-12">
-        <div className="max-w-[34ch] lg:max-w-none">
-          <Reveal y={0}>
+        <Reveal y={20} delay={80}>
+          <DisplayTitle
+            as="h1"
+            size="xl"
+            title="Where the network reads itself"
+            className="text-[color:var(--foreground)]"
+          />
+        </Reveal>
+
+        <Reveal y={20} delay={200}>
+          <p className="mt-6 max-w-[46ch] text-[18px] leading-[1.6] text-[color:var(--muted-foreground)]">
+            Stories, announcements and updates from every entity in one place, updated as it
+            happens.
+          </p>
+        </Reveal>
+
+        {error && (
+          <p
+            role="alert"
+            className="mt-6 max-w-[46ch] rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-4 py-3 text-[14px] leading-[1.5] text-[color:var(--destructive-text)]"
+          >
+            {ERROR_COPY[error] ?? "Sign-in didn't complete. Please try again."}
+          </p>
+        )}
+
+        <Reveal y={20} delay={300}>
+          <a
+            href={startUrl}
+            className="group mt-9 flex min-h-[52px] items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-7 text-[14px] font-bold text-[color:var(--primary-foreground)] shadow-[var(--elev-2)] transition-[transform,box-shadow] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] hover:-translate-y-[calc(2px*var(--motion-travel))] hover:shadow-[var(--elev-3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          >
+            <svg
+              viewBox="0 0 28 28"
+              width="16"
+              height="16"
+              fill="none"
+              aria-hidden
+              className="flex-none"
+            >
+              <path
+                d="M2 15h5.2l2.6-7.4 4.1 12.6 3-8.1 2 2.9H26"
+                stroke="var(--primary-foreground)"
+                strokeWidth="2.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Sign in with AIESEC
             <span
               aria-hidden
-              className="mb-8 flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--primary-fill)] shadow-[var(--elev-3)]"
+              className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:translate-x-[calc(4px*var(--motion-travel))]"
             >
-              <svg viewBox="0 0 28 28" className="h-full w-full" fill="none" aria-hidden>
-                <path
-                  d="M2 15h5.2l2.6-7.4 4.1 12.6 3-8.1 2 2.9H26"
-                  stroke="var(--primary-foreground)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              →
             </span>
-          </Reveal>
+          </a>
+        </Reveal>
 
-          {/* Per-line mask: each line rises out of its own box in sequence,
-              which is the one authored moment this screen gets. */}
-          <h1 className="pulse-display pulse-display-xl text-[color:var(--foreground)]">
-            {["AIESEC", "Pulse"].map((line, i) => (
-              <Reveal key={line} y={0} delay={80 + i * 110} className="pulse-line-mask">
-                <span>{line}</span>
-              </Reveal>
-            ))}
-          </h1>
-
-          <Reveal y={20} delay={340}>
-            <p className="mt-7 max-w-[42ch] text-[18px] leading-[1.6] text-[color:var(--muted-foreground)]">
-              What is happening across the network, in one place — scoped to your entity, your
-              region and the functions you work in, rather than one flat global feed.
-            </p>
-          </Reveal>
-
-          <Reveal y={20} delay={430}>
-            <p className="pulse-label mt-10">AI · Regions · Member Committees · Local Committees</p>
-          </Reveal>
-        </div>
-
-        <Reveal y={32} scale={0.97} delay={200}>
-          <Tilt max={5} lift={16}>
-            <div className="pulse-plate relative overflow-hidden p-8 shadow-[var(--elev-4)] sm:p-10">
-              <div
-                className="pulse-tilt-layer"
-                style={{ "--layer-z": "28px" } as React.CSSProperties}
-              >
-                <h2 className="text-[20px] font-bold leading-tight text-[color:var(--foreground)]">
-                  Sign in
-                </h2>
-                <p className="mt-2 text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
-                  Pulse uses your AIESEC account. There is no separate password.
-                </p>
-
-                {error && (
-                  <p
-                    role="alert"
-                    className="mt-6 rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-4 py-3 text-[14px] leading-[1.5] text-[color:var(--destructive-text)]"
-                  >
-                    {ERROR_COPY[error] ?? "Sign-in didn't complete. Please try again."}
-                  </p>
-                )}
-
-                <a
-                  href={startUrl}
-                  className="group mt-7 flex min-h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-6 text-[16px] font-bold text-[color:var(--primary-foreground)] shadow-[var(--elev-2)] transition-[transform,box-shadow] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] hover:-translate-y-[calc(2px*var(--motion-travel))] hover:shadow-[var(--elev-3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                >
-                  Sign in with AIESEC
-                  <span
-                    aria-hidden
-                    className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:translate-x-[calc(4px*var(--motion-travel))]"
-                  >
-                    →
-                  </span>
-                </a>
-
-                <p className="mt-6 text-[13px] leading-[1.6] text-[color:var(--muted-foreground)]">
-                  Signing in creates a Pulse session and mirrors your name, entity and current
-                  positions from AIESEC. See the{" "}
-                  <Link
-                    href="/legal/privacy"
-                    className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                  >
-                    privacy notice
-                  </Link>{" "}
-                  and{" "}
-                  <Link
-                    href="/legal/cookies"
-                    className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                  >
-                    cookie disclosure
-                  </Link>
-                  .
-                </p>
-              </div>
-            </div>
-          </Tilt>
+        <Reveal y={16} delay={380}>
+          <p className="mt-6 max-w-[42ch] text-[13px] leading-[1.6] text-[color:var(--muted-foreground)]">
+            See the{" "}
+            <Link
+              href="/legal/privacy"
+              className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              privacy notice
+            </Link>{" "}
+            and{" "}
+            <Link
+              href="/legal/cookies"
+              className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              cookie disclosure
+            </Link>
+            .
+          </p>
         </Reveal>
       </div>
     </main>

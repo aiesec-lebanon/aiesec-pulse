@@ -700,6 +700,79 @@ body {
   );
 }
 
+/* The story hero's angled photo/type split (UI ref 2a). 46% at the top edge
+   to 26% at the bottom — the dark left three-fifths carries the headline and
+   spec strip, the photograph owns the right two-thirds. */
+.pulse-story-clip {
+  clip-path: polygon(100% 0, 100% 100%, 26% 100%, 46% 0);
+}
+
+/* Asymmetric scrim for the full-bleed rotator hero: dark from the left edge
+   (where the index rail and headline sit), thinning across the frame so the
+   photograph still reads on its right two-thirds. */
+.pulse-hero-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    rgba(6, 9, 14, 0.92) 0%,
+    rgba(6, 9, 14, 0.72) 34%,
+    rgba(6, 9, 14, 0.18) 62%,
+    rgba(6, 9, 14, 0.55) 100%
+  );
+}
+
+/* The rotator's vertical index-rail progress bar: fills top-to-bottom over
+   one slide's dwell time, restarted by remounting on a fresh `key` per
+   active index rather than by resetting the animation shorthand — resetting
+   `animation` also resets play-state, so a bar paused via the shorthand
+   silently un-pauses the moment a new title is picked. */
+@keyframes pulse-progress-v {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.pulse-rotator-bar {
+  transform-origin: top;
+  animation: pulse-progress-v linear forwards;
+  animation-duration: var(--rotator-duration, 8000ms);
+}
+
+/* Same device, horizontal — the "up next" rail's dwell-time bar. */
+@keyframes pulse-progress-h {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.pulse-rotator-bar-h {
+  transform-origin: left;
+  animation: pulse-progress-h linear forwards;
+  animation-duration: var(--rotator-duration, 8000ms);
+}
+
+/* The "elsewhere in the network" ticker: a doubled track scrolling at a
+   constant rate, masked at both edges so entries don't clip mid-word. The
+   content is duplicated once in markup (not via `content:` / pseudo-element)
+   so it works with any number of real items rather than a fixed set. */
+@keyframes pulse-ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.pulse-ticker-track {
+  animation: pulse-ticker-scroll 32s linear infinite;
+}
+
 /* ── Display type register ──────────────────────────────────────────
    Lato 900 at cinematic scale. Tracking tightens as size grows, which is what
    keeps a 900-weight face from reading as a wall at large sizes. Capped at

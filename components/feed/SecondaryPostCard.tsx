@@ -1,105 +1,83 @@
-import { Heart, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 import { Tilt } from "@/components/motion/Parallax";
-import { TopicChip } from "@/components/topics/TopicChip";
 import { LevelBadge } from "@/components/ui/LevelBadge";
+import { TopicLabel } from "@/components/ui/TopicPill";
+import { TopicPlate } from "@/components/ui/TopicPlate";
 import { relativeTime } from "@/lib/relative-time";
+import { tokensForKind } from "@/lib/topics-shared";
 import type { FeedPost } from "@/types/feed";
 
-/**
- * The standard story card, on a 3-D plate.
- *
- * The card is a real plate in space: the pointer tilts it against a 1200px
- * perspective, the title and counts sit on lifted z-layers above its surface,
- * and a pointer-tracked sheen crosses it. All of that multiplies by
- * `--motion-travel`, so under Reduced the plate simply lies flat and the card
- * behaves exactly as it did before.
- *
- * The card link uses an `::after` overlay rather than wrapping the article, so
- * the topic chips underneath can stay real links without nesting anchors.
- */
 export function SecondaryPostCard({ post }: { post: FeedPost }) {
+  const primaryTopic = post.topics[0];
+  const primaryKind = primaryTopic?.kind ?? "GENERAL";
+  const barColor = tokensForKind(primaryKind).accent;
+
   return (
-    <div className="group flex h-full flex-col gap-3">
-      <Tilt max={4.5} lift={10} className="flex-1">
-        <article className="pulse-plate pulse-plate-interactive relative flex h-full flex-col overflow-hidden">
-          <div className="pulse-media-frame relative aspect-[16/10] rounded-none">
-            {post.mediaUrl ? (
-              <Image
-                src={post.mediaUrl}
-                alt=""
-                fill
-                className="pulse-media object-cover"
-                sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
-              />
-            ) : (
-              <div
-                aria-hidden
-                className="absolute inset-0 bg-[linear-gradient(140deg,color-mix(in_srgb,var(--primary)_26%,var(--card)),color-mix(in_srgb,var(--success)_18%,var(--card))_55%,var(--card))]"
-              />
-            )}
-          </div>
+    <Tilt max={5} lift={12} className="w-[260px] shrink-0 snap-start">
+      <article className="relative flex h-full flex-col overflow-hidden rounded-[2px] border border-[var(--hairline)] bg-[var(--card)] shadow-[var(--elev-2)]">
+        <div className="pulse-tilt-layer relative h-[150px] overflow-hidden bg-[#0b0e13]">
+          {post.mediaUrl ? (
+            <Image
+              src={post.mediaUrl}
+              alt=""
+              fill
+              className="object-cover opacity-95"
+              sizes="260px"
+            />
+          ) : (
+            <TopicPlate
+              entityName={post.author.entityName ?? post.author.fullName}
+              kind={primaryKind}
+            />
+          )}
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-[3px]"
+            style={{ background: barColor }}
+          />
+        </div>
 
-          <div
-            className="pulse-tilt-layer flex flex-1 flex-col p-5"
-            style={{ "--layer-z": "18px" } as React.CSSProperties}
-          >
-            {/* The clamp sits on the anchor, not the heading: as an inline
-                child of a clamped heading the anchor's own box was 23px tall,
-                under the 24px target floor (WCAG 2.5.8) even though its
-                ::after overlay covers the whole card. As a block it fills the
-                heading and measures what it actually targets. */}
-            <h3 className="text-[20px] font-bold leading-[1.3] tracking-[-0.01em] text-[color:var(--card-foreground)]">
-              <Link
-                href={`/posts/${post.slug}`}
-                className="line-clamp-3 break-words after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        <div
+          className="pulse-tilt-layer flex flex-1 flex-col p-4 pb-[18px]"
+          style={{ "--layer-z": "20px" } as React.CSSProperties}
+        >
+          {primaryTopic && (
+            <Link
+              href={`/topics/${primaryTopic.slug}`}
+              className="relative z-10 mb-2.5 w-fit pulse-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              <TopicLabel name={primaryTopic.name} kind={primaryTopic.kind} />
+            </Link>
+          )}
+
+          <h3 className="pulse-serif text-[22px] leading-[1.16] text-[color:var(--card-foreground)]">
+            <Link
+              href={`/posts/${post.slug}`}
+              className="line-clamp-3 break-words after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              {post.title}
+            </Link>
+          </h3>
+
+          <div className="mt-auto pt-3.5">
+            <LevelBadge level={post.level} className="mb-2" />
+            <p className="pulse-label truncate">
+              <span className="normal-case tracking-[0.06em]">
+                {post.author.entityName ?? post.author.fullName}
+              </span>
+              <span aria-hidden> — </span>
+              <time
+                dateTime={post.publishedAt.toISOString()}
+                className="normal-case tracking-[0.06em]"
               >
-                {post.title}
-              </Link>
-            </h3>
-
-            {/* Above the byline, not beside it: the entity line truncates, and a
-                badge sharing that row would be the first thing to lose. The
-                hero frame and the sidebar rows deliberately go without — both
-                already carry a dense micro-label rule, and a third element in
-                either competes rather than informs. */}
-            <div className="mt-auto pt-5">
-              <LevelBadge level={post.level} className="mb-2" />
-              <p className="pulse-label text-[10px]">
-                <span className="block truncate normal-case tracking-[0.06em]">
-                  {post.author.entityName ?? post.author.fullName}
-                </span>
-              </p>
-            </div>
-
-            <div className="tabular mt-2.5 flex items-center gap-3 text-[13px] text-[color:var(--muted-foreground)]">
-              <time dateTime={post.publishedAt.toISOString()}>
                 {relativeTime(post.publishedAt)}
               </time>
-              <span className="ml-auto flex items-center gap-1.5">
-                <Heart size={13} strokeWidth={2} aria-hidden />
-                {post.reactionCount}
-                <span className="sr-only"> reactions</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <MessageCircle size={13} strokeWidth={2} aria-hidden />
-                {post.commentCount}
-                <span className="sr-only"> comments</span>
-              </span>
-            </div>
+            </p>
           </div>
-        </article>
-      </Tilt>
-
-      {post.topics.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {post.topics.slice(0, 2).map((topic) => (
-            <TopicChip key={topic.slug} slug={topic.slug} name={topic.name} />
-          ))}
         </div>
-      )}
-    </div>
+      </article>
+    </Tilt>
   );
 }

@@ -7,6 +7,7 @@ import { EMPTY_DOCUMENT, plainTextFromDocument, type PulseDocument } from "@/lib
 export type ComposerInitialValues = {
   title: string;
   bodyJson: PulseDocument;
+  summary: string;
   linkUrl: string;
   mediaUrl: string | null;
   mediaAlt: string;
@@ -34,6 +35,7 @@ export function useComposerForm(initialValues?: ComposerInitialValues) {
   const [bodyJson, setBodyJson] = useState<PulseDocument>(
     initialValues?.bodyJson ?? EMPTY_DOCUMENT
   );
+  const [summary, setSummary] = useState(initialValues?.summary ?? "");
   const [linkUrl, setLinkUrl] = useState(initialValues?.linkUrl ?? "");
   const [mediaAlt, setMediaAlt] = useState(initialValues?.mediaAlt ?? "");
 
@@ -50,6 +52,7 @@ export function useComposerForm(initialValues?: ComposerInitialValues) {
   const hasContent =
     title.trim().length > 0 ||
     bodyText.trim().length > 0 ||
+    summary.trim().length > 0 ||
     linkUrl.trim().length > 0 ||
     imagePreview !== null;
 
@@ -122,6 +125,8 @@ export function useComposerForm(initialValues?: ComposerInitialValues) {
     setTitle,
     bodyJson,
     setBodyJson,
+    summary,
+    setSummary,
     linkUrl,
     setLinkUrl,
     mediaAlt,

@@ -6,7 +6,9 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { MotionToggle } from "@/components/motion/MotionToggle";
+import { FeedModeMenu } from "@/components/shell/FeedModeMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import type { FeedMode } from "@/lib/feed-mode";
 import { buildNavigation, isCurrent, type NavItem } from "@/lib/navigation";
 
 // Capability flags, not roles: hiding a control is a courtesy, never a
@@ -23,7 +25,15 @@ export type ShellUser = {
 const MENU_ITEM_CLASS =
   "flex w-full min-h-[36px] items-center rounded-[var(--radius-sm)] px-3 py-2 text-left text-[14px] text-[color:var(--foreground)] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]";
 
-export function ShellInteractive({ user }: { user: ShellUser | null }) {
+export function ShellInteractive({
+  user,
+  feedMode,
+  feedRankedAvailable,
+}: {
+  user: ShellUser | null;
+  feedMode: FeedMode;
+  feedRankedAvailable: boolean;
+}) {
   const pathname = usePathname();
   const nav = buildNavigation(user);
 
@@ -140,8 +150,8 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
     <>
       <header
         className={[
-          "pulse-rail sticky top-0 z-40 transition-[height,box-shadow] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]",
-          condensed ? "h-14 shadow-[var(--elev-2)]" : "h-[68px]",
+          "pulse-rail sticky top-0 z-40 h-[var(--rail-h)] transition-shadow duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]",
+          condensed ? "shadow-[var(--elev-2)]" : "",
         ].join(" ")}
       >
         <div className="mx-auto flex h-full w-full max-w-[1240px] items-center gap-2 px-4 sm:px-6">
@@ -159,24 +169,36 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
 
           <Wordmark />
 
-          {/* Desktop primary navigation. The only tab-shaped control in the
-              shell — the feed's own Latest/For You switch lives on the feed,
-              where the thing it switches actually is. */}
-          <NavRail items={nav.primary} pathname={pathname} />
+          {/* Desktop primary navigation. The feed's own Latest/For You switch
+              sits beside the "Feed" link itself — a menu on the destination
+              that owns it, rather than a second tab-shaped control on the
+              page below. */}
+          <NavRail
+            items={nav.primary}
+            pathname={pathname}
+            feedMode={feedMode}
+            feedRankedAvailable={feedRankedAvailable}
+          />
 
           <div className="ml-auto flex items-center gap-1">
             {nav.compose && (
+              // Outline, not filled: the reference file's "Write" is a boxed
+              // mono label in the brand colour, not a solid button — the
+              // shell's one filled control stays reserved for the account
+              // avatar and the primary CTA inside a page (§7.2).
               <Link
                 href={nav.compose.href}
-                className="group mr-1 hidden min-h-[40px] items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-4 text-[14px] font-bold text-[color:var(--primary-foreground)] shadow-[var(--shadow-button)] transition-[transform,box-shadow] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] hover:-translate-y-[calc(1px*var(--motion-travel))] hover:shadow-[var(--elev-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:inline-flex"
+                className="group mr-1 hidden min-h-[36px] items-center gap-2 rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--primary)_55%,transparent)] px-3.5 text-[color:var(--primary-text)] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] hover:border-[var(--primary)] hover:bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:inline-flex"
               >
                 <PenLine
-                  size={15}
+                  size={13}
                   strokeWidth={2.5}
                   aria-hidden
                   className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:-rotate-12"
                 />
-                {nav.compose.label}
+                <span className="pulse-label normal-case tracking-[0.14em]">
+                  {nav.compose.label}
+                </span>
               </Link>
             )}
 
@@ -315,7 +337,12 @@ export function ShellInteractive({ user }: { user: ShellUser | null }) {
 
         <nav aria-label="Sections" className="flex flex-col gap-1 p-4">
           {nav.primary.map((item) => (
-            <DrawerLink key={item.href} item={item} pathname={pathname} />
+            <div key={item.href} className="flex items-center justify-between">
+              <DrawerLink item={item} pathname={pathname} />
+              {item.href === "/feed" && isCurrent(item, pathname) && feedRankedAvailable && (
+                <FeedModeMenu mode={feedMode} />
+              )}
+            </div>
           ))}
 
           {nav.groups.map((group) => (
@@ -377,7 +404,17 @@ function Wordmark() {
  * indicator in the right place — an indicator that visibly jumps from 0 on
  * every navigation is worse than no indicator.
  */
-function NavRail({ items, pathname }: { items: NavItem[]; pathname: string }) {
+function NavRail({
+  items,
+  pathname,
+  feedMode,
+  feedRankedAvailable,
+}: {
+  items: NavItem[];
+  pathname: string;
+  feedMode: FeedMode;
+  feedRankedAvailable: boolean;
+}) {
   const listRef = useRef<HTMLUListElement>(null);
   const [indicator, setIndicator] = useState({ x: 0, w: 0, o: 0 });
 
@@ -408,25 +445,27 @@ function NavRail({ items, pathname }: { items: NavItem[]; pathname: string }) {
   if (items.length === 0) return null;
 
   return (
-    <nav aria-label="Primary" className="ml-6 hidden lg:block">
-      <ul ref={listRef} className="relative flex items-center gap-1">
+    <nav aria-label="Primary" className="ml-7 hidden lg:block">
+      <ul ref={listRef} className="relative flex items-center gap-6">
         {items.map((item) => {
           const active = isCurrent(item, pathname);
+          const showFeedMode = item.href === "/feed" && active && feedRankedAvailable;
           return (
-            <li key={item.href}>
+            <li key={item.href} className="flex items-center gap-1">
               <Link
                 href={item.href}
                 data-active={active}
                 aria-current={active ? "page" : undefined}
                 className={[
-                  "relative flex min-h-[40px] items-center rounded-[var(--radius-sm)] px-3 text-[15px] font-bold transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+                  "pulse-label relative flex min-h-[40px] items-center normal-case tracking-[0.16em] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
                   active
                     ? "text-[color:var(--foreground)]"
-                    : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
+                    : "hover:text-[color:var(--foreground)]",
                 ].join(" ")}
               >
                 {item.label}
               </Link>
+              {showFeedMode && <FeedModeMenu mode={feedMode} />}
             </li>
           );
         })}

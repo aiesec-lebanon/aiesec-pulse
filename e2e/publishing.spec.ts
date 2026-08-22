@@ -241,7 +241,7 @@ test.describe("engagement", () => {
 
     const body = `A comment from the suite ${Date.now()}`;
     await page.getByLabel(/comment text/i).fill(body);
-    await page.getByRole("button", { name: /^post$/i }).click();
+    await page.getByRole("button", { name: /^post comment$/i }).click();
 
     await expect(page.getByText(body)).toBeVisible();
   });
@@ -465,10 +465,11 @@ test.describe("follow and mute", () => {
     await page.getByRole("button", { name: /^publish$/i }).click();
     await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
 
-    // Latest, because the hero is the control this test needs: only HeroPost
-    // carries an entity-follow button (SecondaryPostCard/SidebarPostItem do
-    // not), and on Latest the newest post is the hero by construction. Asserted
-    // before the click rather than assumed.
+    // Latest, because the hero is the control this test needs: only
+    // HeroRotator carries an entity-follow button (SecondaryPostCard/
+    // SidebarPostItem do not), and on Latest the newest post is the
+    // rotator's initial active slide by construction. Asserted before the
+    // click rather than assumed.
     await openLatestFeed(page);
     await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
 

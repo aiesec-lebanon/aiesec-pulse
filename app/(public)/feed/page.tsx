@@ -1,14 +1,17 @@
 import { cookies } from "next/headers";
 
-import { FeedModeToggle } from "@/components/feed/FeedModeToggle";
-import { HeroPost } from "@/components/feed/HeroPost";
-import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
-import { SidebarPostItem } from "@/components/feed/SidebarPostItem";
+import { ElsewhereSection } from "@/components/feed/ElsewhereSection";
+import { FeedLead } from "@/components/feed/FeedLead";
 import { TrendingAuthorCard } from "@/components/feed/TrendingAuthorCard";
 import { Reveal } from "@/components/motion/Reveal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import { getFeedPage, getForYouFeedPage, getTrendingAuthors } from "@/lib/feed";
+import {
+  getFeedPage,
+  getForYouFeedPage,
+  getTrendingAuthors,
+  getWeeklyPublishingStat,
+} from "@/lib/feed";
 import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
 import { isEnabled } from "@/lib/flags";
 import { can } from "@/lib/rbac/can";
@@ -29,33 +32,34 @@ export default async function FeedPage({
   const cookieStore = await cookies();
   const mode = rankedAvailable ? parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value) : "latest";
 
-  const [{ posts, hasNext }, trendingAuthors] = await Promise.all([
+  const [{ posts, hasNext }, trendingAuthors, weeklyCount] = await Promise.all([
     mode === "for-you" ? getForYouFeedPage(page) : getFeedPage(page),
     page === 1 ? getTrendingAuthors() : Promise.resolve([]),
+    getWeeklyPublishingStat(),
   ]);
 
-  const [hero, ...rest] = posts;
-  // Density falls as the page descends: one immersive lead, then a row of
-  // plates, then quiet index rows. The old order ran cards and rows the other
-  // way round, which put the page's flattest block directly under its loudest.
-  const cardRow = rest.slice(0, 3);
-  const indexRows = rest.slice(3, 6);
+  // One shared pool of up to five posts feeds the whole lead complex: one is
+  // in the hero at a time, the other four fill the "also today" rail —
+  // FeedLead owns which is which and re-shuffles the rail as the hero
+  // rotates, so a quiet day (fewer than five posts) never leaves the rail
+  // empty the way two disjoint slices used to.
+  const leadPool = posts.slice(0, 5);
+  const elsewhere = posts.slice(5, 8);
 
   const heading = mode === "for-you" ? "For you" : "Latest";
-  const standfirst =
-    mode === "for-you"
-      ? "Ranked for your entity, your region and what you follow."
-      : "Everything published across the network, newest first.";
 
-  if (!hero) {
+  // The page's h1 — visually hidden. The reference file's own header is the
+  // shell's nav bar; there is no separate "For you" title-and-standfirst
+  // block beneath it, the rotator is the page's visual lead. A heading still
+  // has to exist for a screen-reader user landing on the route, and for the
+  // one-h1-per-page contract e2e/accessibility.spec.ts already checks — it
+  // just carries no visual weight of its own any more.
+  const pageHeading = <h1 className="sr-only">{heading}</h1>;
+
+  if (leadPool.length === 0) {
     return (
       <main className="mx-auto w-full max-w-[1240px] flex-1 px-6">
-        <FeedHeader
-          heading={heading}
-          standfirst={standfirst}
-          mode={mode}
-          rankedAvailable={rankedAvailable}
-        />
+        {pageHeading}
         <EmptyState
           heading="The feed is quiet — for now."
           body="When entities share updates, they'll appear here. Check back soon."
@@ -70,112 +74,44 @@ export default async function FeedPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-24">
-      <FeedHeader
-        heading={heading}
-        standfirst={standfirst}
-        mode={mode}
-        rankedAvailable={rankedAvailable}
-      />
+    <main className="flex-1 pb-24">
+      {pageHeading}
 
-      <section aria-label="Lead story">
-        <HeroPost post={hero} />
-      </section>
+      {/* Full-bleed hero, then the "also today" rail in the reading column —
+          FeedLead splits the two internally since they share `active`. */}
+      <FeedLead posts={leadPool} />
 
-      {cardRow.length > 0 && (
-        <section aria-label="More stories" className="mt-20">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {cardRow.map((post, i) => (
-              <Reveal key={post.id} y={28} delay={i * 80} className="h-full">
-                <SecondaryPostCard post={post} />
-              </Reveal>
-            ))}
-          </div>
-        </section>
-      )}
+      <div className="mx-auto w-full max-w-[1240px] px-6">
+        <ElsewhereSection posts={elsewhere} weeklyCount={weeklyCount} />
 
-      {indexRows.length > 0 && (
-        <section aria-labelledby="feed-elsewhere" className="mt-24">
-          <h2
-            id="feed-elsewhere"
-            className="pulse-label mb-2 border-b border-[var(--hairline)] pb-4"
-          >
-            Elsewhere in the network
-          </h2>
-          <div className="grid grid-cols-1 gap-x-12 lg:grid-cols-2">
-            {indexRows.map((post, i) => (
-              <Reveal key={post.id} y={20} delay={i * 60}>
-                <SidebarPostItem post={post} />
-              </Reveal>
-            ))}
-          </div>
-        </section>
-      )}
+        {trendingAuthors.length > 0 && (
+          <section aria-labelledby="feed-trending" className="mt-24">
+            <h2 id="feed-trending" className="pulse-label mb-6">
+              Publishing most this month
+            </h2>
+            <div
+              tabIndex={0}
+              role="group"
+              aria-label="Authors publishing most this month, scrollable"
+              className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              {trendingAuthors.map((author, i) => (
+                <Reveal key={author.id} y={16} x={12} delay={i * 55} className="shrink-0">
+                  <TrendingAuthorCard author={author} />
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        )}
 
-      {trendingAuthors.length > 0 && (
-        <section aria-labelledby="feed-trending" className="mt-24">
-          <h2 id="feed-trending" className="pulse-label mb-6">
-            Publishing most this month
-          </h2>
-          {/* Focusable: a scrollable region that cannot be reached by keyboard is
-              a 2.1.1 failure, and axe flags it. `tabIndex` plus a name makes the
-              strip navigable with arrow keys and announced on entry. */}
-          <div
-            tabIndex={0}
-            role="group"
-            aria-label="Authors publishing most this month, scrollable"
-            className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-          >
-            {trendingAuthors.map((author, i) => (
-              <Reveal key={author.id} y={16} x={12} delay={i * 55} className="shrink-0">
-                <TrendingAuthorCard author={author} />
-              </Reveal>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <Pagination
-        label="Feed pagination"
-        page={page}
-        hasNext={hasNext}
-        previousHref={page > 1 ? (page === 2 ? "/feed" : `/feed?page=${page - 1}`) : null}
-        nextHref={`/feed?page=${page + 1}`}
-      />
+        <Pagination
+          label="Feed pagination"
+          page={page}
+          hasNext={hasNext}
+          previousHref={page > 1 ? (page === 2 ? "/feed" : `/feed?page=${page - 1}`) : null}
+          nextHref={`/feed?page=${page + 1}`}
+        />
+      </div>
     </main>
-  );
-}
-
-/**
- * The feed's own header. `FeedModeToggle` lives here and nowhere else: a
- * second tab control in the app shell would sit a dozen pixels above this one
- * carrying the same label and a different meaning.
- */
-function FeedHeader({
-  heading,
-  standfirst,
-  mode,
-  rankedAvailable,
-}: {
-  heading: string;
-  standfirst: string;
-  mode: "latest" | "for-you";
-  rankedAvailable: boolean;
-}) {
-  return (
-    <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 pb-8 pt-12 sm:pt-16">
-      <Reveal y={16}>
-        <h1 className="pulse-display pulse-display-md text-[color:var(--foreground)]">{heading}</h1>
-        <p className="mt-3 max-w-[52ch] text-[17px] leading-[1.55] text-[color:var(--muted-foreground)]">
-          {standfirst}
-        </p>
-      </Reveal>
-
-      {rankedAvailable && (
-        <Reveal y={16} delay={90}>
-          <FeedModeToggle mode={mode} />
-        </Reveal>
-      )}
-    </header>
   );
 }

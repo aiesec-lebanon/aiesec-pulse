@@ -1,4 +1,3 @@
-import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -6,14 +5,16 @@ import { relativeTime } from "@/lib/relative-time";
 import type { FeedPost } from "@/types/feed";
 
 /**
- * The quiet register. After the lead frame and the card row, the page needs
- * somewhere to breathe out — these are index rows, not more cards: a hairline
- * rule, a small square of the cover, the headline, and nothing else competing.
+ * The quiet register — the "Elsewhere in the network" row from 1b: a
+ * hairline rule, a mono index number, the headline, and a trailing age. The
+ * cover thumbnail is kept (the reference's row has none, but dropping ours
+ * would be a real loss for a row that otherwise carries no image at all);
+ * everything else matches 1b's leading-number / trailing-metadata shape.
  *
  * The hover moment is the rule itself, which wipes to brand blue from the left
  * as the pointer arrives.
  */
-export function SidebarPostItem({ post }: { post: FeedPost }) {
+export function SidebarPostItem({ post, index }: { post: FeedPost; index?: number }) {
   return (
     <Link
       href={`/posts/${post.slug}`}
@@ -23,6 +24,12 @@ export function SidebarPostItem({ post }: { post: FeedPost }) {
         aria-hidden
         className="absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-[var(--primary)] transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:scale-x-100 group-focus-visible:scale-x-100"
       />
+
+      {index !== undefined && (
+        <span className="pulse-label hidden shrink-0 sm:block">
+          {String(index).padStart(2, "0")}
+        </span>
+      )}
 
       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[var(--radius-md)] bg-[var(--stage-deep)]">
         {post.mediaUrl ? (
@@ -49,19 +56,12 @@ export function SidebarPostItem({ post }: { post: FeedPost }) {
           <span className="normal-case tracking-[0.06em]">
             {post.author.entityName ?? post.author.fullName}
           </span>
-          <span aria-hidden> · </span>
-          <time dateTime={post.publishedAt.toISOString()} className="normal-case tracking-[0.06em]">
-            {relativeTime(post.publishedAt)}
-          </time>
         </p>
       </div>
 
-      <ArrowUpRight
-        size={18}
-        strokeWidth={2}
-        aria-hidden
-        className="shrink-0 text-[color:var(--muted-foreground)] opacity-0 transition-[opacity,transform] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:translate-x-[calc(2px*var(--motion-travel))] group-hover:opacity-100 group-focus-visible:opacity-100"
-      />
+      <time dateTime={post.publishedAt.toISOString()} className="pulse-label shrink-0 text-right">
+        {relativeTime(post.publishedAt)}
+      </time>
     </Link>
   );
 }

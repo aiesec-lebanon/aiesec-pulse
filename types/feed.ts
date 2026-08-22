@@ -1,5 +1,5 @@
 import type { FollowState } from "@/app/actions/follows";
-import type { PostLevel } from "@/app/generated/prisma/enums";
+import type { PostLevel, TopicKind } from "@/app/generated/prisma/enums";
 
 export type FeedPost = {
   id: string;
@@ -23,5 +23,5 @@ export type FeedPost = {
   reactionCount: number;
   commentCount: number;
   publishedAt: Date;
-  topics: Array<{ slug: string; name: string }>;
+  topics: Array<{ slug: string; name: string; kind: TopicKind }>;
 };
