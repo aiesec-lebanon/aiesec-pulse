@@ -106,6 +106,7 @@ test.describe("the PAI", () => {
       "/admin/roles",
       "/admin/flags",
       "/admin/quotas",
+      "/admin/system",
       "/admin/privacy",
       "/admin/audit",
     ]) {
@@ -142,6 +143,7 @@ test.describe("the platform administrator", () => {
     for (const [route, heading] of [
       ["/admin/flags", /feature flags/i],
       ["/admin/quotas", /publishing quotas/i],
+      ["/admin/system", /three faces/i],
       ["/admin/privacy", /data subject requests/i],
       ["/admin/audit", /audit log/i],
     ] as const) {

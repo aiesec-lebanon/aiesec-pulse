@@ -14,6 +14,7 @@ export type AdminSections = {
   audit: boolean;
   roles: boolean;
   quotas: boolean;
+  system: boolean;
   privacy: boolean;
   flags: boolean;
 };
@@ -33,6 +34,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { href: "/admin/quotas", label: "Publishing quotas", section: "quotas" },
   { href: "/admin/privacy", label: "Data requests", section: "privacy" },
   { href: "/admin/flags", label: "Feature flags", section: "flags" },
+  { href: "/admin/system", label: "Design system", section: "system" },
 ];
 
 interface AdminShellProps {

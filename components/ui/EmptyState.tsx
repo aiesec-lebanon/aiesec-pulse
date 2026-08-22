@@ -1,68 +1,91 @@
 import Link from "next/link";
 
-import { FeedIllustration } from "@/components/feed/FeedIllustration";
 import { Reveal } from "@/components/motion/Reveal";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
 
 /**
- * The empty and error state, as one component.
+ * Empty and error states, as one component and as type rather than as
+ * illustration.
  *
- * The feed, search and topic-archive pages each carried their own copy of this
- * markup — same illustration, same float animation, three sets of headings at
- * two different levels.
+ * The floating glow-orb graphic went with the redesign. A drawing in an empty
+ * state is decoration standing where an explanation should be: it says
+ * "nothing here" in a language the rest of the product does not speak, and it
+ * looks the same whether the feed is empty, the search found nothing, or the
+ * network is down. A sentence set in the display serif says which.
  *
- * `tone` switches the heading colour for a failure rather than an absence,
- * which is the only variation any caller needs.
+ * `tone` switches the accent from brand blue to the warning colour — the one
+ * variation any caller has needed, and never the only cue, since the sentence
+ * itself says what happened.
  */
 export function EmptyState({
   heading,
+  accentWord,
   body,
   action,
+  secondaryAction,
   tone = "neutral",
   headingLevel = "h2",
+  eyebrow,
 }: {
   heading: string;
+  /** A word from `heading` to set italic in the accent colour. */
+  accentWord?: string;
   body: string;
   action?: { href: string; label: string };
+  /** A quieter second way out, when there is more than one. */
+  secondaryAction?: { href: string; label: string };
   tone?: "neutral" | "error";
   /** h1 where the empty state replaces the page's only heading. */
   headingLevel?: "h1" | "h2";
+  /** The state's own name, in the instrument register. */
+  eyebrow?: string;
 }) {
-  const Heading = headingLevel;
+  const accentColor = tone === "error" ? "var(--destructive-text)" : "var(--primary-text)";
 
+  // Left at the page margin rather than centred: a centred column of
+  // left-aligned text floats, and the states this replaces are the ones a
+  // reader lands on by accident — they should start where every other line on
+  // the page starts.
   return (
-    <div className="mx-auto flex max-w-sm flex-col items-center gap-7 px-6 py-24 text-center">
-      <Reveal y={16} scale={0.94} className="relative">
-        <div
-          aria-hidden
-          className="absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--glow-primary-soft)] blur-3xl"
+    <div className="flex w-full max-w-[52ch] flex-col items-start gap-6 py-24">
+      {eyebrow && (
+        <Reveal y={12}>
+          <p className="pulse-label pulse-label-wide">{eyebrow}</p>
+        </Reveal>
+      )}
+
+      <Reveal y={16}>
+        <DisplayTitle
+          as={headingLevel}
+          size="md"
+          title={heading}
+          accentWord={accentWord}
+          accentColor={accentColor}
+          className="text-[color:var(--foreground)]"
         />
-        <div
-          className="animate-float-drift pulse-ambient relative text-[color:var(--muted-foreground)] opacity-60"
-          aria-hidden="true"
-        >
-          <FeedIllustration className="h-auto w-36" />
-        </div>
       </Reveal>
 
-      <Reveal y={16} delay={90} className="flex flex-col gap-3">
-        <Heading
-          className={[
-            "text-[20px] font-bold leading-tight",
-            tone === "error"
-              ? "text-[color:var(--destructive-text)]"
-              : "text-[color:var(--foreground)]",
-          ].join(" ")}
-        >
-          {heading}
-        </Heading>
-        <p className="text-[16px] leading-[1.6] text-[color:var(--muted-foreground)]">{body}</p>
+      <Reveal y={16} delay={90}>
+        <p className="max-w-[46ch] text-[17px] leading-[1.6] text-[color:var(--muted-foreground)]">
+          {body}
+        </p>
       </Reveal>
 
-      {action && (
-        <Reveal y={16} delay={170}>
-          <Link href={action.href} className="aiesec-btn-primary">
-            {action.label}
-          </Link>
+      {(action || secondaryAction) && (
+        <Reveal y={16} delay={170} className="flex flex-wrap items-center gap-5">
+          {action && (
+            <Link href={action.href} className="pulse-action">
+              {action.label}
+            </Link>
+          )}
+          {secondaryAction && (
+            <Link
+              href={secondaryAction.href}
+              className="pulse-label pulse-underline min-h-[36px] inline-flex items-center rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            >
+              {secondaryAction.label}
+            </Link>
+          )}
         </Reveal>
       )}
     </div>

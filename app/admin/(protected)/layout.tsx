@@ -26,6 +26,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     audit: Boolean(admin),
     roles: Boolean(admin),
     quotas: Boolean(admin),
+    system: Boolean(admin),
     privacy: Boolean(admin),
     flags: Boolean(admin),
   };
