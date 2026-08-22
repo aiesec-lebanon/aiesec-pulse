@@ -140,13 +140,6 @@
   /* Distance authored motion is allowed to travel. Reduced motion sets this
      to 0 — elements still fade, they just stop moving. */
   --motion-travel: 1;
-
-  /* Backward-compat aliases (used by existing component classes) */
-  --surface: var(--card);
-  --brand: var(--primary);
-  --brand-contrast: var(--primary-foreground);
-  --accent-orange: var(--destructive);
-  --accent-teal: var(--success);
 }
 
 /* ── Dark mode overrides ──────────────────────────────────────────────────── */
