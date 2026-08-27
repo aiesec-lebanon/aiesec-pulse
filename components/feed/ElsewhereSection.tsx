@@ -1,27 +1,48 @@
 import { SidebarPostItem } from "@/components/feed/SidebarPostItem";
+import type { ElsewhereWindow } from "@/lib/feed";
 import type { FeedPost } from "@/types/feed";
 
 /**
  * 1b's closing section: a stat-led serif headline beside a numbered list of
  * headlines, over a scrolling ticker built from the same posts.
  *
- * `weeklyCount` is a real distinct-publisher count (`getWeeklyPublishingStat`
- * in `lib/feed.ts`) — the reference file's "Nine of them are near you" is
- * dropped rather than faked, since nothing here recomputes proximity for a
- * single headline number.
+ * The headline and the list now come from one query (`getElsewhereDigest`) and
+ * describe one window. They used to be independent — a seven-day publisher
+ * count over whatever came next in the feed — which put "1 entity has
+ * published this week" above a story from three months earlier. A stat that
+ * does not describe what is under it is worse than no stat (§0.8).
  */
+
+const WINDOW_PHRASE: Record<ElsewhereWindow, string> = {
+  week: "this week",
+  month: "this month",
+  all: "so far",
+};
+
+/** Enough entries that the marquee reaches both edges of its own track. */
+const MIN_TICKER_ENTRIES = 8;
+
 export function ElsewhereSection({
   posts,
-  weeklyCount,
+  entityCount,
+  window,
 }: {
   posts: FeedPost[];
-  weeklyCount: number;
+  entityCount: number;
+  window: ElsewhereWindow;
 }) {
   if (posts.length === 0) return null;
 
-  const tickerItems = posts.map(
+  const entries = posts.map(
     (post) => `${post.author.entityName ?? post.author.fullName} — ${post.title}`
   );
+
+  // One duplicate of a two-item list is a two-item list: the track measured
+  // ~600px on a 1240px page, so the marquee started halfway across and left
+  // the left half of the section blank. The set is repeated until it can fill
+  // a track, *then* doubled for the seamless -50% loop.
+  const repeats = Math.max(1, Math.ceil(MIN_TICKER_ENTRIES / entries.length));
+  const track = Array.from({ length: repeats }, () => entries).flat();
 
   return (
     <section
@@ -44,9 +65,9 @@ export function ElsewhereSection({
             id="feed-elsewhere-heading"
             className="pulse-serif pulse-serif-md pulse-balance text-[color:var(--foreground)]"
           >
-            {weeklyCount > 0
-              ? `${weeklyCount} ${weeklyCount === 1 ? "entity has" : "entities have"} published this week.`
-              : "Quiet across the network this week."}
+            {entityCount > 0
+              ? `${entityCount} ${entityCount === 1 ? "entity has" : "entities have"} published ${WINDOW_PHRASE[window]}.`
+              : "Quiet across the network."}
           </h2>
         </div>
 
@@ -57,20 +78,32 @@ export function ElsewhereSection({
         </div>
       </div>
 
-      {tickerItems.length > 0 && (
-        <div
-          aria-hidden
-          className="relative mt-14 overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]"
-        >
-          <div className="pulse-ambient pulse-ticker-track flex w-max gap-9 whitespace-nowrap">
-            {[...tickerItems, ...tickerItems].map((item, i) => (
-              <span key={i} className="pulse-label">
-                {item}
-              </span>
-            ))}
-          </div>
+      {/* Pulled out to the container's own edges: a marquee that stops short
+          of the page margin reads as a broken element rather than as a rule
+          running under the section. */}
+      <div
+        aria-hidden
+        className="relative -mx-6 mt-14 overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_10%,#000_90%,transparent)]"
+      >
+        <div className="pulse-ambient pulse-ticker-track flex w-max gap-9 whitespace-nowrap px-6">
+          {[...track, ...track].map((entry, i) => (
+            <span key={i} className="pulse-label pulse-label-wide">
+              {entry}
+            </span>
+          ))}
         </div>
-      )}
+      </div>
+
+      {/* The ticker is `aria-hidden`, so the entities it names are announced
+          once, here, in the register a screen reader can actually use. */}
+      <p className="sr-only">
+        Also publishing:{" "}
+        {posts
+          .map((post) => post.author.entityName ?? post.author.fullName)
+          .filter((name, i, all) => all.indexOf(name) === i)
+          .join(", ")}
+        .
+      </p>
     </section>
   );
 }

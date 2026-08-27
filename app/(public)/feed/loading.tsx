@@ -36,7 +36,7 @@ export default function FeedLoading() {
       {/* Rotator frame — dark, full-bleed (no border-radius, height-capped —
           matches HeroRotator exactly), with the index rail's column of dots
           down the left edge and the headline block bottom-left. */}
-      <div className="relative aspect-[4/5] max-h-[min(620px,82vh)] w-full overflow-hidden bg-[#161b22] sm:aspect-[16/10] lg:aspect-[21/9]">
+      <div className="relative aspect-[4/5] max-h-[min(620px,82vh)] w-full overflow-hidden bg-[#161b22] sm:aspect-[16/10] lg:aspect-[21/9] lg:max-h-[min(700px,88vh)] lg:min-h-[540px]">
         <span
           aria-hidden
           className="pulse-ambient absolute inset-0 -translate-x-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)]"
@@ -47,16 +47,16 @@ export default function FeedLoading() {
             <span key={i} className="h-[5px] w-[5px] rounded-full bg-white/25" />
           ))}
         </div>
-        <div className="absolute inset-x-6 bottom-6 sm:inset-x-8 sm:bottom-8 lg:bottom-12 lg:left-28 lg:right-10">
+        <div className="absolute inset-x-6 bottom-6 sm:inset-x-8 sm:bottom-[112px] lg:bottom-[156px] lg:left-28 lg:right-10">
           <div className="h-[18px] w-40 rounded-[var(--radius-sm)] bg-white/15" />
           <div className="mt-6 h-[52px] w-[92%] rounded-[var(--radius-sm)] bg-white/15 sm:w-3/4" />
           <div className="mt-3 h-[52px] w-2/3 rounded-[var(--radius-sm)] bg-white/15" />
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[1240px] px-6">
-        {/* Also-today rail */}
-        <div className="mt-16">
+      <div className="relative z-20 mx-auto w-full max-w-[1240px] px-6">
+        {/* The secondary rail, overlapping the frame above it from sm: up. */}
+        <div className="mt-12 sm:-mt-[96px] lg:-mt-[124px]">
           <Bone className="mb-5 h-3 w-28" />
           <div className="flex gap-5 overflow-hidden">
             {[0, 1, 2, 3].map((i) => (

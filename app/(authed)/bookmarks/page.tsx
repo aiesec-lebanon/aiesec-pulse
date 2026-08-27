@@ -1,74 +1,89 @@
-import Link from "next/link";
-
-import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
-import { Reveal } from "@/components/motion/Reveal";
+import { BookmarksList } from "@/components/bookmarks/BookmarksList";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
-import { getBookmarkedPosts } from "@/lib/feed";
+import { TextTabs } from "@/components/ui/TextTabs";
+import { getBookmarkedPosts, getBookmarksCount, getBookmarkTopics } from "@/lib/feed";
 import { requireSession } from "@/lib/rbac/guards";
 
 export const metadata = { title: "Bookmarks · AIESEC Pulse" };
 
+function hrefFor(page: number, topicId: string | undefined): string {
+  const qs = new URLSearchParams();
+  if (topicId) qs.set("topic", topicId);
+  if (page > 1) qs.set("page", String(page));
+  const query = qs.toString();
+  return query ? `/bookmarks?${query}` : "/bookmarks";
+}
+
 export default async function BookmarksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; topic?: string }>;
 }) {
   await requireSession();
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, topic: topicParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const { posts, hasNext } = await getBookmarkedPosts(page);
+  const [{ posts, hasNext }, total, topics] = await Promise.all([
+    getBookmarkedPosts(page, topicParam || undefined),
+    getBookmarksCount(),
+    getBookmarkTopics(),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-24">
-      <header className="border-b border-[var(--hairline)] pb-8 pt-12 sm:pt-16">
-        <Reveal y={16}>
-          <p className="pulse-label">
-            <Link
-              href="/feed"
-              className="pulse-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              Feed
-            </Link>
-            <span aria-hidden className="px-2">
-              /
-            </span>
-            <span className="text-[color:var(--foreground)]">Saved</span>
-          </p>
-          <h1 className="pulse-display pulse-display-md mt-5 text-[color:var(--foreground)]">
-            Bookmarks
-          </h1>
-          <p className="mt-3 max-w-[52ch] text-[17px] leading-[1.55] text-[color:var(--muted-foreground)]">
-            Posts you saved to come back to, newest first.
-          </p>
-        </Reveal>
-      </header>
+      <PageHeader
+        breadcrumb={[{ href: "/feed", label: "Feed" }, { label: "Saved" }]}
+        title="Bookmarks"
+        standfirst="Stories you have bookmarked across every topic, in one place — most recently saved first."
+        count={total}
+        countLabel="saved"
+      />
 
-      {posts.length === 0 && page === 1 ? (
+      {total === 0 ? (
         <EmptyState
+          eyebrow="Nothing saved"
           heading="No bookmarks yet."
-          body="Save a post from its bookmark icon and it will show up here."
+          accentWord="bookmarks"
+          body="Save a story from its bookmark icon — on the feed, a topic archive, or the story itself — and it will show up here."
           action={{ href: "/feed", label: "Browse the feed" }}
         />
       ) : (
-        <section aria-label="Your bookmarked posts" className="mt-12">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post, i) => (
-              <Reveal key={post.id} y={28} delay={(i % 3) * 80} className="h-full">
-                <SecondaryPostCard post={post} />
-              </Reveal>
-            ))}
-          </div>
-        </section>
+        <>
+          {topics.length > 0 && (
+            <TextTabs
+              ariaLabel="Filter by topic"
+              className="mt-10"
+              items={[
+                { href: hrefFor(1, undefined), label: "All", isActive: !topicParam },
+                ...topics.map((topic) => ({
+                  href: hrefFor(1, topic.id),
+                  label: topic.name,
+                  isActive: topicParam === topic.id,
+                })),
+              ]}
+            />
+          )}
+
+          {posts.length === 0 ? (
+            <EmptyState
+              heading="Nothing saved with this topic."
+              body="Clear the filter to see everything you've bookmarked."
+              action={{ href: "/bookmarks", label: "Show all bookmarks" }}
+            />
+          ) : (
+            <BookmarksList initialPosts={posts} />
+          )}
+        </>
       )}
 
       <Pagination
         label="Bookmarks pagination"
         page={page}
         hasNext={hasNext}
-        previousHref={page > 1 ? (page === 2 ? "/bookmarks" : `/bookmarks?page=${page - 1}`) : null}
-        nextHref={`/bookmarks?page=${page + 1}`}
+        previousHref={page > 1 ? hrefFor(page - 1, topicParam) : null}
+        nextHref={hrefFor(page + 1, topicParam)}
       />
     </main>
   );

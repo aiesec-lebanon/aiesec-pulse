@@ -3,7 +3,10 @@ import Link from "next/link";
 import type { Prisma } from "@/app/generated/prisma/client";
 import { type AuditRow, AuditTable } from "@/components/admin/AuditTable";
 import { PageSizeSelect } from "@/components/admin/PageSizeSelect";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { db } from "@/lib/db";
+import { entityDisplayName } from "@/lib/org/display";
 import { requireAdmin } from "@/lib/rbac/guards";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +62,10 @@ export default async function AdminAuditPage({
         })
       : Promise.resolve([]),
     entityIds.length > 0
-      ? db.entity.findMany({ where: { id: { in: entityIds } }, select: { id: true, name: true } })
+      ? db.entity.findMany({
+          where: { id: { in: entityIds } },
+          select: { id: true, name: true, kind: true },
+        })
       : Promise.resolve([]),
   ]);
 
@@ -76,7 +82,10 @@ export default async function AdminAuditPage({
       targetType: event.targetType,
       targetHref: post ? `/posts/${post.slug}` : null,
       targetLabel: post?.title ?? `${event.targetType} ${event.targetId.slice(-8)}`,
-      entityName: event.entityId ? (entityById.get(event.entityId)?.name ?? null) : null,
+      entityName: (() => {
+        const entity = event.entityId ? entityById.get(event.entityId) : undefined;
+        return entity ? (entityDisplayName(entity.name, entity.kind) ?? entity.name) : null;
+      })(),
       timestampAbs: event.createdAt.toLocaleString("en-GB", {
         day: "numeric",
         month: "short",
@@ -100,14 +109,17 @@ export default async function AdminAuditPage({
   };
 
   return (
-    <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Audit log</h1>
-      <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
-        Append-only. Entries are never edited or deleted — GDPR erasure removes the person, not the
-        event.
-      </p>
+    <main className="mx-auto w-full max-w-[1100px] px-4 pb-24 pt-8 sm:px-6">
+      <PageHeader
+        breadcrumb={[{ label: "Admin" }, { label: "Audit" }]}
+        title="Audit log"
+        standfirst="Append-only. Entries are never edited or deleted — GDPR erasure removes the person, not the event."
+        count={total}
+        countLabel={total === 1 ? "entry" : "entries"}
+        bordered={false}
+      />
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-8 flex flex-wrap items-center gap-3">
         <nav
           aria-label="Filter by actor"
           className="flex flex-wrap gap-1 rounded-[8px] bg-[var(--muted)] p-1"
@@ -159,11 +171,10 @@ export default async function AdminAuditPage({
 
       <div className="mt-3">
         {rows.length === 0 ? (
-          <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[color:var(--muted-foreground)]">
-              No entries match those filters.
-            </p>
-          </div>
+          <EmptyState
+            heading="No entries match those filters."
+            body="Try widening the filters above."
+          />
         ) : (
           <AuditTable rows={rows} />
         )}

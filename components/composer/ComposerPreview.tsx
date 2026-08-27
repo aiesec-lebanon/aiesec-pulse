@@ -1,10 +1,14 @@
 import type { TopicKind } from "@/app/generated/prisma/enums";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { TopicPill } from "@/components/ui/TopicPill";
 import { TopicPlate } from "@/components/ui/TopicPlate";
 import { excerptFrom, readingMinutes } from "@/lib/content/document";
+import { tokensForKind } from "@/lib/topics-shared";
 
 export type ComposerPreviewProps = {
   title: string;
+  /** The phrase chosen in `TitleAccentPicker`, so the preview shows the accent. */
+  titleAccent: string;
   bodyText: string;
   summary: string;
   imagePreview: string | null;
@@ -26,6 +30,7 @@ export type ComposerPreviewProps = {
  */
 export function ComposerPreview({
   title,
+  titleAccent,
   bodyText,
   summary,
   imagePreview,
@@ -48,7 +53,7 @@ export function ComposerPreview({
             // eslint-disable-next-line @next/next/no-img-element -- local object URL, same rationale as PostComposer's own dropzone preview
             <img src={imagePreview} alt="" className="h-full w-full object-cover" />
           ) : (
-            <TopicPlate entityName={plateEntity} kind={topic?.kind ?? "GENERAL"} />
+            <TopicPlate entityName={plateEntity} kind={topic?.kind ?? null} />
           )}
         </div>
         <div className="p-7">
@@ -60,9 +65,14 @@ export function ComposerPreview({
               </span>
             )}
           </p>
-          <h2 className="pulse-serif pulse-serif-sm pulse-balance break-words text-[color:var(--foreground)]">
-            {title.trim() || "Your headline will appear here"}
-          </h2>
+          <DisplayTitle
+            as="h2"
+            size="sm"
+            title={title.trim() || "Your headline will appear here"}
+            accentWord={titleAccent}
+            accentColor={topic ? tokensForKind(topic.kind).text : undefined}
+            className="break-words text-[color:var(--foreground)]"
+          />
           <p className="mt-4 text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
             {standfirst || "Your standfirst will appear here."}
           </p>

@@ -56,3 +56,62 @@ export function MotionToggle() {
     </button>
   );
 }
+
+/**
+ * The same preference as a menu row rather than an icon button — the form it
+ * takes inside the shell's account menu and mobile drawer, now that the header
+ * rail no longer carries a standalone Motion control.
+ *
+ * A row, not an icon: in a list of named destinations an unlabelled glyph is
+ * the one item a reader has to guess at. `role="menuitemcheckbox"` states what
+ * it is and what it currently is, the label names the setting rather than the
+ * action, and the trailing word names the value — so the control reads
+ * correctly whether it is announced or looked at.
+ */
+export function MotionMenuItem({
+  className,
+  role = "menuitemcheckbox",
+}: {
+  className?: string;
+  role?: "menuitemcheckbox" | "switch";
+}) {
+  const { motion, setMotion } = useMotion();
+  const reduced = motion === "reduced";
+
+  return (
+    <button
+      type="button"
+      role={role}
+      aria-checked={!reduced}
+      onClick={() => setMotion(reduced ? "full" : "reduced")}
+      className={className}
+    >
+      <span className="flex flex-1 items-center gap-2.5">
+        <span className="relative flex h-[15px] w-[15px] shrink-0 items-center justify-center">
+          <Zap
+            size={15}
+            strokeWidth={2}
+            aria-hidden
+            className="absolute transition-[opacity,transform] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]"
+            style={{
+              opacity: reduced ? 0 : 1,
+              transform: reduced ? "rotate(-90deg) scale(0.6)" : "none",
+            }}
+          />
+          <ZapOff
+            size={15}
+            strokeWidth={2}
+            aria-hidden
+            className="absolute transition-[opacity,transform] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]"
+            style={{
+              opacity: reduced ? 1 : 0,
+              transform: reduced ? "none" : "rotate(90deg) scale(0.6)",
+            }}
+          />
+        </span>
+        Animation
+      </span>
+      <span className="pulse-label shrink-0 text-[10px]">{reduced ? "Reduced" : "Full"}</span>
+    </button>
+  );
+}

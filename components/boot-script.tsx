@@ -12,9 +12,33 @@
  * One tag, emitted once, carrying both preferences. The nonce comes from
  * proxy.ts; without it the CSP blocks this outright, and neither a theme flash
  * nor a motion flash is worth `unsafe-inline`.
+ *
+ * Both preferences now resolve the same way — an explicit stored choice first,
+ * the OS setting second. For motion that is a change: the header no longer
+ * carries a standalone Motion button, so `prefers-reduced-motion` has to be
+ * honoured by default or a reader who set it years ago would get the full
+ * cinematic treatment with no way to have asked otherwise. The explicit
+ * control still exists (the account menu, and the sign-in page), and an
+ * explicit choice still wins over the OS in both directions — which is why
+ * "full" is now *written* rather than removed on opt-in.
  */
-const BOOT = `try{var d=document.documentElement,t=localStorage.getItem("theme");if(t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme:dark)").matches)){d.classList.add("dark")}d.setAttribute("data-motion",localStorage.getItem("pulse-motion")==="reduced"?"reduced":"full")}catch(e){document.documentElement.setAttribute("data-motion","full")}`;
+const BOOT = `try{var d=document.documentElement,t=localStorage.getItem("theme");if(t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme:dark)").matches)){d.classList.add("dark")}var m=localStorage.getItem("pulse-motion");d.setAttribute("data-motion",(m==="reduced"||(m!=="full"&&window.matchMedia("(prefers-reduced-motion:reduce)").matches))?"reduced":"full")}catch(e){document.documentElement.setAttribute("data-motion","full")}`;
 
 export function BootScript({ nonce }: { nonce?: string }) {
-  return <script id="pulse-boot" nonce={nonce} dangerouslySetInnerHTML={{ __html: BOOT }} />;
+  return (
+    <script
+      id="pulse-boot"
+      nonce={nonce}
+      // Browsers blank the `nonce` content attribute right after parsing it (a
+      // deliberate anti-exfiltration measure — see
+      // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#cryptographic-nonces),
+      // so the DOM reads back `nonce=""` even though the real nonce was applied
+      // for CSP purposes during the initial parse. React's hydration check
+      // compares against that already-blanked attribute and flags a mismatch
+      // that isn't one; suppress it the same way the `data-motion` divergence
+      // on <html> is suppressed in app/layout.tsx.
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: BOOT }}
+    />
+  );
 }

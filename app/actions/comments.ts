@@ -17,7 +17,7 @@ const commentSelect = {
   status: true,
   createdAt: true,
   user: {
-    select: { fullName: true, primaryEntity: { select: { name: true } } },
+    select: { fullName: true, primaryEntity: { select: { name: true, kind: true } } },
   },
 } as const;
 
@@ -186,7 +186,7 @@ export async function hideComment(
         });
       });
       revalidatePath(`/posts/${comment.post.slug}`);
-      revalidatePath("/admin/comments");
+      revalidatePath("/moderation/comments");
       return { ok: true as const };
     }
   );
@@ -231,7 +231,7 @@ export async function restoreComment(
         });
       });
       revalidatePath(`/posts/${comment.post.slug}`);
-      revalidatePath("/admin/comments");
+      revalidatePath("/moderation/comments");
       return { ok: true as const };
     }
   );

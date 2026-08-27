@@ -26,6 +26,7 @@ export function TopicPill({
       label={name}
       tint={tokens.fill}
       text={tokens.on}
+      square
       // `.pulse-label` is unlayered, so it wins over Pill's own size and
       // weight utilities without an `!important` on either side.
       className={["pulse-label px-2 py-1", className].filter(Boolean).join(" ")}

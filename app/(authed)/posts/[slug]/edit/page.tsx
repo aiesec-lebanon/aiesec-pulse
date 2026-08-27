@@ -10,6 +10,7 @@ import { listActiveTopics } from "@/lib/content/topics";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
 import { isEnabled } from "@/lib/flags";
+import { entityDisplayName } from "@/lib/org/display";
 import { availableAudiencesFor, publishingRoleKeyFor } from "@/lib/org/scope";
 import { quotaStateFor } from "@/lib/quota";
 import { requirePermission } from "@/lib/rbac/guards";
@@ -29,6 +30,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
       authorId: true,
       status: true,
       title: true,
+      titleAccent: true,
       bodyJson: true,
       summary: true,
       linkUrl: true,
@@ -52,7 +54,10 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
       isEnabled("posts.scheduling"),
       isEnabled("posts.targeting"),
       listActiveTopics(),
-      db.entity.findUnique({ where: { id: post.publisherEntityId }, select: { name: true } }),
+      db.entity.findUnique({
+        where: { id: post.publisherEntityId },
+        select: { name: true, kind: true },
+      }),
     ]);
   const audienceOptions = targetingEnabled
     ? await availableAudiencesFor(user, post.publisherEntityId)
@@ -100,9 +105,10 @@ export default async function EditDraftPage({ params }: { params: Promise<{ slug
         reachOptions={reachOptions}
         postId={post.id}
         authorDisplayName={user.fullName}
-        authorEntityName={authorEntity?.name ?? null}
+        authorEntityName={entityDisplayName(authorEntity?.name, authorEntity?.kind)}
         initialValues={{
           title: post.title,
+          titleAccent: post.titleAccent ?? "",
           bodyJson: sanitiseDocument(post.bodyJson),
           summary: post.summary ?? "",
           linkUrl: post.linkUrl ?? "",

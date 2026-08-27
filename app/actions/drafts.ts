@@ -77,7 +77,7 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
   const parsed = saveDraftSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
+  const { title, titleAccent, bodyJson, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
   const summaryValue = summary?.trim() || (bodyText ? excerptFrom(bodyText) : null);
 
@@ -141,6 +141,10 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
         where: { id: existing.id },
         data: {
           title,
+          // Sent in full each time rather than merged: clearing the highlight
+          // has to be expressible, and `undefined` in a Prisma `data` means
+          // "leave it alone".
+          titleAccent: titleAccent || null,
           summary: summaryValue,
           bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
           bodyText,
@@ -168,6 +172,7 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
         publisherEntityId: entityId,
         termLabel: currentTermLabel(),
         title,
+        titleAccent: titleAccent || null,
         summary: summaryValue,
         bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
         bodyText,
@@ -282,6 +287,7 @@ export async function publishDraft(
     promotionNote,
   } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
+  const accent = parsed.data.titleAccent || null;
 
   const roleKey = (await quotaRoleFor(user, post.publisherEntityId)) ?? NARROWEST_PUBLISHING_TIER;
   const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey, PostLevel.LOCAL);
@@ -352,6 +358,7 @@ export async function publishDraft(
       where: { id: postId },
       data: {
         title,
+        titleAccent: accent,
         summary: summary?.trim() || excerptFrom(bodyText),
         bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
         bodyText,
@@ -429,7 +436,7 @@ export async function publishDraft(
   revalidatePath("/feed");
   revalidatePath("/profile");
   revalidatePath("/drafts");
-  if (status === PostStatus.IN_REVIEW) revalidatePath("/admin/queue");
+  if (status === PostStatus.IN_REVIEW) revalidatePath("/review");
 
   return { ok: true, postId, slug, status };
 }

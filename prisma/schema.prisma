@@ -91,6 +91,12 @@ model User {
   fullName        String
   email           String?
   avatarUrl       String?
+  /// A member's own one-or-two sentences, shown as the standfirst on their
+  /// profile and on any story they wrote. Pulse-owned, not from GIS: GIS has no
+  /// field for it and no way for an application to write one back. Nullable
+  /// because most members will never set it, and a profile has to read
+  /// correctly with it empty.
+  bio             String?
   primaryEntityId String?
   locale          String     @default("en")
   timezone        String     @default("UTC")
@@ -272,6 +278,12 @@ model Post {
   termLabel         String?
 
   title          String
+  /// The phrase inside `title` the author chose to set italic in the topic's
+  /// colour — the editorial accent §0.3 of the design system describes. Stored
+  /// as the substring rather than an offset pair, so editing the rest of the
+  /// headline can never corrupt it: a phrase that no longer appears is simply
+  /// ignored at render (see `splitOnWord`).
+  titleAccent    String?
   summary        String?
   /// Portable rich-text document (TipTap/ProseMirror JSON).
   bodyJson       Json

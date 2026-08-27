@@ -3,12 +3,14 @@ import "server-only";
 import type { FollowState } from "@/app/actions/follows";
 import type { Prisma } from "@/app/generated/prisma/client";
 import {
+  type EntityKind,
   FollowTarget,
   type PostLevel,
   PostStatus,
   type TopicKind,
 } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { entityDisplayName } from "@/lib/org/display";
 import { type ScopeSet, scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { cached, cacheKeys } from "@/lib/redis";
@@ -23,6 +25,7 @@ const feedSelect = {
   id: true,
   slug: true,
   title: true,
+  titleAccent: true,
   summary: true,
   bodyText: true,
   readingMinutes: true,
@@ -35,7 +38,7 @@ const feedSelect = {
   author: {
     select: { id: true, fullName: true, avatarUrl: true },
   },
-  publisher: { select: { id: true, name: true, tag: true } },
+  publisher: { select: { id: true, name: true, tag: true, kind: true } },
   topics: { select: { topic: { select: { slug: true, name: true, kind: true } } } },
 } as const;
 
@@ -43,6 +46,7 @@ type FeedRow = {
   id: string;
   slug: string;
   title: string;
+  titleAccent: string | null;
   summary: string | null;
   bodyText: string;
   readingMinutes: number;
@@ -53,7 +57,7 @@ type FeedRow = {
   commentCount: number;
   cover: { path: string; altText: string | null; bucket: string } | null;
   author: { id: string; fullName: string; avatarUrl: string | null };
-  publisher: { id: string; name: string; tag: string | null };
+  publisher: { id: string; name: string; tag: string | null; kind: EntityKind };
   topics: Array<{ topic: { slug: string; name: string; kind: TopicKind } }>;
 };
 
@@ -90,6 +94,7 @@ function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>):
     id: row.id,
     slug: row.slug,
     title: row.title,
+    titleAccent: row.titleAccent,
     excerpt: row.summary ?? row.bodyText.slice(0, 200),
     readingMinutes: row.readingMinutes,
     level: row.level,
@@ -99,7 +104,10 @@ function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>):
       id: row.author.id,
       fullName: row.author.fullName,
       avatarUrl: row.author.avatarUrl,
-      entityName: row.publisher.name,
+      // The reader-facing brand lockup, resolved once at the boundary rather
+      // than at each of the fourteen surfaces that name a publisher — every
+      // one of which would otherwise have to remember the rule.
+      entityName: entityDisplayName(row.publisher.name, row.publisher.kind),
     },
     publisherEntityId: row.publisher.id,
     entityFollowState: entityFollowStates.get(row.publisher.id) ?? "none",
@@ -182,16 +190,24 @@ const TOPIC_PAGE_SIZE = 12;
 // Same audience-scoping as the main feed — a topic archive is never a way
 // around targeting: audience is a distribution control every reader-facing
 // surface honours identically.
+export type TopicSort = "recent" | "popular";
+
+const TOPIC_SORT_ORDER: Record<TopicSort, Prisma.PostOrderByWithRelationInput[]> = {
+  recent: [{ publishedAt: "desc" }, { id: "desc" }],
+  popular: [{ reactionCount: "desc" }, { publishedAt: "desc" }, { id: "desc" }],
+};
+
 export async function getTopicFeed(
   topicId: string,
-  page: number
+  page: number,
+  sort: TopicSort = "recent"
 ): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
 
   const rows = await db.post.findMany({
     where: { ...visiblePublishedWhere(scope), topics: { some: { topicId } } },
-    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    orderBy: TOPIC_SORT_ORDER[sort],
     skip: (page - 1) * TOPIC_PAGE_SIZE,
     take: TOPIC_PAGE_SIZE + 1,
     select: feedSelect,
@@ -207,6 +223,41 @@ export async function getTopicFeed(
   };
 }
 
+export type TopicStats = {
+  postCount: number;
+  entityCount: number;
+  followerCount: number;
+  avgReadingMinutes: number;
+};
+
+// The archive's own stat strip — every figure a real aggregate over the same
+// visibility-scoped rows the list itself shows, never a stand-in. There is no
+// "posts read" or "engagement" figure here because nothing upstream of this
+// query derives one honestly for a topic as a whole.
+export async function getTopicStats(topicId: string): Promise<TopicStats> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  const where = { ...visiblePublishedWhere(scope), topics: { some: { topicId } } };
+
+  const [postCount, entities, followerCount, avg] = await Promise.all([
+    db.post.count({ where }),
+    db.post.findMany({
+      where,
+      distinct: ["publisherEntityId"],
+      select: { publisherEntityId: true },
+    }),
+    db.follow.count({ where: { targetType: FollowTarget.TOPIC, targetId: topicId, muted: false } }),
+    db.post.aggregate({ where, _avg: { readingMinutes: true } }),
+  ]);
+
+  return {
+    postCount,
+    entityCount: entities.length,
+    followerCount,
+    avgReadingMinutes: Math.round(avg._avg.readingMinutes ?? 0),
+  };
+}
+
 const BOOKMARKS_PAGE_SIZE = 12;
 
 // Ordered by when the viewer bookmarked the post, not when it was published
@@ -215,18 +266,28 @@ const BOOKMARKS_PAGE_SIZE = 12;
 // a bookmark whose post has since been unpublished or fallen outside the
 // viewer's audience, same "never a way around targeting" rule getTopicFeed
 // already follows.
+/** A bookmarked post, plus when this reader saved it — UI ref 6a's own
+ *  "Saved today / 3 days ago" column, which is real `Bookmark.createdAt`
+ *  rather than the post's publication date. */
+export type BookmarkedPost = FeedPost & { savedAt: Date };
+
 export async function getBookmarkedPosts(
-  page: number
-): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
+  page: number,
+  topicId?: string
+): Promise<{ posts: BookmarkedPost[]; hasNext: boolean }> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
+  const postWhere = {
+    ...visiblePublishedWhere(scope),
+    ...(topicId ? { topics: { some: { topicId } } } : {}),
+  };
 
   const rows = await db.bookmark.findMany({
-    where: { userId: user.id, post: visiblePublishedWhere(scope) },
+    where: { userId: user.id, post: postWhere },
     orderBy: { createdAt: "desc" },
     skip: (page - 1) * BOOKMARKS_PAGE_SIZE,
     take: BOOKMARKS_PAGE_SIZE + 1,
-    select: { post: { select: feedSelect } },
+    select: { createdAt: true, post: { select: feedSelect } },
   });
   const page1 = rows.slice(0, BOOKMARKS_PAGE_SIZE);
   const entityFollowStates = await entityFollowStatesFor(user.id, [
@@ -234,9 +295,118 @@ export async function getBookmarkedPosts(
   ]);
 
   return {
-    posts: page1.map((r) => toFeedPost(r.post, entityFollowStates)),
+    posts: page1.map((r) => ({
+      ...toFeedPost(r.post, entityFollowStates),
+      savedAt: r.createdAt,
+    })),
     hasNext: rows.length > BOOKMARKS_PAGE_SIZE,
   };
+}
+
+export type BookmarkTopic = { id: string; name: string; kind: TopicKind };
+
+// The filter row's own options: only topics the viewer's bookmarks actually
+// carry, not every topic in the system — a chip for a topic with nothing
+// behind it is a dead end, not a filter.
+export async function getBookmarkTopics(): Promise<BookmarkTopic[]> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+
+  const rows = await db.postTopic.findMany({
+    where: { post: { bookmarks: { some: { userId: user.id } }, ...visiblePublishedWhere(scope) } },
+    distinct: ["topicId"],
+    select: { topic: { select: { id: true, name: true, kind: true } } },
+    orderBy: { topic: { name: "asc" } },
+  });
+
+  return rows.map((r) => r.topic);
+}
+
+export async function getBookmarksCount(): Promise<number> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  return db.bookmark.count({ where: { userId: user.id, post: visiblePublishedWhere(scope) } });
+}
+
+/** Exported so a profile's numbered index can continue its own numbering
+ *  across pages rather than restarting at 01 on page two. */
+export const PROFILE_PAGE_SIZE = 12;
+
+// Author and entity profiles both page through the same visibility-scoped
+// post list the feed and topic archive already enforce — a profile is not a
+// second way to see something the viewer's scope would otherwise hide.
+export async function getAuthorPosts(
+  authorId: string,
+  page: number
+): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+
+  const rows = await db.post.findMany({
+    where: { ...visiblePublishedWhere(scope), authorId },
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * PROFILE_PAGE_SIZE,
+    take: PROFILE_PAGE_SIZE + 1,
+    select: feedSelect,
+  });
+  const page1 = rows.slice(0, PROFILE_PAGE_SIZE);
+  const entityFollowStates = await entityFollowStatesFor(user.id, [
+    ...new Set(page1.map((r) => r.publisher.id)),
+  ]);
+
+  return {
+    posts: page1.map((r) => toFeedPost(r, entityFollowStates)),
+    hasNext: rows.length > PROFILE_PAGE_SIZE,
+  };
+}
+
+export async function getEntityPosts(
+  entityId: string,
+  page: number
+): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+
+  const rows = await db.post.findMany({
+    where: { ...visiblePublishedWhere(scope), publisherEntityId: entityId },
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * PROFILE_PAGE_SIZE,
+    take: PROFILE_PAGE_SIZE + 1,
+    select: feedSelect,
+  });
+  const page1 = rows.slice(0, PROFILE_PAGE_SIZE);
+  const entityFollowStates = await entityFollowStatesFor(user.id, [
+    ...new Set(page1.map((r) => r.publisher.id)),
+  ]);
+
+  return {
+    posts: page1.map((r) => toFeedPost(r, entityFollowStates)),
+    hasNext: rows.length > PROFILE_PAGE_SIZE,
+  };
+}
+
+export async function getAuthorPostCount(authorId: string): Promise<number> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  return db.post.count({ where: { ...visiblePublishedWhere(scope), authorId } });
+}
+
+export async function getEntityPostCount(entityId: string): Promise<number> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  return db.post.count({ where: { ...visiblePublishedWhere(scope), publisherEntityId: entityId } });
+}
+
+// A raw sum rather than PROFILE_PAGE_SIZE-limited: the profile's stat strip
+// states this author's total reach, not a per-page figure.
+export async function getAuthorReactionTotal(authorId: string): Promise<number> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  const result = await db.post.aggregate({
+    where: { ...visiblePublishedWhere(scope), authorId },
+    _sum: { reactionCount: true },
+  });
+  return result._sum.reactionCount ?? 0;
 }
 
 const RELATED_POSTS_LIMIT = 4;
@@ -722,26 +892,88 @@ export type TrendingAuthor = {
   postCount: number;
 };
 
-// A real count for the "Elsewhere in the network" headline, not a fabricated
-// one: distinct publishing entities visible to this viewer in the last 7
-// days. Same scope-filtered access pattern as getTrendingAuthors below —
-// audience is never bypassed for a headline number.
-export async function getWeeklyPublishingStat(): Promise<number> {
+/**
+ * The "Elsewhere in the network" section, as one query set rather than two
+ * unrelated ones.
+ *
+ * The bug this replaces was a real trust failure, not a layout problem: the
+ * headline counted distinct publishers *from the last seven days* while the
+ * list underneath showed whatever came next in the feed — so a reader saw "1
+ * entity has published this week" over a story dated three months ago. §0's
+ * Trust row and §0.8's "stat headlines are real numbers or nothing" both rule
+ * that out, and the fix is to make the number and the list describe the same
+ * window.
+ *
+ * The window widens until it has something to show. A network that has been
+ * quiet for a fortnight gets "published this month" over posts from this
+ * month, and a brand-new deployment gets "published so far" over everything
+ * it has. At no point does the sentence claim a period the rows below it do
+ * not come from — which is also why the window is returned rather than the
+ * caller being trusted to phrase it.
+ */
+export type ElsewhereWindow = "week" | "month" | "all";
+
+export type ElsewhereDigest = {
+  posts: FeedPost[];
+  /** Distinct publishing entities visible to this viewer, within `window`. */
+  entityCount: number;
+  window: ElsewhereWindow;
+};
+
+const ELSEWHERE_TAKE = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const ELSEWHERE_WINDOWS: Array<{ key: ElsewhereWindow; days: number | null }> = [
+  { key: "week", days: 7 },
+  { key: "month", days: 30 },
+  { key: "all", days: null },
+];
+
+export async function getElsewhereDigest(excludePostIds: string[]): Promise<ElsewhereDigest> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const now = Date.now();
 
-  const rows = await db.post.findMany({
-    where: {
-      status: PostStatus.PUBLISHED,
-      publishedAt: { gte: since },
-      ...visibilityFilter(scope),
-    },
-    distinct: ["publisherEntityId"],
-    select: { publisherEntityId: true },
-  });
+  for (const { key, days } of ELSEWHERE_WINDOWS) {
+    const since = days === null ? undefined : new Date(now - days * DAY_MS);
+    const where: Prisma.PostWhereInput = {
+      ...visiblePublishedWhere(scope),
+      ...(since ? { publishedAt: { gte: since, lte: new Date(now) } } : {}),
+      // The lead complex already has these five on screen. Repeating one in
+      // the closing index makes the page look shorter than it is.
+      ...(excludePostIds.length > 0 ? { id: { notIn: excludePostIds } } : {}),
+    };
 
-  return rows.length;
+    const [rows, publishers] = await Promise.all([
+      db.post.findMany({
+        where,
+        orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+        take: ELSEWHERE_TAKE,
+        select: feedSelect,
+      }),
+      db.post.findMany({
+        where,
+        distinct: ["publisherEntityId"],
+        select: { publisherEntityId: true },
+      }),
+    ]);
+
+    if (rows.length === 0 && key !== "all") continue;
+
+    const entityFollowStates = await entityFollowStatesFor(user.id, [
+      ...new Set(rows.map((r) => r.publisher.id)),
+    ]);
+
+    return {
+      posts: rows.map((r) => toFeedPost(r, entityFollowStates)),
+      entityCount: publishers.length,
+      window: key,
+    };
+  }
+
+  // Unreachable: the "all" window always returns, empty or not. Kept so the
+  // function is total rather than relying on the loop's shape.
+  return { posts: [], entityCount: 0, window: "all" };
 }
 
 async function topAuthorsBy(
@@ -765,7 +997,11 @@ async function topAuthorsBy(
 
   const authors = await db.user.findMany({
     where: { id: { in: top.map(([id]) => id) } },
-    select: { id: true, fullName: true, primaryEntity: { select: { name: true } } },
+    select: {
+      id: true,
+      fullName: true,
+      primaryEntity: { select: { name: true, kind: true } },
+    },
   });
 
   return top
@@ -775,7 +1011,7 @@ async function topAuthorsBy(
         ? {
             id,
             fullName: author.fullName,
-            entityName: author.primaryEntity?.name ?? null,
+            entityName: entityDisplayName(author.primaryEntity?.name, author.primaryEntity?.kind),
             postCount,
           }
         : null;

@@ -6,12 +6,7 @@ import { TrendingAuthorCard } from "@/components/feed/TrendingAuthorCard";
 import { Reveal } from "@/components/motion/Reveal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import {
-  getFeedPage,
-  getForYouFeedPage,
-  getTrendingAuthors,
-  getWeeklyPublishingStat,
-} from "@/lib/feed";
+import { getElsewhereDigest, getFeedPage, getForYouFeedPage, getTrendingAuthors } from "@/lib/feed";
 import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
 import { isEnabled } from "@/lib/flags";
 import { can } from "@/lib/rbac/can";
@@ -32,19 +27,17 @@ export default async function FeedPage({
   const cookieStore = await cookies();
   const mode = rankedAvailable ? parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value) : "latest";
 
-  const [{ posts, hasNext }, trendingAuthors, weeklyCount] = await Promise.all([
+  const [{ posts, hasNext }, trendingAuthors] = await Promise.all([
     mode === "for-you" ? getForYouFeedPage(page) : getFeedPage(page),
     page === 1 ? getTrendingAuthors() : Promise.resolve([]),
-    getWeeklyPublishingStat(),
   ]);
 
   // One shared pool of up to five posts feeds the whole lead complex: one is
-  // in the hero at a time, the other four fill the "also today" rail —
+  // in the hero at a time, the rest fill the "more top stories" rail —
   // FeedLead owns which is which and re-shuffles the rail as the hero
   // rotates, so a quiet day (fewer than five posts) never leaves the rail
   // empty the way two disjoint slices used to.
   const leadPool = posts.slice(0, 5);
-  const elsewhere = posts.slice(5, 8);
 
   const heading = mode === "for-you" ? "For you" : "Latest";
 
@@ -73,16 +66,27 @@ export default async function FeedPage({
     );
   }
 
+  // The closing index is its own query rather than the next slice of this page,
+  // so its headline count and its rows describe the same time window — see
+  // `getElsewhereDigest`. It excludes what the lead is already showing, and it
+  // runs only once there is a lead at all: an empty feed has nothing to be
+  // "elsewhere" from.
+  const elsewhere = await getElsewhereDigest(leadPool.map((post) => post.id));
+
   return (
     <main className="flex-1 pb-24">
       {pageHeading}
 
-      {/* Full-bleed hero, then the "also today" rail in the reading column —
+      {/* Full-bleed hero, then the secondary rail overlapping its bottom edge —
           FeedLead splits the two internally since they share `active`. */}
       <FeedLead posts={leadPool} />
 
       <div className="mx-auto w-full max-w-[1240px] px-6">
-        <ElsewhereSection posts={elsewhere} weeklyCount={weeklyCount} />
+        <ElsewhereSection
+          posts={elsewhere.posts}
+          entityCount={elsewhere.entityCount}
+          window={elsewhere.window}
+        />
 
         {trendingAuthors.length > 0 && (
           <section aria-labelledby="feed-trending" className="mt-24">

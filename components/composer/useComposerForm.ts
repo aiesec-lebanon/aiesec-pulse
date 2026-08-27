@@ -6,6 +6,8 @@ import { EMPTY_DOCUMENT, plainTextFromDocument, type PulseDocument } from "@/lib
 
 export type ComposerInitialValues = {
   title: string;
+  /** The phrase the author had chosen to accent, when resuming a draft. */
+  titleAccent: string;
   bodyJson: PulseDocument;
   summary: string;
   linkUrl: string;
@@ -32,6 +34,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
  */
 export function useComposerForm(initialValues?: ComposerInitialValues) {
   const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [titleAccent, setTitleAccent] = useState(initialValues?.titleAccent ?? "");
   const [bodyJson, setBodyJson] = useState<PulseDocument>(
     initialValues?.bodyJson ?? EMPTY_DOCUMENT
   );
@@ -123,6 +126,8 @@ export function useComposerForm(initialValues?: ComposerInitialValues) {
   return {
     title,
     setTitle,
+    titleAccent,
+    setTitleAccent,
     bodyJson,
     setBodyJson,
     summary,

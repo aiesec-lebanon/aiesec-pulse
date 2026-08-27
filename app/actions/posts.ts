@@ -91,6 +91,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
 
   const {
     title,
+    titleAccent,
     bodyJson,
     summary,
     linkUrl,
@@ -170,6 +171,9 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
         level: decision.level,
         ...(decision.stamp ?? {}),
         title,
+        // Sent in full each time rather than merged: clearing the highlight has
+        // to be expressible, and `undefined` in a Prisma `data` means "leave it".
+        titleAccent: titleAccent || null,
         summary: summary?.trim() || excerptFrom(bodyText),
         bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
         bodyText,
@@ -241,7 +245,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   revalidateTag("feed", "max");
   revalidatePath("/feed");
   revalidatePath("/profile");
-  if (status === PostStatus.IN_REVIEW) revalidatePath("/admin/queue");
+  if (status === PostStatus.IN_REVIEW) revalidatePath("/review");
 
   return { ok: true, postId: post.id, slug: post.slug, status };
 }
@@ -280,7 +284,7 @@ export async function resubmitPost(
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, topicIds } = parsed.data;
+  const { title, titleAccent, bodyJson, summary, linkUrl, topicIds } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
   const roleKey = (await quotaRoleFor(user, post.publisherEntityId)) ?? NARROWEST_PUBLISHING_TIER;
   const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey, PostLevel.LOCAL);
@@ -303,6 +307,7 @@ export async function resubmitPost(
       where: { id: postId },
       data: {
         title,
+        titleAccent: titleAccent || null,
         summary: summary?.trim() || excerptFrom(bodyText),
         bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
         bodyText,
@@ -352,7 +357,7 @@ export async function resubmitPost(
   revalidateTag("feed", "max");
   revalidatePath("/profile");
   revalidatePath("/feed");
-  if (status === PostStatus.IN_REVIEW) revalidatePath("/admin/queue");
+  if (status === PostStatus.IN_REVIEW) revalidatePath("/review");
 
   return { ok: true, status };
 }
@@ -387,7 +392,7 @@ export async function approvePost(
         data: { status: PostStatus.PUBLISHED, publishedAt: new Date() },
       });
       revalidateTag("feed", "max");
-      revalidatePath("/admin/queue");
+      revalidatePath("/review");
       revalidatePath("/feed");
       return { ok: true as const };
     }
@@ -424,7 +429,7 @@ export async function rejectPost(
         data: { status: PostStatus.REJECTED, rejectionReason: parsed.data.reason },
       });
       revalidateTag("feed", "max");
-      revalidatePath("/admin/queue");
+      revalidatePath("/review");
       revalidatePath("/feed");
       return { ok: true as const };
     }
@@ -463,7 +468,7 @@ export async function hidePost(
       });
       revalidateTag("feed", "max");
       revalidatePath("/feed");
-      revalidatePath("/admin/posts");
+      revalidatePath("/moderation/posts");
       return { ok: true as const };
     }
   );
@@ -501,7 +506,7 @@ export async function restorePost(
       });
       revalidateTag("feed", "max");
       revalidatePath("/feed");
-      revalidatePath("/admin/posts");
+      revalidatePath("/moderation/posts");
       return { ok: true as const };
     }
   );

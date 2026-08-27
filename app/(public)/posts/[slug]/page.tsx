@@ -1,5 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { promotionBudgetFor } from "@/app/actions/posts";
@@ -15,11 +16,13 @@ import { StoryHero } from "@/components/post-detail/StoryHero";
 import { UpNextRotator } from "@/components/post-detail/UpNextRotator";
 import { WhyThisAppeared } from "@/components/post-detail/WhyThisAppeared";
 import { PostAvatar } from "@/components/posts/_shared";
+import { EntityName } from "@/components/ui/EntityName";
 import { collectImageMediaIds, extractSections, sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
 import { getPostRankingBreakdown, getRelatedPosts, mediaUrl } from "@/lib/feed";
 import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
 import { isEnabled } from "@/lib/flags";
+import { entityDisplayName } from "@/lib/org/display";
 import { scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { relativeTime } from "@/lib/relative-time";
@@ -39,7 +42,7 @@ const commentSelect = {
   status: true,
   hiddenReason: true,
   createdAt: true,
-  user: { select: { fullName: true, primaryEntity: { select: { name: true } } } },
+  user: { select: { fullName: true, primaryEntity: { select: { name: true, kind: true } } } },
 } as const;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -69,6 +72,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
     select: {
       id: true,
       title: true,
+      titleAccent: true,
       summary: true,
       bodyJson: true,
       linkUrl: true,
@@ -80,8 +84,8 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
       commentCount: true,
       publisherEntityId: true,
       cover: { select: { bucket: true, path: true, altText: true } },
-      author: { select: { fullName: true, avatarUrl: true } },
-      publisher: { select: { name: true } },
+      author: { select: { id: true, fullName: true, avatarUrl: true } },
+      publisher: { select: { name: true, kind: true } },
       reactions: { where: { userId: user.id }, take: 1, select: { userId: true } },
       bookmarks: { where: { userId: user.id }, take: 1, select: { userId: true } },
       topics: {
@@ -97,10 +101,10 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   // render function over whatever lookup its caller already has.
   const sanitisedBody = sanitiseDocument(post.bodyJson);
   const imageMediaIds = collectImageMediaIds(sanitisedBody);
-  // A rail with zero or one entry is a table of contents for nothing —
-  // most short "update" posts carry no headings at all.
+  // The section list needs two or more headings to be a table of contents at
+  // all; the reading rail itself is unconditional, because every article has
+  // progress. `ReadingIndex` owns that distinction — see its own note.
   const sections = extractSections(sanitisedBody);
-  const hasIndex = sections.length >= 2;
 
   const [initialComments, inlineMedia, rankingBreakdown, relatedPosts, promotionBudget] =
     await Promise.all([
@@ -136,9 +140,13 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   const publishedAt = post.publishedAt ?? post.createdAt;
   const cover = mediaUrl(post.cover);
   const primaryTopic = post.topics[0]?.topic ?? null;
+  // "Lebanon" is a country; "AIESEC in Lebanon" is the office that published
+  // this. Resolved once here and threaded through every surface on the page.
+  const publisherName =
+    entityDisplayName(post.publisher.name, post.publisher.kind) ?? post.publisher.name;
 
   const specCells = [
-    { label: "Entity", value: post.publisher.name },
+    { label: "Entity", value: <EntityName name={publisherName} /> },
     {
       label: "Published",
       value: (
@@ -161,32 +169,29 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
 
       <StoryHero
         title={post.title}
+        titleAccent={post.titleAccent}
         cover={cover}
         coverAlt={post.cover?.altText ?? ""}
         primaryTopic={primaryTopic}
-        entityName={post.publisher.name}
+        entityName={publisherName}
         specCells={specCells}
       />
 
-      <div
-        className={[
-          "mx-auto w-full max-w-[1240px] px-6",
-          hasIndex ? "lg:grid lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start lg:gap-12" : "",
-        ].join(" ")}
-      >
-        {hasIndex && (
-          <aside className="hidden lg:sticky lg:top-[calc(var(--rail-h)+40px)] lg:block">
-            <p className="pulse-label mb-5">In this story</p>
-            <ReadingIndex sections={sections} contentId="story-content" />
-          </aside>
-        )}
+      {/* The reading column starts a clear step below the hero — without it the
+          rail's first hairline landed flush against the bottom edge of the
+          hero's spec strip, two unrelated rules touching. The rail column is
+          unconditional now: it always carries the read percentage, and adds the
+          section list when the story has headings to list. */}
+      <div className="mx-auto w-full max-w-[1240px] px-6 pt-12 lg:grid lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start lg:gap-12 lg:pt-16">
+        <aside className="pulse-sticky-rail hidden lg:block">
+          {/* Measured against the prose, not the column: everything after the
+              last paragraph is not reading. */}
+          <ReadingIndex sections={sections} contentId="story-body" />
+        </aside>
 
-        <div
-          id="story-content"
-          className={["mx-auto w-full max-w-[760px]", hasIndex ? "lg:mx-0" : ""].join(" ")}
-        >
+        <div id="story-content" className="mx-auto w-full max-w-[760px] lg:mx-0">
           <Reveal y={20} delay={80}>
-            <div className="mt-10 flex flex-wrap justify-between gap-x-3 gap-y-3 border-y border-[var(--hairline)] py-5">
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-3 border-y border-[var(--hairline)] py-5">
               <div className="flex items-center gap-3">
                 <PostAvatar
                   fullName={post.author.fullName}
@@ -194,12 +199,18 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
                   size="md"
                 />
                 <div className="min-w-0">
-                  <p className="text-[15px] font-bold leading-tight text-[color:var(--foreground)]">
+                  <Link
+                    href={`/authors/${post.author.id}`}
+                    className="pulse-underline block truncate text-[15px] font-bold leading-tight text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  >
                     {post.author.fullName}
-                  </p>
-                  <p className="mt-0.5 text-[13px] text-[color:var(--muted-foreground)]">
-                    {post.publisher.name}
-                  </p>
+                  </Link>
+                  <Link
+                    href={`/entities/${post.publisherEntityId}`}
+                    className="pulse-underline mt-0.5 block truncate text-[13px] text-[color:var(--muted-foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  >
+                    <EntityName name={publisherName} />
+                  </Link>
                 </div>
               </div>
 
@@ -214,7 +225,9 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
           </Reveal>
 
           <Reveal y={20} delay={180} className="mt-10 max-w-[70ch]">
-            <DocumentRenderer doc={post.bodyJson} media={bodyMedia} />
+            <div id="story-body">
+              <DocumentRenderer doc={post.bodyJson} media={bodyMedia} />
+            </div>
           </Reveal>
 
           {post.linkUrl && (

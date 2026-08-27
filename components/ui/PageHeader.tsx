@@ -26,6 +26,7 @@ export function PageHeader({
   countLabel,
   actions,
   bordered = true,
+  eyebrow,
 }: {
   title: string;
   standfirst?: string;
@@ -36,6 +37,8 @@ export function PageHeader({
   countLabel?: string;
   actions?: React.ReactNode;
   bordered?: boolean;
+  /** A small decorative mark above the breadcrumb — the topic-colour dots a few hero-led pages open with. */
+  eyebrow?: React.ReactNode;
 }) {
   return (
     <header
@@ -43,6 +46,12 @@ export function PageHeader({
         " "
       )}
     >
+      {eyebrow && (
+        <Reveal y={12} className="mb-5">
+          {eyebrow}
+        </Reveal>
+      )}
+
       <Reveal y={16}>
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
           {breadcrumb && breadcrumb.length > 0 && (

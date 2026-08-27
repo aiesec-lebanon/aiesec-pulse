@@ -80,6 +80,13 @@ export const createPostSchema = z
       .trim()
       .min(3, "Give your post a title of at least 3 characters")
       .max(200, "Titles are limited to 200 characters"),
+    // The phrase the author chose to set italic in the topic's colour. Stored
+    // as the substring rather than an offset pair, so editing the rest of the
+    // headline cannot corrupt it; a phrase that no longer appears is ignored at
+    // render rather than mis-highlighting. Not validated against the title:
+    // that would reject a legitimate edit-then-retype, and the render path is
+    // already safe when it does not match.
+    titleAccent: z.string().trim().max(200, "Highlights are limited to 200 characters").optional(),
     bodyJson: bodyJsonField,
     summary: z.string().trim().max(400, "Summaries are limited to 400 characters").optional(),
     linkUrl: optionalHttpUrl,
@@ -128,6 +135,7 @@ const draftBodyJsonField = z
 
 export const saveDraftSchema = z.object({
   title: z.string().trim().max(200, "Titles are limited to 200 characters").default(""),
+  titleAccent: z.string().trim().max(200, "Highlights are limited to 200 characters").optional(),
   bodyJson: draftBodyJsonField,
   summary: z.string().trim().max(400, "Summaries are limited to 400 characters").optional(),
   linkUrl: optionalHttpUrl,
@@ -174,6 +182,17 @@ export const promotePostSchema = z.object({
     .min(5, "Say why this is worth the whole network's attention")
     .max(500, "Notes are limited to 500 characters"),
 });
+
+/**
+ * A member's own standfirst. 280 characters because it is a standfirst, not an
+ * essay: the profile hero gives it a 46ch measure and three lines, and anything
+ * longer stops being a line a reader takes in at a glance. Empty clears it —
+ * "remove my bio" has to be expressible.
+ */
+export const updateBioSchema = z.object({
+  bio: z.string().trim().max(280, "Keep your bio to 280 characters or fewer"),
+});
+export type UpdateBioInput = z.infer<typeof updateBioSchema>;
 
 export const dataSubjectRequestSchema = z.object({
   kind: z.enum(["ACCESS", "EXPORT", "RECTIFICATION", "ERASURE", "OBJECTION"]),

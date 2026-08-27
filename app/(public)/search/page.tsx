@@ -2,6 +2,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { SearchForm, type SearchFormInitial } from "@/components/search/SearchForm";
 import { SearchResultRow } from "@/components/search/SearchResultRow";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { listActiveTopics } from "@/lib/content/topics";
 import { requireSession } from "@/lib/rbac/guards";
@@ -71,17 +72,19 @@ export default async function SearchPage({
 
   return (
     <main className="mx-auto w-full max-w-[940px] flex-1 px-6 pb-24">
-      <header className="pb-8 pt-12 sm:pt-16">
-        <Reveal y={16}>
-          <h1 className="pulse-display pulse-display-md text-[color:var(--foreground)]">Search</h1>
-          <p className="mt-3 max-w-[52ch] text-[17px] leading-[1.55] text-[color:var(--muted-foreground)]">
-            Everything published across the network, by keyword — then narrowed by topic, entity,
-            type or date.
-          </p>
-        </Reveal>
-      </header>
+      <PageHeader
+        title="Search"
+        standfirst="Everything published across the network, by keyword — then narrowed by topic, entity, type or date."
+        eyebrow={
+          <span aria-hidden className="inline-flex gap-1.5">
+            <span className="h-[7px] w-[7px] rounded-full bg-[var(--topic-programme)]" />
+            <span className="h-[7px] w-[7px] rounded-full bg-[var(--topic-function)]" />
+            <span className="h-[7px] w-[7px] rounded-full bg-[var(--topic-general)]" />
+          </span>
+        }
+      />
 
-      <Reveal y={16} delay={80}>
+      <Reveal y={16} delay={80} className="mt-10">
         <SearchForm topics={topics} entities={entities} initial={initial} />
       </Reveal>
 

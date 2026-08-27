@@ -172,7 +172,7 @@ test.describe("approval queue", () => {
     // The approver sits a level up: `post.approve` is granted at the MC, and a
     // scoped grant covers the whole subtree beneath it, so an MCVP can act on a
     // post published in either of its LCs.
-    await signInAs("mc_vp", "/admin/queue", isolate);
+    await signInAs("mc_vp", "/review", isolate);
 
     const card = page.locator("article", { hasText: title });
     await expect(card).toBeVisible();

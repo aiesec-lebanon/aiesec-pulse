@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { EntityName } from "@/components/ui/EntityName";
 import { relativeTime } from "@/lib/relative-time";
 import type { FeedPost } from "@/types/feed";
 
@@ -52,10 +53,11 @@ export function SidebarPostItem({ post, index }: { post: FeedPost; index?: numbe
         <h3 className="line-clamp-2 text-[16px] font-bold leading-[1.35] text-[color:var(--foreground)] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] group-hover:text-[color:var(--primary-text)]">
           {post.title}
         </h3>
-        <p className="pulse-label mt-2 truncate text-[10px]">
-          <span className="normal-case tracking-[0.06em]">
-            {post.author.entityName ?? post.author.fullName}
-          </span>
+        <p className="pulse-label mt-2 truncate">
+          <EntityName
+            name={post.author.entityName ?? post.author.fullName}
+            className="normal-case tracking-[0.06em]"
+          />
         </p>
       </div>
 

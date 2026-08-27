@@ -4,6 +4,7 @@ import { reachOptionsFor } from "@/lib/content/level";
 import { listActiveTopics } from "@/lib/content/topics";
 import { db } from "@/lib/db";
 import { isEnabled } from "@/lib/flags";
+import { entityDisplayName } from "@/lib/org/display";
 import { availableAudiencesFor, publishingRoleKeyFor } from "@/lib/org/scope";
 import { quotaStateFor } from "@/lib/quota";
 import { requirePermission } from "@/lib/rbac/guards";
@@ -19,7 +20,10 @@ export default async function NewPostPage() {
       isEnabled("posts.targeting"),
       listActiveTopics(),
       user.primaryEntityId
-        ? db.entity.findUnique({ where: { id: user.primaryEntityId }, select: { name: true } })
+        ? db.entity.findUnique({
+            where: { id: user.primaryEntityId },
+            select: { name: true, kind: true },
+          })
         : Promise.resolve(null),
     ]);
   const audienceOptions =
@@ -72,7 +76,7 @@ export default async function NewPostPage() {
         topics={topics}
         reachOptions={reachOptions}
         authorDisplayName={user.fullName}
-        authorEntityName={authorEntity?.name ?? null}
+        authorEntityName={entityDisplayName(authorEntity?.name, authorEntity?.kind)}
       />
     </main>
   );

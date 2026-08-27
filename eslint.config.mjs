@@ -78,6 +78,10 @@ const eslintConfig = defineConfig([
     "app/generated/**",
     "playwright-report/**",
     "test-results/**",
+    // The Claude Design canvas export. A read-only visual reference (and
+    // gitignored), not source — linting it reports on generated markup nobody
+    // will ever edit.
+    "UI ref/**",
   ]),
 ]);
 

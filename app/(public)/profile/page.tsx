@@ -1,33 +1,47 @@
-import { ArrowUpRight, Heart, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { Reveal } from "@/components/motion/Reveal";
+import { BioEditor } from "@/components/profile/BioEditor";
+import { ProfileHero } from "@/components/profile/ProfileHero";
+import { ProfileIndexRail, type ProfileSection } from "@/components/profile/ProfileIndexRail";
+import { PublishedIndexRow } from "@/components/profile/PublishedIndexRow";
 import { RejectedPostPanel } from "@/components/profile/RejectedPostPanel";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { listActiveTopics } from "@/lib/content/topics";
 import { db } from "@/lib/db";
 import { mediaUrl } from "@/lib/feed";
 import { isEnabled } from "@/lib/flags";
+import { getAuthorProfile } from "@/lib/profile";
 import { can } from "@/lib/rbac/can";
 import { requireSession } from "@/lib/rbac/guards";
-import { relativeTime } from "@/lib/relative-time";
+import { initialsOf } from "@/lib/topics-shared";
 
-function avatarInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
+export const metadata = { title: "Your posts · AIESEC Pulse" };
 
+/**
+ * The member's own page, built on UI ref **4a**'s composition — the angled
+ * initials hero, the four-cell stat strip, the sticky section index beside a
+ * single reading column.
+ *
+ * It is 4a's *layout*, not 4a's content, because this page answers a different
+ * question from a public author profile: not "what has this person published?"
+ * but "what is happening to everything I wrote?". So the index tracks
+ * lifecycle sections — published, waiting, needs another look — and the
+ * numbered index rows are reserved for the posts that are actually live and
+ * therefore linkable. A rejected post is not a destination; it is a task, and
+ * it keeps its editing panel.
+ *
+ * 4a's overview paragraph, pull-quote and "recognition" cards are dropped
+ * rather than invented: `User` carries no bio, quote or award field. The
+ * standfirst is a factual line assembled from what a query can answer.
+ */
 export default async function ProfilePage() {
   const user = await requireSession();
   const canPublish = await can(user, "post.publish");
 
-  const [posts, entity, richTextEnabled, topics] = await Promise.all([
+  const [posts, profile, richTextEnabled, topics] = await Promise.all([
     db.post.findMany({
       where: { authorId: user.id },
       orderBy: { createdAt: "desc" },
@@ -35,6 +49,7 @@ export default async function ProfilePage() {
         id: true,
         slug: true,
         title: true,
+        titleAccent: true,
         summary: true,
         bodyText: true,
         bodyJson: true,
@@ -48,251 +63,243 @@ export default async function ProfilePage() {
         reactionCount: true,
         commentCount: true,
         cover: { select: { bucket: true, path: true, altText: true } },
-        topics: { select: { topicId: true } },
+        topics: { select: { topicId: true, topic: { select: { name: true, kind: true } } } },
       },
     }),
-    user.primaryEntityId
-      ? db.entity.findUnique({ where: { id: user.primaryEntityId }, select: { name: true } })
-      : Promise.resolve(null),
+    // The viewer's own author profile: position title, entity (already the
+    // brand lockup), follower count, and when they joined. Reused rather than
+    // re-queried so the two profile surfaces cannot disagree about a member.
+    getAuthorProfile(user.id),
     isEnabled("posts.rich_text"),
     listActiveTopics(),
   ]);
 
   const published = posts.filter((p) => p.status === PostStatus.PUBLISHED);
-  const inReview = posts.filter((p) => p.status === PostStatus.IN_REVIEW);
-  const rejected = posts.filter((p) => p.status === PostStatus.REJECTED);
+  const waiting = posts.filter(
+    (p) => p.status === PostStatus.IN_REVIEW || p.status === PostStatus.SCHEDULED
+  );
+  const attention = posts.filter(
+    (p) => p.status === PostStatus.REJECTED || p.status === PostStatus.HIDDEN
+  );
   const totalReactions = posts.reduce((sum, p) => sum + p.reactionCount, 0);
   const totalComments = posts.reduce((sum, p) => sum + p.commentCount, 0);
 
-  const memberSince = user.createdAt.toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-  });
+  const memberSinceYear = user.createdAt.getFullYear();
+  const entityName = profile?.primaryEntity?.name ?? null;
+
+  const sections: ProfileSection[] = [
+    published.length > 0
+      ? { id: "profile-published", label: `Published (${published.length})` }
+      : null,
+    waiting.length > 0 ? { id: "profile-waiting", label: `Waiting (${waiting.length})` } : null,
+    attention.length > 0
+      ? { id: "profile-attention", label: `Needs a look (${attention.length})` }
+      : null,
+  ].filter((section): section is ProfileSection => section !== null);
+
+  const hasRail = sections.length >= 2;
 
   return (
-    <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-24">
-      <header className="border-b border-[var(--hairline)] pb-10 pt-12 sm:pt-16">
-        <Reveal y={16}>
-          <p className="pulse-label">
-            <Link
-              href="/feed"
-              className="pulse-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              Feed
-            </Link>
-            <span aria-hidden className="px-2">
-              /
-            </span>
-            <span className="text-[color:var(--foreground)]">Your posts</span>
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-end justify-between gap-x-8 gap-y-6">
-            <div className="flex items-center gap-5">
-              <span
-                aria-hidden
-                className="flex h-16 w-16 shrink-0 select-none items-center justify-center rounded-full bg-[var(--primary-fill)] text-[20px] font-bold text-[color:var(--primary-foreground)] shadow-[var(--elev-2)]"
-              >
-                {avatarInitials(user.fullName)}
-              </span>
-              <div>
-                <h1 className="pulse-display pulse-display-md text-[color:var(--foreground)]">
-                  {user.fullName}
-                </h1>
-                <p className="mt-2 text-[15px] text-[color:var(--muted-foreground)]">
-                  {entity?.name ? `${entity.name} · ` : ""}Member since {memberSince}
-                </p>
-              </div>
-            </div>
-
-            {canPublish && (
-              <div className="flex shrink-0 flex-wrap gap-3">
-                <Link href="/posts/new" className="aiesec-btn-primary">
-                  New post
-                </Link>
-                <Link href="/drafts" className="aiesec-btn-secondary">
-                  Drafts
-                </Link>
-              </div>
-            )}
-          </div>
-        </Reveal>
-      </header>
-
-      {/* One statistics row, not two. The page previously opened with a 4-up
-          of post counts and then closed with a second 2-up of engagement
-          counts, so the same reader question ("how is my publishing going?")
-          was answered in two places in two shapes. */}
-      <Reveal y={20} delay={80}>
-        <dl className="mt-10 grid grid-cols-2 gap-x-10 gap-y-8 border-b border-[var(--hairline)] pb-10 sm:grid-cols-3 lg:grid-cols-5">
-          <Stat label="Published" value={published.length} accent="success" />
-          <Stat label="In review" value={inReview.length} accent="warning" />
-          <Stat label="Rejected" value={rejected.length} accent="muted" />
-          <Stat label="Reactions" value={totalReactions} accent="primary" />
-          <Stat label="Comments" value={totalComments} accent="primary" />
-        </dl>
-      </Reveal>
-
-      <section aria-labelledby="profile-posts" className="mt-12">
-        <h2 id="profile-posts" className="pulse-label mb-6">
-          Your posts ({posts.length})
-        </h2>
-
-        {posts.length === 0 ? (
-          <div className="pulse-plate px-8 py-14 text-center">
-            <p className="mx-auto max-w-[40ch] text-[16px] leading-[1.6] text-[color:var(--muted-foreground)]">
-              {canPublish
-                ? "You haven't posted anything yet."
-                : "You haven't posted anything. Publishing is available to entity publishers and editors."}
-            </p>
-            {canPublish && (
-              <Link href="/posts/new" className="aiesec-btn-primary mt-6 inline-flex">
-                Write your first update
+    <main className="flex-1 pb-24">
+      <ProfileHero
+        kicker="You"
+        initials={initialsOf(user.fullName)}
+        name={user.fullName}
+        positionTitle={profile?.positionTitle ?? null}
+        entityName={entityName}
+        standfirstSlot={<BioEditor initialBio={profile?.bio ?? null} />}
+        specLabel="Your publishing totals"
+        specCells={[
+          { label: "Published", value: <span className="tabular">{published.length}</span> },
+          { label: "Reactions", value: <span className="tabular">{totalReactions}</span> },
+          { label: "Comments", value: <span className="tabular">{totalComments}</span> },
+          { label: "On Pulse since", value: <span className="tabular">{memberSinceYear}</span> },
+        ]}
+        actions={
+          canPublish ? (
+            <>
+              <Link href="/posts/new" className="pulse-action">
+                New post
               </Link>
-            )}
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {posts.map((post) => {
-              const shownAt = post.publishedAt ?? post.createdAt;
-              const isPublished = post.status === PostStatus.PUBLISHED;
+              <Link
+                href="/drafts"
+                className="pulse-label inline-flex min-h-[44px] items-center rounded-[3px] border border-[var(--hairline)] px-5 text-[color:var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              >
+                Drafts
+              </Link>
+            </>
+          ) : undefined
+        }
+      />
 
-              return (
-                <li key={post.id} className="pulse-plate pulse-plate-interactive p-5">
-                  <div className="flex flex-wrap items-start gap-3">
-                    <StatusPill status={post.status} className="mt-0.5" />
+      {/* The rail only earns its column when it has more than one section to
+          track (`ProfileIndexRail` renders nothing below that). Without the
+          condition, a profile with a single section left a blank 230px gutter
+          and pushed its only content a third of the way across the page. */}
+      <div
+        className={[
+          "mx-auto w-full max-w-[1240px] px-6 pt-14",
+          hasRail ? "grid grid-cols-1 items-start gap-12 lg:grid-cols-[230px_minmax(0,1fr)]" : "",
+        ].join(" ")}
+      >
+        {hasRail && (
+          <aside className="pulse-sticky-rail hidden lg:block">
+            <ProfileIndexRail sections={sections} label="On this profile" />
+          </aside>
+        )}
 
-                    <div className="min-w-0 flex-1">
-                      {isPublished ? (
-                        <Link
-                          href={`/posts/${post.slug}`}
-                          className="text-[15px] font-bold leading-snug text-[color:var(--foreground)] transition-colors hover:text-[color:var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                        >
-                          {post.title}
-                        </Link>
-                      ) : (
-                        <p className="text-[15px] font-bold leading-snug text-[color:var(--foreground)]">
-                          {post.title}
-                        </p>
-                      )}
-                    </div>
+        <div className="min-w-0 max-w-[860px]">
+          {posts.length === 0 ? (
+            <EmptyState
+              eyebrow="Nothing yet"
+              heading="You haven't published anything yet."
+              accentWord="published"
+              body={
+                canPublish
+                  ? "Write your first update and it will appear here the moment it goes out."
+                  : "Publishing is available to entity publishers and editors. Ask an editor in your entity if you would like to write."
+              }
+              action={
+                canPublish ? { href: "/posts/new", label: "Write your first update" } : undefined
+              }
+            />
+          ) : (
+            <>
+              {published.length > 0 && (
+                <Section id="profile-published" heading="Published">
+                  {published.map((post, i) => (
+                    <PublishedIndexRow
+                      key={post.id}
+                      index={i + 1}
+                      href={`/posts/${post.slug}`}
+                      title={post.title}
+                      topic={post.topics[0]?.topic ?? null}
+                      at={post.publishedAt ?? post.createdAt}
+                    />
+                  ))}
+                </Section>
+              )}
 
-                    <div className="flex shrink-0 flex-wrap items-center gap-3 text-[13px] text-[color:var(--muted-foreground)]">
-                      {isPublished && (
+              {waiting.length > 0 && (
+                <Section id="profile-waiting" heading="Waiting">
+                  {waiting.map((post) => (
+                    <PendingRow key={post.id} status={post.status} title={post.title}>
+                      {post.status === PostStatus.IN_REVIEW && (
                         <>
-                          <span className="flex items-center gap-1">
-                            <Heart size={12} strokeWidth={2} aria-hidden />
-                            {post.reactionCount}
-                            <span className="sr-only"> reactions</span>
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <MessageCircle size={12} strokeWidth={2} aria-hidden />
-                            {post.commentCount}
-                            <span className="sr-only"> comments</span>
-                          </span>
+                          Waiting for an editor in your entity to review — usually within 24 hours.
                         </>
                       )}
-                      <time dateTime={shownAt.toISOString()}>{relativeTime(shownAt)}</time>
-                      {isPublished && (
-                        <Link
-                          href={`/posts/${post.slug}`}
-                          className="flex min-h-[24px] items-center gap-1 rounded-[var(--radius-sm)] text-[13px] font-medium text-[color:var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                        >
-                          View<span className="sr-only"> {post.title}</span>
-                          <ArrowUpRight size={13} strokeWidth={2.5} aria-hidden />
-                        </Link>
+                      {post.status === PostStatus.SCHEDULED && post.scheduledAt && (
+                        <>
+                          Scheduled to publish{" "}
+                          <time dateTime={post.scheduledAt.toISOString()}>
+                            {post.scheduledAt.toLocaleString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </time>
+                          .
+                        </>
                       )}
-                    </div>
-                  </div>
+                    </PendingRow>
+                  ))}
+                </Section>
+              )}
 
-                  {!isPublished && (
-                    <p className="mt-2 line-clamp-2 text-[13px] leading-[1.5] text-[color:var(--muted-foreground)]">
-                      {post.summary ?? post.bodyText}
-                    </p>
-                  )}
-
-                  {post.status === PostStatus.IN_REVIEW && (
-                    <p className="mt-2 text-[12px] text-[color:var(--muted-foreground)]">
-                      Waiting for an editor in your entity to review — usually within 24 hours.
-                    </p>
-                  )}
-
-                  {post.status === PostStatus.SCHEDULED && post.scheduledAt && (
-                    <p className="mt-2 text-[12px] text-[color:var(--muted-foreground)]">
-                      Scheduled to publish{" "}
-                      <time dateTime={post.scheduledAt.toISOString()}>
-                        {post.scheduledAt.toLocaleString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                      .
-                    </p>
-                  )}
-
-                  {post.status === PostStatus.HIDDEN && post.hiddenReason && (
-                    <p className="mt-2 text-[12px] text-[color:var(--muted-foreground)]">
-                      Hidden by a moderator: {post.hiddenReason}. You can appeal this decision — see
-                      the{" "}
-                      <Link
-                        href="/legal/content-policy"
-                        className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                      >
-                        content policy
-                      </Link>
-                      .
-                    </p>
-                  )}
-
-                  {post.status === PostStatus.REJECTED && (
-                    <RejectedPostPanel
-                      post={{
-                        id: post.id,
-                        title: post.title,
-                        bodyJson: post.bodyJson,
-                        linkUrl: post.linkUrl,
-                        mediaUrl: mediaUrl(post.cover),
-                        mediaAlt: post.cover?.altText ?? null,
-                        rejectionReason: post.rejectionReason,
-                        topicIds: post.topics.map((t) => t.topicId),
-                      }}
-                      richTextEnabled={richTextEnabled}
-                      topics={topics}
-                    />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+              {attention.length > 0 && (
+                <Section id="profile-attention" heading="Needs a look">
+                  {attention.map((post) => (
+                    <PendingRow key={post.id} status={post.status} title={post.title}>
+                      {post.status === PostStatus.HIDDEN && post.hiddenReason && (
+                        <>
+                          Hidden by a moderator: {post.hiddenReason}. You can appeal this decision —
+                          see the{" "}
+                          <Link
+                            href="/legal/content-policy"
+                            className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                          >
+                            content policy
+                          </Link>
+                          .
+                        </>
+                      )}
+                      {post.status === PostStatus.REJECTED && (
+                        <RejectedPostPanel
+                          post={{
+                            id: post.id,
+                            title: post.title,
+                            titleAccent: post.titleAccent,
+                            bodyJson: post.bodyJson,
+                            linkUrl: post.linkUrl,
+                            mediaUrl: mediaUrl(post.cover),
+                            mediaAlt: post.cover?.altText ?? null,
+                            rejectionReason: post.rejectionReason,
+                            topicIds: post.topics.map((t) => t.topicId),
+                          }}
+                          richTextEnabled={richTextEnabled}
+                          topics={topics}
+                        />
+                      )}
+                    </PendingRow>
+                  ))}
+                </Section>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
 
-type Accent = "primary" | "success" | "warning" | "muted";
-
-const ACCENT_CLASS: Record<Accent, string> = {
-  primary: "text-[color:var(--primary-text)]",
-  success: "text-[color:var(--success-text)]",
-  warning: "text-[color:var(--destructive-text)]",
-  muted: "text-[color:var(--muted-foreground)]",
-};
-
-/**
- * Figures on the page's own ground rather than in five boxes. Five bordered
- * tiles in a row is the hero-metric template, and it made a set of small
- * counts look like the most important thing on a page about posts.
- */
-function Stat({ label, value, accent }: { label: string; value: number; accent: Accent }) {
+function Section({
+  id,
+  heading,
+  children,
+}: {
+  id: string;
+  heading: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div>
-      <dd className={`tabular text-[34px] font-black leading-none ${ACCENT_CLASS[accent]}`}>
-        {value}
-      </dd>
-      <dt className="pulse-label mt-3">{label}</dt>
+    <Reveal as="section" y={20} className="mt-14 first:mt-0">
+      {/* `scroll-mt` clears the sticky rail when the index jumps here. */}
+      <div id={id} className="scroll-mt-[calc(var(--rail-h)+40px)]">
+        <h2 className="mb-1 text-[24px] font-bold leading-[1.2] tracking-[-0.01em] text-[color:var(--foreground)]">
+          {heading}
+        </h2>
+      </div>
+      <div className="mt-4 flex flex-col border-t border-[var(--hairline)]">{children}</div>
+    </Reveal>
+  );
+}
+
+/** A post that is not live, so not a link: a status, a headline, and why. */
+function PendingRow({
+  status,
+  title,
+  children,
+}: {
+  status: PostStatus;
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="border-b border-[var(--hairline)] py-6">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+        <StatusPill status={status} className="mt-1 shrink-0" />
+        <p className="pulse-serif min-w-0 flex-1 break-words text-[22px] leading-[1.2] text-[color:var(--foreground)]">
+          {title}
+        </p>
+      </div>
+      {children && (
+        <div className="mt-3 text-[14px] leading-[1.6] text-[color:var(--muted-foreground)]">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

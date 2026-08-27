@@ -1,8 +1,9 @@
 import "server-only";
 
 import { Prisma } from "@/app/generated/prisma/client";
-import { PostKind } from "@/app/generated/prisma/enums";
+import { type EntityKind, PostKind, type TopicKind } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { entityDisplayName } from "@/lib/org/display";
 import { scopeSetFor } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { type FilterableEntity, KIND_LABELS } from "@/lib/search-shared";
@@ -118,6 +119,8 @@ export type SearchHit = {
   authorName: string;
   publishedAt: Date;
   snippet: SnippetPart[];
+  topicName: string | null;
+  topicKind: TopicKind | null;
 };
 
 type RawHit = {
@@ -126,9 +129,12 @@ type RawHit = {
   title: string;
   kind: PostKind;
   entityName: string;
+  entityKind: EntityKind;
   authorName: string;
   publishedAt: Date;
   snippet: string;
+  topicName: string | null;
+  topicKind: TopicKind | null;
 };
 
 const PAGE_SIZE = 20;
@@ -211,16 +217,23 @@ export async function searchPosts(
       p."title" AS "title",
       p."kind" AS "kind",
       e."name" AS "entityName",
+      e."kind" AS "entityKind",
       u."fullName" AS "authorName",
       p."publishedAt" AS "publishedAt",
       ts_headline(
         'simple', p."bodyText", q,
         'MaxWords=32, MinWords=15, MaxFragments=2, StartSel=' || chr(1) || ', StopSel=' || chr(2)
-      ) AS "snippet"
+      ) AS "snippet",
+      t."name" AS "topicName",
+      t."kind" AS "topicKind"
     FROM "Post" p
     CROSS JOIN websearch_to_tsquery('simple', ${query}) q
     JOIN "Entity" e ON e."id" = p."publisherEntityId"
     JOIN "User" u ON u."id" = p."authorId"
+    LEFT JOIN LATERAL (
+      SELECT pt."topicId" FROM "PostTopic" pt WHERE pt."postId" = p."id" ORDER BY pt."topicId" LIMIT 1
+    ) first_topic ON true
+    LEFT JOIN "Topic" t ON t."id" = first_topic."topicId"
     WHERE ${Prisma.join(conditions, " AND ")}
     ORDER BY ts_rank(p."searchVector", q) DESC, p."publishedAt" DESC
     LIMIT ${PAGE_SIZE + 1} OFFSET ${(page - 1) * PAGE_SIZE}
@@ -228,7 +241,13 @@ export async function searchPosts(
 
   const page1 = rows.slice(0, PAGE_SIZE);
   return {
-    results: page1.map((row) => ({ ...row, snippet: parseSnippet(row.snippet) })),
+    results: page1.map((row) => ({
+      ...row,
+      // Same boundary rule as the feed: the brand lockup is resolved once,
+      // here, not remembered by each row component.
+      entityName: entityDisplayName(row.entityName, row.entityKind) ?? row.entityName,
+      snippet: parseSnippet(row.snippet),
+    })),
     hasNext: rows.length > PAGE_SIZE,
   };
 }
@@ -238,9 +257,14 @@ export async function searchPosts(
 // escalate to the same trigram search the audience picker already uses if
 // that stops being true.
 export async function listFilterableEntities(): Promise<FilterableEntity[]> {
-  return db.entity.findMany({
+  const rows = await db.entity.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, tag: true },
+    select: { id: true, name: true, tag: true, kind: true },
   });
+  return rows.map((row) => ({
+    id: row.id,
+    tag: row.tag,
+    name: entityDisplayName(row.name, row.kind) ?? row.name,
+  }));
 }

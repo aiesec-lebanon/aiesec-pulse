@@ -16,13 +16,20 @@ import type { ShellUser } from "@/components/shell/ShellInteractive";
  *                  mobile drawer. This is the navigation, and it is the only
  *                  place a destination is duplicated between viewports, which
  *                  is legitimate because only one of the two is ever visible.
- *   - `authoring`/`moderation` — role-gated work surfaces. Desktop: the account
+ *   - `authoring`/`governance` — role-gated work surfaces. Desktop: the account
  *                  menu. Mobile: their own drawer groups.
  *   - `account`  — identity and preferences. Account menu on both.
  *
  * Every destination appears in exactly one place per viewport. Capability
  * flags decide visibility as a courtesy only — the authoritative check stays
  * in the Server Action, as it always did.
+ *
+ * **Governance is not administration.** The four surfaces in that group are
+ * held by AIESEC positions and used to live under `/admin/*`, which promised
+ * platform administration and delivered a member permission check — three of
+ * them could not even be opened by a platform administrator. They are ordinary
+ * member routes now (`/review`, `/moderation/*`, `/insights`) and `/admin` is
+ * reserved for the credential login that actually administers the platform.
  */
 
 export type NavItem = {
@@ -65,13 +72,17 @@ export function buildNavigation(user: ShellUser | null): ShellNavigation {
     });
   }
 
-  if (user?.canModerate) {
-    groups.push({
-      id: "moderation",
-      label: "Governance",
-      items: [{ href: "/admin/queue", label: "Moderation queue" }],
-    });
+  const governance: NavItem[] = [];
+  if (user?.canApprove) governance.push({ href: "/review", label: "Review queue" });
+  if (user?.canModerateContent) {
+    governance.push(
+      { href: "/moderation/posts", label: "All posts" },
+      { href: "/moderation/comments", label: "Comments" }
+    );
   }
+  if (user?.canViewInsights) governance.push({ href: "/insights", label: "Publishing activity" });
+  if (governance.length > 0)
+    groups.push({ id: "governance", label: "Governance", items: governance });
 
   if (user) {
     groups.push({

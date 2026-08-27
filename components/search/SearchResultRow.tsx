@@ -1,6 +1,8 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
+import { EntityName } from "@/components/ui/EntityName";
+import { TopicLabel } from "@/components/ui/TopicPill";
 import { relativeTime } from "@/lib/relative-time";
 import { KIND_LABELS, type SearchHit } from "@/lib/search";
 
@@ -29,9 +31,12 @@ export function SearchResultRow({ hit }: { hit: SearchHit }) {
         <span className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--muted-foreground)]">
           {KIND_LABELS[hit.kind]}
         </span>
+        {hit.topicName && hit.topicKind && (
+          <TopicLabel name={hit.topicName} kind={hit.topicKind} className="text-[10px]" />
+        )}
         <span className="pulse-label text-[10px]">
           <span className="normal-case tracking-[0.08em]">
-            {hit.entityName} · {hit.authorName} ·{" "}
+            <EntityName name={hit.entityName} /> · {hit.authorName} ·{" "}
             <time dateTime={hit.publishedAt.toISOString()}>{relativeTime(hit.publishedAt)}</time>
           </span>
         </span>

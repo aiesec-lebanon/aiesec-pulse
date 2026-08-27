@@ -4,6 +4,7 @@ import type { Entity } from "@/app/generated/prisma/client";
 import { EntityKind } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { entityDisplayName } from "@/lib/org/display";
 import { depthOf, joinPath, pathSegment } from "@/lib/org/path";
 import { cacheDelete, cacheKeys } from "@/lib/redis";
 import type { GisOffice } from "@/server-utils/gis";
@@ -223,16 +224,26 @@ export async function searchEntitiesByName(
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
-  return db.entity.findMany({
+  const rows = await db.entity.findMany({
     where: {
       isActive: true,
       kind: { in: kinds },
+      // Matched against the stored place name, not the brand lockup: typing
+      // "leb" must find "Lebanon" whichever half of "AIESEC in Lebanon" the
+      // author had in mind.
       name: { contains: trimmed, mode: "insensitive" },
     },
     orderBy: { name: "asc" },
     take: 20,
-    select: { id: true, name: true, tag: true, path: true },
+    select: { id: true, name: true, tag: true, path: true, kind: true },
   });
+
+  return rows.map((row) => ({
+    id: row.id,
+    tag: row.tag,
+    path: row.path,
+    name: entityDisplayName(row.name, row.kind) ?? row.name,
+  }));
 }
 
 /**

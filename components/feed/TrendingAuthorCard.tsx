@@ -1,3 +1,5 @@
+import { EntityName } from "@/components/ui/EntityName";
+
 type TrendingAuthorCardProps = {
   author: {
     id: string;
@@ -41,7 +43,7 @@ export function TrendingAuthorCard({ author }: TrendingAuthorCardProps) {
         </p>
         {author.entityName && (
           <p className="mt-1 truncate text-[13px] text-[color:var(--muted-foreground)]">
-            {author.entityName}
+            <EntityName name={author.entityName} />
           </p>
         )}
         <p className="tabular mt-2 text-[13px] text-[color:var(--muted-foreground)]">

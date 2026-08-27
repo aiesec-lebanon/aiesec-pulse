@@ -3,13 +3,17 @@ import Image from "next/image";
 import type { TopicKind } from "@/app/generated/prisma/enums";
 import { Parallax } from "@/components/motion/Parallax";
 import { Reveal } from "@/components/motion/Reveal";
+import { CoverLightbox } from "@/components/post-detail/CoverLightbox";
 import { DisplayTitle } from "@/components/ui/DisplayTitle";
+import { EntityName } from "@/components/ui/EntityName";
 import { SpecStrip } from "@/components/ui/SpecStrip";
 import { TopicPill } from "@/components/ui/TopicPill";
 import { tokensForKind } from "@/lib/topics-shared";
 
 export type StoryHeroProps = {
   title: string;
+  /** The phrase the author chose to set italic in the topic's colour. */
+  titleAccent: string | null;
   cover: string | null;
   coverAlt: string;
   primaryTopic: { name: string; kind: TopicKind } | null;
@@ -17,8 +21,20 @@ export type StoryHeroProps = {
   specCells: Array<{ label: string; value: React.ReactNode }>;
 };
 
+/**
+ * Decorative four-column rules across a hero, matching the reference file's own
+ * overlay — drawn inside the *content column*, so its rules land on the same
+ * four columns the spec strip below divides itself into. Full-frame rules and
+ * contained cells gave a hero two grids at once, three pixels apart, which is
+ * worse than either alone.
+ *
+ * `pointer-events-none` on the wrapper as well as the grid: the wrapper spans
+ * the whole frame at a higher z-index than the cover, and without it every
+ * click aimed at the photograph landed on an invisible div. That is what
+ * stopped the cover lightbox from opening.
+ */
 const GRID_OVERLAY = (
-  <div aria-hidden className="pointer-events-none absolute inset-0 grid grid-cols-4">
+  <div className="mx-auto grid h-full w-full max-w-[1240px] grid-cols-4 px-6">
     <span className="border-r border-[var(--hairline)]" />
     <span className="border-r border-[var(--hairline)]" />
     <span className="border-r border-[var(--hairline)]" />
@@ -26,61 +42,104 @@ const GRID_OVERLAY = (
   </div>
 );
 
+/** The shell's content column — every hero's type aligns to it, so the page
+ *  lines up with the header wordmark on a wide screen. */
+const COLUMN = "mx-auto w-full max-w-[1240px] px-6";
+
 /**
- * The post's own header — UI ref 2a (a cover image, split behind an angled
- * clip-path) combined with 2b (no cover, a purely typographic hero) — each
- * gated to `lg:`, where the composition was designed; the reference file has
- * no mobile variant of either. Below `lg:`, both branches fall back to the
- * plain treatment this page has always shipped, plus a `SpecStrip` neither
- * previously had: the strip is already responsive on its own
- * (`grid-cols-2 sm:grid-cols-4`), so there's no reason to withhold the
- * Entity/Published/Reading/Reactions facts from a narrow viewport just
- * because the clip-path/parallax theatre above them is desktop-only.
+ * The post's own header — UI ref 2a (a cover image behind an angled clip) and
+ * 2b (no cover, a purely typographic hero), each gated to `lg:` where the
+ * composition was designed.
+ *
+ * Three structural rules, all of them things that were wrong before:
+ *
+ * 1. **Hero and spec strip fill exactly one screen.** The frame is
+ *    `calc(100svh - var(--rail-h))` minus the strip, so a reader arriving on a
+ *    story sees the whole hero and the strip's rules sitting on the bottom edge
+ *    — not a strip half-peeking above the fold with the rest below it. That is
+ *    what makes the first screen read as a cover rather than as a crop.
+ * 2. **Imagery bleeds; type does not.** The frame spans the viewport, and every
+ *    line of type inside it sits in the shell's own `max-w-[1240px]` column. The
+ *    heroes used to use their own 64px page margin, so on a 1920px screen the
+ *    headline started 300px left of the header wordmark and nothing on the page
+ *    lined up with anything else.
+ * 3. **The hero belongs to the page, not to a dark frame.** `.pulse-story-scrim`
+ *    derives its ramp from `--background`, so the photograph fades into whichever
+ *    page it is on and the type can stay `--foreground`. A fixed near-black scrim
+ *    under a hard-coded `text-white` headline was right in dark mode and put
+ *    white type on a near-white photograph in light mode.
  */
 export function StoryHero({
   title,
+  titleAccent,
   cover,
   coverAlt,
   primaryTopic,
   entityName,
   specCells,
 }: StoryHeroProps) {
+  const accentColor = primaryTopic ? tokensForKind(primaryTopic.kind).text : undefined;
+
+  const eyebrow = (
+    <p className="pulse-label mb-6 flex flex-wrap items-center gap-3">
+      {primaryTopic && <TopicPill name={primaryTopic.name} kind={primaryTopic.kind} />}
+      <EntityName name={entityName} className="text-[color:var(--foreground)]" />
+    </p>
+  );
+
+  const headline = (size: "lg" | "md", extra?: string) => (
+    <DisplayTitle
+      as="h1"
+      size={size}
+      title={title}
+      accentWord={titleAccent}
+      accentColor={accentColor}
+      className={["text-[color:var(--foreground)]", extra].filter(Boolean).join(" ")}
+    />
+  );
+
   if (cover) {
     return (
       <>
-        <div className="relative hidden h-[620px] overflow-hidden bg-[var(--stage-deep)] text-white lg:block">
-          <div className="pulse-story-clip absolute inset-0 z-[2] overflow-hidden">
-            <Parallax depth={-70} scale={1.18} className="absolute inset-0">
-              <Image
-                src={cover}
-                alt={coverAlt}
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover"
-              />
-            </Parallax>
-            <span aria-hidden className="pulse-image-scrim" />
-            <span aria-hidden className="pulse-hero-scrim" />
+        <div className="hidden lg:flex lg:h-[calc(100svh-var(--rail-h))] lg:min-h-[560px] lg:flex-col">
+          <div className="relative min-h-0 flex-1 overflow-hidden bg-[var(--background)]">
+            <div className="pulse-story-clip absolute inset-0 z-[2] overflow-hidden">
+              <Parallax depth={-70} scale={1.18} className="absolute inset-0">
+                <Image
+                  src={cover}
+                  alt={coverAlt}
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover"
+                />
+              </Parallax>
+              <span aria-hidden className="pulse-story-scrim" />
+              {/* Inside the clip, so the control's hit area is exactly the
+                  visible photograph. */}
+              <CoverLightbox src={cover} alt={coverAlt} />
+            </div>
+
+            <div aria-hidden className="pointer-events-none absolute inset-0 z-[4]">
+              {GRID_OVERLAY}
+            </div>
+
+            {/* Type, in the shell's column. `pointer-events-none` so the block
+                does not swallow clicks meant for the cover behind it. */}
+            <div className="pointer-events-none absolute inset-x-0 top-16 z-[4]">
+              <div className={COLUMN}>
+                {eyebrow}
+                {headline("lg", "max-w-[16ch]")}
+              </div>
+            </div>
           </div>
 
-          <div className="absolute inset-0 z-[4]">{GRID_OVERLAY}</div>
-
-          <div className="absolute left-16 right-10 top-16 z-[4]">
-            <p className="pulse-label mb-6 flex flex-wrap items-center gap-3 text-white/70">
-              {primaryTopic && <TopicPill name={primaryTopic.name} kind={primaryTopic.kind} />}
-              <span className="text-white/90">{entityName}</span>
-            </p>
-            <DisplayTitle as="h1" size="lg" title={title} className="text-white" />
-          </div>
-
-          <div className="absolute inset-x-0 bottom-0 z-[5]">
-            <SpecStrip
-              ariaLabel="Story details"
-              cells={specCells}
-              className="border-none bg-[color-mix(in_srgb,#06080d_88%,transparent)] [&_dt]:text-white/60 [&_dd]:text-white"
-            />
-          </div>
+          <SpecStrip
+            ariaLabel="Story details"
+            cells={specCells}
+            contained
+            className="shrink-0 border-b-0 bg-[color-mix(in_srgb,var(--card)_86%,transparent)] backdrop-blur-md"
+          />
         </div>
 
         <header className="relative lg:hidden">
@@ -95,21 +154,18 @@ export function StoryHero({
                 className="object-cover"
               />
             </Parallax>
-            <span aria-hidden className="pulse-image-scrim" />
+            <span aria-hidden className="pulse-story-scrim-v" />
+            <CoverLightbox src={cover} alt={coverAlt} />
           </div>
 
-          <div className="mx-auto -mt-24 w-full max-w-[760px] px-6 sm:-mt-28">
+          <div className="mx-auto -mt-20 w-full max-w-[760px] px-6 sm:-mt-24">
             <Reveal y={24} className="pulse-plate p-7 shadow-[var(--elev-4)] sm:p-10">
-              <DisplayTitle
-                as="h1"
-                size="lg"
-                title={title}
-                className="text-[color:var(--foreground)]"
-              />
+              {eyebrow}
+              {headline("lg")}
             </Reveal>
           </div>
         </header>
-        <div className="mx-auto w-full max-w-[760px] px-6 lg:hidden">
+        <div className="lg:hidden">
           <SpecStrip ariaLabel="Story details" cells={specCells} className="mt-6" />
         </div>
       </>
@@ -120,48 +176,53 @@ export function StoryHero({
 
   return (
     <>
-      {/* 2b, lg: only — no cover, the typographic hero. */}
-      <div className="relative hidden overflow-hidden px-16 pb-0 pt-[70px] lg:block">
-        {GRID_OVERLAY}
-        <Parallax
-          depth={-40}
-          className="pointer-events-none absolute -right-[6%] -top-[10%] h-[70%] w-[52%]"
-        >
-          <div
-            aria-hidden
-            className="h-full w-full blur-[40px]"
-            style={{
-              background: `radial-gradient(circle at 60% 40%, color-mix(in srgb, ${glowColor} 22%, transparent), transparent 66%)`,
-            }}
-          />
-        </Parallax>
-        <div className="relative">
-          <p className="pulse-label mb-6 flex flex-wrap items-center gap-3">
-            {primaryTopic && <TopicPill name={primaryTopic.name} kind={primaryTopic.kind} />}
-            <span className="text-[color:var(--muted-foreground)]">{entityName}</span>
-          </p>
-          <DisplayTitle
-            as="h1"
-            size="lg"
-            title={title}
-            className="max-w-[22ch] text-[color:var(--foreground)]"
-          />
+      {/* 2b, lg: only — no cover, the typographic hero. Full-bleed, so the
+          topic-coloured field is a band across the whole frame rather than a
+          blob that starts in the middle of the page. */}
+      <div className="hidden lg:flex lg:h-[calc(100svh-var(--rail-h))] lg:min-h-[520px] lg:flex-col">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            {GRID_OVERLAY}
+          </div>
+
+          {/* Two very wide, very soft fields anchored off-canvas — the same
+              device `.pulse-stage` uses on the page ground, in the topic's
+              colour and scoped to this frame. The single right-hand radial it
+              replaces read as an unexplained blob at the halfway mark. */}
+          <Parallax depth={-40} className="pointer-events-none absolute inset-0">
+            <div
+              aria-hidden
+              className="absolute inset-x-[-10%] -top-[30%] h-[110%] blur-[60px]"
+              style={{
+                background: `radial-gradient(55% 60% at 78% 22%, color-mix(in srgb, ${glowColor} 26%, transparent), transparent 70%), radial-gradient(45% 55% at 12% 8%, color-mix(in srgb, ${glowColor} 12%, transparent), transparent 72%)`,
+              }}
+            />
+          </Parallax>
+
+          <div className="relative flex h-full items-center pb-10 pt-[70px]">
+            <div className={COLUMN}>
+              {eyebrow}
+              {headline("lg", "max-w-[20ch]")}
+            </div>
+          </div>
         </div>
-        <SpecStrip ariaLabel="Story details" cells={specCells} className="relative mt-11" />
+
+        <SpecStrip
+          ariaLabel="Story details"
+          cells={specCells}
+          contained
+          className="shrink-0 border-b-0"
+        />
       </div>
 
-      {/* Legacy no-cover header, unchanged, below lg:. */}
+      {/* Below lg. */}
       <header className="mx-auto w-full max-w-[760px] px-6 pt-16 lg:hidden">
         <Reveal y={24}>
-          <DisplayTitle
-            as="h1"
-            size="lg"
-            title={title}
-            className="text-[color:var(--foreground)]"
-          />
+          {eyebrow}
+          {headline("lg")}
         </Reveal>
       </header>
-      <div className="mx-auto w-full max-w-[760px] px-6 lg:hidden">
+      <div className="lg:hidden">
         <SpecStrip ariaLabel="Story details" cells={specCells} className="mt-6" />
       </div>
     </>

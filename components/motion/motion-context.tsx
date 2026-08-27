@@ -5,18 +5,26 @@ import { createContext, useContext, useEffect, useSyncExternalStore } from "reac
 /**
  * Motion preference.
  *
- * Pulse treats motion as an explicit member choice rather than an inferred OS
- * setting: the header carries a Motion control beside the theme control, and
- * "full" is the default for everyone. The reasoning is the same one behind the
- * theme toggle — an OS-level preference set years ago for a different device
- * shouldn't silently decide what this product looks like — and the cost of that
- * position is that the opt-out has to be *findable*, which is why the control
- * sits in the header rather than in a settings page.
+ * Motion is a first-class part of this interface, and "full" is the default —
+ * but only for a reader who has not already told their operating system
+ * otherwise. `prefers-reduced-motion: reduce` is honoured as the *starting*
+ * value, and an explicit choice made inside Pulse overrides it in either
+ * direction. That is a deliberate change from the previous position ("an OS
+ * preference set years ago for a different device shouldn't silently decide
+ * what this product looks like"): the header no longer carries a standalone
+ * Motion button, so the OS signal is the only thing standing between a
+ * motion-sensitive reader and a page full of parallax. The explicit control
+ * moved into the account menu and the sign-in header, where it is still one
+ * click from anywhere.
+ *
+ * Because the OS is now a real input, opting *in* to full motion has to be
+ * stored explicitly — removing the key would hand the decision straight back
+ * to the OS the reader just overruled.
  *
  * "reduced" is not "none". It zeroes `--motion-travel` and `--motion-scale`
- * (see globals.css), which stops scenes, parallax, 3-D tilt and the ambient
- * canvas, while colour, focus and state transitions survive — those carry
- * meaning, not atmosphere.
+ * (see globals.css), which stops scenes, parallax, 3-D tilt, the rotators and
+ * the ambient canvas, while colour, focus and state transitions survive —
+ * those carry meaning, not atmosphere.
  *
  * Mirrors theme-context deliberately: same storage strategy, same
  * useSyncExternalStore shape, same cross-tab event. Two preferences that behave
@@ -28,39 +36,64 @@ export type MotionPreference = "full" | "reduced";
 type MotionCtx = {
   motion: MotionPreference;
   setMotion: (next: MotionPreference) => void;
+  /** Whether the current value came from the OS rather than an explicit choice. */
+  fromSystem: boolean;
 };
 
-const Ctx = createContext<MotionCtx>({ motion: "full", setMotion: () => {} });
+const Ctx = createContext<MotionCtx>({ motion: "full", setMotion: () => {}, fromSystem: false });
 
 export const useMotion = () => useContext(Ctx);
 
 export const MOTION_STORAGE_KEY = "pulse-motion";
 export const MOTION_ATTRIBUTE = "data-motion";
 const LOCAL_CHANGE_EVENT = "pulse:motion-change";
+const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
 
-function readStored(): MotionPreference {
+function systemPrefersReduced(): boolean {
+  return typeof window !== "undefined" && window.matchMedia(REDUCED_QUERY).matches;
+}
+
+function readExplicit(): MotionPreference | null {
   try {
-    return localStorage.getItem(MOTION_STORAGE_KEY) === "reduced" ? "reduced" : "full";
+    const stored = localStorage.getItem(MOTION_STORAGE_KEY);
+    return stored === "reduced" || stored === "full" ? stored : null;
   } catch {
     // Private browsing can deny storage entirely.
-    return "full";
+    return null;
   }
+}
+
+/** The same resolution order BootScript runs before first paint. */
+function readStored(): MotionPreference {
+  return readExplicit() ?? (systemPrefersReduced() ? "reduced" : "full");
 }
 
 function subscribe(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
   window.addEventListener(LOCAL_CHANGE_EVENT, onChange);
+  // The OS setting can change mid-session (a "reduce motion" shortcut, a
+  // scheduled accessibility profile). Without this the page would keep
+  // animating until the next navigation.
+  const media = window.matchMedia(REDUCED_QUERY);
+  media.addEventListener("change", onChange);
   return () => {
     window.removeEventListener("storage", onChange);
     window.removeEventListener(LOCAL_CHANGE_EVENT, onChange);
+    media.removeEventListener("change", onChange);
   };
 }
 
 export function MotionProvider({ children }: { children: React.ReactNode }) {
-  // Server and first client render both report "full", matching what
-  // BootScript has already written to <html> — so hydration never has to
-  // correct the attribute, and nothing animates out of the wrong state.
+  // Server and first client render both report "full", matching the attribute
+  // the markup ships with — BootScript has already corrected <html> before
+  // paint, and this store catches up on the first post-hydration commit, so
+  // nothing animates out of the wrong state.
   const motion = useSyncExternalStore<MotionPreference>(subscribe, readStored, () => "full");
+  const explicit = useSyncExternalStore<MotionPreference | null>(
+    subscribe,
+    readExplicit,
+    () => null
+  );
 
   useEffect(() => {
     document.documentElement.setAttribute(MOTION_ATTRIBUTE, motion);
@@ -68,15 +101,21 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
 
   function setMotion(next: MotionPreference) {
     try {
-      if (next === "full") localStorage.removeItem(MOTION_STORAGE_KEY);
-      else localStorage.setItem(MOTION_STORAGE_KEY, next);
+      // Written, not removed, even for "full": the OS is a real input now, and
+      // clearing the key would return the decision to the setting the reader
+      // has just overruled.
+      localStorage.setItem(MOTION_STORAGE_KEY, next);
     } catch {
       // Storage denied: the choice applies for this session but is not kept.
     }
     window.dispatchEvent(new Event(LOCAL_CHANGE_EVENT));
   }
 
-  return <Ctx.Provider value={{ motion, setMotion }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ motion, setMotion, fromSystem: explicit === null }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 } from "@/components/composer/AudiencePicker";
 import { ComposerPreview } from "@/components/composer/ComposerPreview";
 import { ReachPicker, type ReachValue } from "@/components/composer/ReachPicker";
+import { TitleAccentPicker } from "@/components/composer/TitleAccentPicker";
 import { TopicPicker } from "@/components/composer/TopicPicker";
 import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
@@ -75,6 +76,8 @@ export function PostComposer({
   const {
     title,
     setTitle,
+    titleAccent,
+    setTitleAccent,
     bodyJson,
     setBodyJson,
     summary,
@@ -140,6 +143,7 @@ export function PostComposer({
       const result = await saveDraft(
         {
           title,
+          titleAccent: titleAccent || undefined,
           bodyJson,
           summary: summary || undefined,
           linkUrl: linkUrl || "",
@@ -168,7 +172,7 @@ export function PostComposer({
     const timeout = setTimeout(() => void runSave(), AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, bodyJson, summary, linkUrl, mediaAlt, uploadedMediaUrl]);
+  }, [title, titleAccent, bodyJson, summary, linkUrl, mediaAlt, uploadedMediaUrl]);
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -221,6 +225,7 @@ export function PostComposer({
 
     const validationResult = createPostSchema.safeParse({
       title,
+      titleAccent: titleAccent || undefined,
       bodyJson,
       summary: summary || undefined,
       linkUrl: linkUrl || "",
@@ -259,6 +264,7 @@ export function PostComposer({
     try {
       const publishInput = {
         title,
+        titleAccent: titleAccent || undefined,
         bodyJson,
         summary: summary || undefined,
         linkUrl: linkUrl || "",
@@ -361,6 +367,16 @@ export function PostComposer({
               fieldErrors.title ? "border-[var(--destructive)]" : "border-[var(--border)]",
             ].join(" ")}
           />
+          {/* The accent phrase, chosen by tapping words rather than retyping
+              them. Directly under the field it describes, and only once there
+              is a headline to choose from. */}
+          <TitleAccentPicker
+            title={title}
+            value={titleAccent}
+            onChange={setTitleAccent}
+            topicKind={previewTopic?.kind ?? null}
+          />
+
           <div className="mt-1 flex items-start justify-between gap-2">
             {fieldErrors.title ? (
               <p
@@ -801,6 +817,7 @@ export function PostComposer({
       <div className="hidden lg:sticky lg:top-[calc(var(--rail-h)+32px)] lg:block lg:max-h-[calc(100vh-var(--rail-h)-64px)] lg:overflow-y-auto">
         <ComposerPreview
           title={title}
+          titleAccent={titleAccent}
           bodyText={previewBodyText}
           summary={summary}
           imagePreview={imagePreview}

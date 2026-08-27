@@ -5,9 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { MotionToggle } from "@/components/motion/MotionToggle";
+import { MotionMenuItem } from "@/components/motion/MotionToggle";
 import { FeedModeMenu } from "@/components/shell/FeedModeMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { EntityName } from "@/components/ui/EntityName";
 import type { FeedMode } from "@/lib/feed-mode";
 import { buildNavigation, isCurrent, type NavItem } from "@/lib/navigation";
 
@@ -18,9 +19,17 @@ export type ShellUser = {
   fullName: string;
   entityName: string | null;
   canPublish: boolean;
-  canModerate: boolean;
+  /** Split out of a single `canModerate` flag: the Governance group now lists
+   *  four separate destinations, each guarded by a different permission, so one
+   *  union flag would have offered a member links they cannot open. */
+  canApprove: boolean;
+  canModerateContent: boolean;
+  canViewInsights: boolean;
   searchEnabled: boolean;
 };
+
+/** One beat of grace when the pointer leaves a hover-opened menu. */
+const HOVER_CLOSE_DELAY_MS = 180;
 
 const MENU_ITEM_CLASS =
   "flex w-full min-h-[36px] items-center rounded-[var(--radius-sm)] px-3 py-2 text-left text-[14px] text-[color:var(--foreground)] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] hover:bg-[var(--muted)] focus-visible:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]";
@@ -196,13 +205,10 @@ export function ShellInteractive({
                   aria-hidden
                   className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:-rotate-12"
                 />
-                <span className="pulse-label normal-case tracking-[0.14em]">
-                  {nav.compose.label}
-                </span>
+                <span className="pulse-label">{nav.compose.label}</span>
               </Link>
             )}
 
-            <MotionToggle />
             <ThemeToggle />
 
             {user && (
@@ -247,7 +253,7 @@ export function ShellInteractive({
                       </p>
                       {user.entityName && (
                         <p className="mt-1 truncate text-[12px] text-[color:var(--muted-foreground)]">
-                          {user.entityName}
+                          <EntityName name={user.entityName} />
                         </p>
                       )}
                     </Link>
@@ -271,6 +277,15 @@ export function ShellInteractive({
                         ))}
                       </div>
                     ))}
+
+                    <div role="separator" className="my-1.5 border-t border-[var(--hairline)]" />
+
+                    {/* The motion preference lives here rather than as a
+                        standalone icon in the rail: it is a preference, and
+                        this is where the app keeps preferences. It stays one
+                        click from every page, which is the requirement §8.2
+                        actually imposes — the rail was never the requirement. */}
+                    <MotionMenuItem className={`${MENU_ITEM_CLASS} justify-between gap-3`} />
 
                     <div role="separator" className="my-1.5 border-t border-[var(--hairline)]" />
 
@@ -354,7 +369,8 @@ export function ShellInteractive({
             </div>
           ))}
 
-          <div className="mt-4 border-t border-[var(--hairline)] pt-4">
+          <div className="mt-4 flex flex-col gap-1 border-t border-[var(--hairline)] pt-4">
+            <MotionMenuItem className="flex min-h-[44px] items-center justify-between gap-3 rounded-[var(--radius-md)] px-4 py-3 text-[15px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]" />
             <DrawerLink
               item={{ href: "/legal/privacy", label: "Privacy notice" }}
               pathname={pathname}
@@ -418,6 +434,48 @@ function NavRail({
   const listRef = useRef<HTMLUListElement>(null);
   const [indicator, setIndicator] = useState({ x: 0, w: 0, o: 0 });
 
+  // The feed's order menu opens on hover over the whole "Feed" item — the link
+  // and its chevron together — because that is the target a reader actually
+  // points at. A 24px chevron is a click target, not a hover target.
+  //
+  // The close is delayed by one beat. Without it, the few pixels between the
+  // item and the panel below it are enough to close the menu the reader is on
+  // their way to; with it, a pointer that leaves and comes straight back never
+  // sees a flicker. (`.pulse-menu-bridge` covers the gap itself; this covers
+  // the diagonal.)
+  const [feedMenuOpen, setFeedMenuOpen] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const openFeedMenu = useCallback(() => {
+    cancelClose();
+    setFeedMenuOpen(true);
+  }, [cancelClose]);
+
+  const scheduleCloseFeedMenu = useCallback(() => {
+    cancelClose();
+    closeTimerRef.current = setTimeout(() => setFeedMenuOpen(false), HOVER_CLOSE_DELAY_MS);
+  }, [cancelClose]);
+
+  useEffect(() => cancelClose, [cancelClose]);
+
+  // A route change must not leave the menu hanging over the page it opened.
+  // Adjusted during render rather than in an effect — React's documented
+  // pattern for deriving state from a changed input, and the same one the
+  // shell above uses to close its drawer. An effect here would also trip
+  // `react-hooks/set-state-in-effect`.
+  const [renderedPath, setRenderedPath] = useState(pathname);
+  if (renderedPath !== pathname) {
+    setRenderedPath(pathname);
+    setFeedMenuOpen(false);
+  }
+
   const measure = useCallback(() => {
     const list = listRef.current;
     if (!list) return;
@@ -451,13 +509,19 @@ function NavRail({
           const active = isCurrent(item, pathname);
           const showFeedMode = item.href === "/feed" && active && feedRankedAvailable;
           return (
-            <li key={item.href} className="flex items-center gap-1">
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- hover intent for the feed-order menu, whose target is the whole nav item rather than its 24px chevron. The listeners add no interactivity of their own: every way *in* is a real control (the link, and the chevron button, which still toggles on click and Enter), and every way out is still available to a keyboard (Escape, or moving focus away).
+            <li
+              key={item.href}
+              className="relative flex items-center gap-1"
+              onMouseEnter={showFeedMode ? openFeedMenu : undefined}
+              onMouseLeave={showFeedMode ? scheduleCloseFeedMenu : undefined}
+            >
               <Link
                 href={item.href}
                 data-active={active}
                 aria-current={active ? "page" : undefined}
                 className={[
-                  "pulse-label relative flex min-h-[40px] items-center normal-case tracking-[0.16em] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+                  "pulse-label relative flex min-h-[40px] items-center transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
                   active
                     ? "text-[color:var(--foreground)]"
                     : "hover:text-[color:var(--foreground)]",
@@ -465,7 +529,16 @@ function NavRail({
               >
                 {item.label}
               </Link>
-              {showFeedMode && <FeedModeMenu mode={feedMode} />}
+              {showFeedMode && (
+                <FeedModeMenu
+                  mode={feedMode}
+                  open={feedMenuOpen}
+                  onOpenChange={(next) => {
+                    cancelClose();
+                    setFeedMenuOpen(next);
+                  }}
+                />
+              )}
             </li>
           );
         })}

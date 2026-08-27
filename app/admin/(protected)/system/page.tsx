@@ -1,7 +1,10 @@
 import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { EntityName } from "@/components/ui/EntityName";
+import { LevelBadge } from "@/components/ui/LevelBadge";
 import { MetaLine } from "@/components/ui/MetaLine";
 import { SpecStrip } from "@/components/ui/SpecStrip";
+import { StatusPill } from "@/components/ui/StatusPill";
 import { TextTabs } from "@/components/ui/TextTabs";
 import { TopicLabel, TopicPill } from "@/components/ui/TopicPill";
 import { TopicPlate } from "@/components/ui/TopicPlate";
@@ -151,7 +154,27 @@ export default async function AdminSystemPage() {
           <MotionSpec
             name="Ticker"
             tag=".pulse-ticker-track"
-            body="A doubled track scrolling at a constant rate, edge-masked so entries don't clip mid-word. The content is duplicated once in markup, not via a pseudo-element, so it works for any number of real items. Carries .pulse-ambient, so Reduced motion stops it outright."
+            body="A doubled track scrolling at a constant rate, edge-masked so entries don't clip mid-word. The content is duplicated once in markup, not via a pseudo-element, so it works for any number of real items. Gotcha: the track translates -50%, so it needs exactly two copies — and two copies of a two-item list is still a two-item list, which is how the marquee ended up starting halfway across the page. Repeat the set to at least eight entries first. Carries .pulse-ambient, so Reduced motion stops it outright."
+          />
+          <MotionSpec
+            name="Route transition"
+            tag="components/motion/RouteTransition.tsx"
+            body="A wrapper keyed on the pathname, so every navigation has one authored arrival instead of a hard swap. The header, the lit stage and the scroll container stay outside it. Gotcha: a transform or a filter on an ancestor makes it the containing block for position:fixed descendants — anything inside a page that must stay viewport-fixed during a transition has to be sticky, or portalled to document.body. That is why the story page's engagement bar is sticky and the cover lightbox is a portal."
+          />
+          <MotionSpec
+            name="Cross-dissolve"
+            tag=".pulse-hero-slide"
+            body="Every rotator slide stays mounted and stacked; only data-active moves. Gotcha: rendering just the active slide makes a dissolve impossible — there is nothing to dissolve from, so a change of lead is a cut. The outgoing frame stays painted while the incoming one settles out of a 1.07 scale and a 12px bloom, with one projector wipe across the frame keyed on the active index."
+          />
+          <MotionSpec
+            name="FLIP list"
+            tag="components/motion/FlipList.tsx"
+            body="Measure before, measure after, write the inverse as --flip-x/--flip-y, clear it next frame and let CSS carry each item home. Identity comes from data-flip-key, never the index — the whole point is that item three became item two. A child absent from the previous measurement is new and gets the enter animation instead of a slide from position zero."
+          />
+          <MotionSpec
+            name="Press"
+            tag=".pulse-pop / .pulse-burst / .pulse-roll"
+            body="Overshoot-and-settle on the mark, a dissolving ring in the control's own colour, and a counter that rolls up out of the old figure's place. Each is a one-shot animation on an element keyed by a press counter: remounting is what restarts a CSS animation, and a boolean flag would need a timer to clear it. None of them replaces a signal — colour, fill and the live region still carry the meaning alone."
             last
           />
         </div>
@@ -187,9 +210,11 @@ export default async function AdminSystemPage() {
       <Section n="07" title="Topic plate">
         <p className="mb-5 max-w-[62ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
           What a post shows when it has no cover, which is most posts: the publishing entity&apos;s
-          initials on a field of its topic&apos;s colour.
+          initials on a field of its topic&apos;s colour. The fourth is the neutral plate, for a
+          post carrying no topic at all — defaulting those to GENERAL painted them full orange and
+          told the reader they were filed under something they are not.
         </p>
-        <div className="grid grid-cols-1 gap-px bg-[var(--hairline)] sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-px bg-[var(--hairline)] sm:grid-cols-4">
           <div className="aspect-[16/10]">
             <TopicPlate entityName="AIESEC in Brazil" kind="PROGRAMME" />
           </div>
@@ -199,10 +224,72 @@ export default async function AdminSystemPage() {
           <div className="aspect-[16/10]">
             <TopicPlate entityName="AIESEC International" kind="GENERAL" />
           </div>
+          <div className="aspect-[16/10]">
+            <TopicPlate entityName="AIESEC in Lebanon" kind={null} />
+          </div>
         </div>
       </Section>
 
-      <Section n="08" title="Empty and error states">
+      <Section n="08" title="The brand lockup">
+        <p className="mb-5 max-w-[62ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
+          GIS stores an office&apos;s place &mdash; &ldquo;Lebanon&rdquo;, &ldquo;Cairo&rdquo;. The
+          brand&apos;s name for that office is the full lockup, and shipping the bare place name is
+          a brand violation rather than a shorter label: &ldquo;Lebanon published this&rdquo; says a
+          country published it. The two-tone treatment accents the <em>place</em>, and is a title
+          treatment used <strong>once per screen</strong> &mdash; an accent in every card footer and
+          byline is a decoration that pulls the eye off the headline. Resolved once at the data
+          boundary by{" "}
+          <code className="rounded-[var(--radius-sm)] bg-[var(--muted)] px-1.5 py-0.5 text-[13px]">
+            entityDisplayName(name, kind)
+          </code>
+          , painted by{" "}
+          <code className="rounded-[var(--radius-sm)] bg-[var(--muted)] px-1.5 py-0.5 text-[13px]">
+            EntityName
+          </code>
+          . Never concatenate it by hand.
+        </p>
+        <div className="flex flex-col gap-4">
+          <Specimen label="plain — the default, and what almost every surface uses">
+            <p className="text-[17px] text-[color:var(--foreground)]">
+              <EntityName name="AIESEC in Lebanon" />
+            </p>
+          </Specimen>
+          <Specimen label="plain, in the instrument register — a card footer, a byline">
+            <p className="pulse-label">
+              <EntityName name="AIESEC in Lebanon" />
+            </p>
+          </Specimen>
+          <Specimen label="title — the place half accented. Once per screen, on an h1.">
+            <p className="pulse-serif pulse-serif-md text-[color:var(--foreground)]">
+              <EntityName name="AIESEC in Lebanon" tone="title" />
+            </p>
+          </Specimen>
+          <Specimen label="a region and the global office keep their own names">
+            <p className="text-[17px] text-[color:var(--foreground)]">
+              <EntityName name="Middle East and Africa" /> &middot;{" "}
+              <EntityName name="AIESEC International" />
+            </p>
+          </Specimen>
+        </div>
+      </Section>
+
+      <Section n="09" title="Topic chip vs status badge">
+        <p className="mb-5 max-w-[62ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
+          A topic is a filing mark and takes a <strong>square</strong> corner; a status or a reach
+          badge is a pill. The corner is what tells them apart at a glance, which is the whole
+          reason the two shapes exist &mdash; they carry different kinds of fact about the same
+          post.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <TopicPill name="Global Volunteer" kind="PROGRAMME" />
+          <TopicPill name="Information Management" kind="FUNCTION" />
+          <TopicPill name="Leadership" kind="GENERAL" />
+          <LevelBadge level="NETWORK" />
+          <StatusPill status="IN_REVIEW" />
+        </div>
+      </Section>
+
+      <Section n="10" title="Empty and error states">
         <p className="mb-5 max-w-[62ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
           Type-led, never illustration-led. A drawing says &ldquo;nothing here&rdquo; the same way
           whether the feed is empty or the network is down; a sentence says which.
@@ -326,9 +413,7 @@ function MotionSpec({
         <span className="block text-[15px] font-bold leading-[1.3] text-[color:var(--foreground)]">
           {name}
         </span>
-        <span className="pulse-label mt-1 block normal-case tracking-[0.08em] opacity-70">
-          {tag}
-        </span>
+        <span className="pulse-label mt-1 block opacity-70">{tag}</span>
       </p>
       <p className="text-[14px] leading-[1.6] text-[color:var(--muted-foreground)]">{body}</p>
     </div>

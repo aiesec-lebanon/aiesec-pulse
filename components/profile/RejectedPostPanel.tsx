@@ -15,6 +15,8 @@ type Props = {
   post: {
     id: string;
     title: string;
+    /** Carried through untouched: this panel resends, it does not re-edit. */
+    titleAccent: string | null;
     bodyJson: unknown;
     linkUrl: string | null;
     mediaUrl: string | null;
@@ -83,6 +85,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
     try {
       const result = await resubmitPost(post.id, {
         title,
+        titleAccent: post.titleAccent ?? undefined,
         bodyJson,
         linkUrl: linkUrl || "",
         mediaUrl: post.mediaUrl ?? "",

@@ -9,14 +9,20 @@ test.describe("a member", () => {
 
   test("cannot reach the approval queue", async ({ page, signInAs }) => {
     await signInAs("member");
-    await page.goto("/admin/queue");
+    await page.goto("/review");
     await expect(page).toHaveURL(/\/unauthorized/);
   });
 
+  // `/admin/*` now asks for the platform credential and nothing else, so an
+  // AIESEC session — any AIESEC session, from a plain member to the PAI — is
+  // sent to the credential login rather than to `/unauthorized`. The old
+  // split (member → /unauthorized, PAI → /admin/login) was an accident of the
+  // layout's per-section gate, which is gone now that the position-held
+  // surfaces live outside /admin.
   test("cannot reach the permission matrix", async ({ page, signInAs }) => {
     await signInAs("member");
     await page.goto("/admin/roles");
-    await expect(page).toHaveURL(/\/unauthorized/);
+    await expect(page).toHaveURL(/\/admin\/login/);
   });
 
   test("cannot reach the data request queue", async ({ page, signInAs }) => {
@@ -24,7 +30,7 @@ test.describe("a member", () => {
     // it is deliberately unreachable from any AIESEC position at all.
     await signInAs("member");
     await page.goto("/admin/privacy");
-    await expect(page).toHaveURL(/\/unauthorized/);
+    await expect(page).toHaveURL(/\/admin\/login/);
   });
 
   test("sees no publishing or moderation entries in their account menu", async ({
@@ -71,7 +77,7 @@ test.describe("an LC vice president", () => {
     // Publishing and approving are separate permissions precisely so a publisher
     // cannot wave their own over-quota post through.
     await signInAs("lc_vp");
-    await page.goto("/admin/queue");
+    await page.goto("/review");
     await expect(page).toHaveURL(/\/unauthorized/);
   });
 });
@@ -79,7 +85,7 @@ test.describe("an LC vice president", () => {
 test.describe("an MC vice president", () => {
   test("reaches the approval queue", async ({ page, signInAs }) => {
     await signInAs("mc_vp");
-    await page.goto("/admin/queue");
+    await page.goto("/review");
     await expect(page.getByRole("heading", { name: /approval queue/i })).toBeVisible();
   });
 
@@ -117,7 +123,7 @@ test.describe("the PAI", () => {
 
   test("still moderates, which is what the position is for", async ({ page, signInAs }) => {
     await signInAs("pai");
-    await page.goto("/admin/posts");
+    await page.goto("/moderation/posts");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 });

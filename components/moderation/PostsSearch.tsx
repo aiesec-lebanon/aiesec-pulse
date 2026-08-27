@@ -20,7 +20,7 @@ export function PostsSearch({ q, status, limit }: PostsSearchProps) {
     if (value.trim()) params.set("q", value.trim());
     if (limit !== 25) params.set("limit", String(limit));
     const qs = params.toString();
-    router.push(`/admin/posts${qs ? `?${qs}` : ""}`);
+    router.push(`/moderation/posts${qs ? `?${qs}` : ""}`);
   }
 
   function handleClear() {
@@ -29,7 +29,7 @@ export function PostsSearch({ q, status, limit }: PostsSearchProps) {
     if (status) params.set("status", status);
     if (limit !== 25) params.set("limit", String(limit));
     const qs = params.toString();
-    router.push(`/admin/posts${qs ? `?${qs}` : ""}`);
+    router.push(`/moderation/posts${qs ? `?${qs}` : ""}`);
   }
 
   return (

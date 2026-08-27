@@ -6,53 +6,31 @@ import { useEffect, useState } from "react";
 
 import { adminLogout } from "@/app/actions/admin-auth";
 
-export type AdminSections = {
-  queue: boolean;
-  posts: boolean;
-  comments: boolean;
-  activity: boolean;
-  audit: boolean;
-  roles: boolean;
-  quotas: boolean;
-  system: boolean;
-  privacy: boolean;
-  flags: boolean;
-};
-
-const NAV_ITEMS: ReadonlyArray<{
-  href: string;
-  label: string;
-  section: keyof AdminSections;
-  queueBadge?: boolean;
-}> = [
-  { href: "/admin/queue", label: "Approval queue", section: "queue", queueBadge: true },
-  { href: "/admin/posts", label: "All posts", section: "posts" },
-  { href: "/admin/comments", label: "Comments", section: "comments" },
-  { href: "/admin/activity", label: "Publishing activity", section: "activity" },
-  { href: "/admin/audit", label: "Audit log", section: "audit" },
-  { href: "/admin/roles", label: "Permissions", section: "roles" },
-  { href: "/admin/quotas", label: "Publishing quotas", section: "quotas" },
-  { href: "/admin/privacy", label: "Data requests", section: "privacy" },
-  { href: "/admin/flags", label: "Feature flags", section: "flags" },
-  { href: "/admin/system", label: "Design system", section: "system" },
+/**
+ * Every destination in this console is the platform credential's. The
+ * position-held surfaces that used to sit in this list — the approval queue,
+ * all posts, comments — are member routes now (`/review`,
+ * `/moderation/posts`, `/moderation/comments`), reached from the app shell's
+ * own Governance group, so there is no longer a `sections` map deciding which
+ * half of one nav a given identity may see.
+ */
+const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
+  { href: "/admin/activity", label: "Publishing activity" },
+  { href: "/admin/audit", label: "Audit log" },
+  { href: "/admin/roles", label: "Permissions" },
+  { href: "/admin/quotas", label: "Publishing quotas" },
+  { href: "/admin/privacy", label: "Data requests" },
+  { href: "/admin/flags", label: "Feature flags" },
+  { href: "/admin/system", label: "Design system" },
 ];
 
 interface AdminShellProps {
-  memberName: string | null;
-  adminEmail: string | null;
-  queuedCount: number;
-  sections: AdminSections;
+  adminEmail: string;
   children: React.ReactNode;
 }
 
-export function AdminShell({
-  memberName,
-  adminEmail,
-  queuedCount,
-  sections,
-  children,
-}: AdminShellProps) {
-  const userName = memberName ?? adminEmail ?? "";
+export function AdminShell({ adminEmail, children }: AdminShellProps) {
+  const userName = adminEmail;
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -67,10 +45,9 @@ export function AdminShell({
     };
   }, [sidebarOpen]);
 
-  const items = NAV_ITEMS.filter((item) => sections[item.section]).map((item) => ({
+  const items = NAV_ITEMS.map((item) => ({
     href: item.href,
     label: item.label,
-    badge: item.queueBadge && queuedCount > 0 ? queuedCount : undefined,
     isActive: pathname === item.href || pathname.startsWith(item.href + "/"),
   }));
 
@@ -110,7 +87,7 @@ export function AdminShell({
             <span aria-hidden className="px-2 text-[color:var(--muted-foreground)]">
               /
             </span>
-            {adminEmail ? "Administration" : "Moderation"}
+            Administration
           </span>
         </div>
 
@@ -118,24 +95,20 @@ export function AdminShell({
           <span className="hidden max-w-[200px] truncate text-[14px] text-[color:var(--muted-foreground)] sm:block">
             {userName}
           </span>
-          {memberName && (
-            <Link
-              href="/feed"
-              className="pulse-underline rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          <Link
+            href="/feed"
+            className="pulse-underline rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          >
+            Back to feed
+          </Link>
+          <form action={adminLogout}>
+            <button
+              type="submit"
+              className="pulse-underline min-h-[36px] rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             >
-              Back to feed
-            </Link>
-          )}
-          {adminEmail && (
-            <form action={adminLogout}>
-              <button
-                type="submit"
-                className="pulse-underline min-h-[36px] rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-              >
-                Sign out
-              </button>
-            </form>
-          )}
+              Sign out
+            </button>
+          </form>
         </div>
       </header>
 
@@ -179,7 +152,7 @@ export function AdminShell({
   );
 }
 
-type AdminNavItem = { href: string; label: string; badge?: number; isActive: boolean };
+type AdminNavItem = { href: string; label: string; isActive: boolean };
 
 function AdminNavList({ items, onNavigate }: { items: AdminNavItem[]; onNavigate?: () => void }) {
   return (
@@ -205,11 +178,6 @@ function AdminNavList({ items, onNavigate }: { items: AdminNavItem[]; onNavigate
               ].join(" ")}
             />
             <span>{item.label}</span>
-            {item.badge != null && (
-              <span className="tabular inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--primary-fill)] px-1.5 text-[12px] font-bold text-[color:var(--primary-foreground)]">
-                {item.badge > 99 ? "99+" : item.badge}
-              </span>
-            )}
           </Link>
         </li>
       ))}

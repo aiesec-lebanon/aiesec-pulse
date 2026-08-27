@@ -59,15 +59,15 @@ test.describe("axe-core, WCAG 2.2 AA", () => {
   });
 
   test("moderation queue", async ({ page, signInAs }) => {
-    await signInAs("mc_vp", "/admin/queue");
-    await expectNoA11yViolations(page, "/admin/queue");
+    await signInAs("mc_vp", "/review");
+    await expectNoA11yViolations(page, "/review");
   });
 
   test("moderation tables", async ({ page, signInAs }) => {
-    await signInAs("pai", "/admin/posts");
-    await expectNoA11yViolations(page, "/admin/posts");
-    await page.goto("/admin/comments");
-    await expectNoA11yViolations(page, "/admin/comments");
+    await signInAs("pai", "/moderation/posts");
+    await expectNoA11yViolations(page, "/moderation/posts");
+    await page.goto("/moderation/comments");
+    await expectNoA11yViolations(page, "/moderation/comments");
   });
 
   test("admin sign-in", async ({ page }) => {
@@ -157,7 +157,7 @@ test.describe("keyboard operation", () => {
 test.describe("document structure", () => {
   test("every core page has exactly one h1", async ({ page, signInAs }) => {
     await signInAs("pai");
-    for (const path of ["/feed", "/profile", "/settings/privacy", "/admin/queue", "/admin/audit"]) {
+    for (const path of ["/feed", "/profile", "/settings/privacy", "/review", "/admin/audit"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 }), `h1 count on ${path}`).toHaveCount(1);
     }

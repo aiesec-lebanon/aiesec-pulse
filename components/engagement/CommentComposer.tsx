@@ -1,5 +1,6 @@
 "use client";
 
+import { SendHorizonal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
@@ -17,15 +18,33 @@ type Props = {
   onRemove: (optimistic: CommentDto) => void;
 };
 
+/**
+ * The send control. Two small things carry the interaction: the arrow leans
+ * into the direction of travel on hover, and the whole control dips on press —
+ * so a comment feels sent rather than merely submitted. While the action is in
+ * flight the arrow keeps moving on its own, which is the honest signal that
+ * something is happening (the optimistic row has already appeared above).
+ */
 function SubmitButton({ empty }: { empty: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
       disabled={empty || pending}
-      className="min-h-[38px] rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 text-[13px] font-bold text-[color:var(--primary-foreground)] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-40"
+      className="group/send flex min-h-[38px] items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 text-[13px] font-bold text-[color:var(--primary-foreground)] transition-[opacity,transform] duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
     >
       {pending ? "Posting…" : "Post comment"}
+      <SendHorizonal
+        size={14}
+        strokeWidth={2.5}
+        aria-hidden
+        className={[
+          "transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]",
+          pending
+            ? "animate-float-drift"
+            : "group-hover/send:translate-x-[calc(3px*var(--motion-travel))]",
+        ].join(" ")}
+      />
     </button>
   );
 }
@@ -100,11 +119,11 @@ export function CommentComposer({
             rows={2}
             maxLength={MAX_CHARS}
             aria-label="Comment text"
-            className="w-full resize-none overflow-hidden border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-[15px] leading-[1.5] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus:outline-none"
+            className="w-full resize-none overflow-hidden rounded-[3px] border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-[15px] leading-[1.5] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-[border-color,box-shadow] duration-[calc(var(--dur-element)*var(--motion-scale))] focus:border-[var(--primary)] focus:shadow-[0_0_0_4px_var(--glow-primary-soft)] focus:outline-none"
           />
           <div className="mt-2.5 flex items-center justify-between gap-4">
             <span
-              className={`text-[12px] tabular-nums ${
+              className={`text-[12px] tabular-nums transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] ${
                 chars > MAX_CHARS * 0.9
                   ? "text-[color:var(--destructive-text)]"
                   : "text-[color:var(--muted-foreground)]"

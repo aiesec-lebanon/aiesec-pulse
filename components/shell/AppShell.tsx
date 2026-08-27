@@ -1,3 +1,4 @@
+import { RouteTransition } from "@/components/motion/RouteTransition";
 import type { FeedMode } from "@/lib/feed-mode";
 
 import { ShellInteractive, type ShellUser } from "./ShellInteractive";
@@ -26,7 +27,10 @@ export function AppShell({
         tabIndex={-1}
         className="relative z-10 flex flex-1 flex-col scroll-mt-24 outline-none"
       >
-        {children}
+        {/* The route change itself is animated here rather than per page, so
+            every surface in the app arrives the same way — including the ones
+            nobody remembered to decorate. */}
+        <RouteTransition className="flex flex-1 flex-col">{children}</RouteTransition>
       </div>
     </div>
   );

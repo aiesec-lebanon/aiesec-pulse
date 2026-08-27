@@ -162,7 +162,7 @@ export function UpNextRotator({ posts }: { posts: FeedPost[] }) {
             ) : (
               <TopicPlate
                 entityName={post.author.entityName ?? post.author.fullName}
-                kind={post.topics[0]?.kind ?? "GENERAL"}
+                kind={post.topics[0]?.kind ?? null}
               />
             )}
           </span>

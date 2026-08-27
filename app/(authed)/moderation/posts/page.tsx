@@ -1,105 +1,147 @@
 import Link from "next/link";
 
 import type { Prisma } from "@/app/generated/prisma/client";
-import { type CommentRow, CommentsTable } from "@/components/admin/CommentsTable";
+import { PostStatus } from "@/app/generated/prisma/enums";
 import { PageSizeSelect } from "@/components/admin/PageSizeSelect";
+import { PostsSearch } from "@/components/moderation/PostsSearch";
+import { type PostRow, PostsTable } from "@/components/moderation/PostsTable";
 import { db } from "@/lib/db";
+import { entityDisplayName } from "@/lib/org/display";
 import { requirePermission } from "@/lib/rbac/guards";
-import { commentScopeWhere, resolveScopeFilter } from "@/lib/rbac/scope-filter";
+import { postScopeWhere, resolveScopeFilter } from "@/lib/rbac/scope-filter";
 
+// Without postScopeWhere this is a cross-entity read of unpublished content.
 export const dynamic = "force-dynamic";
 
-const VIEW_OPTIONS = [
+export const metadata = { title: "All posts · AIESEC Pulse" };
+
+const STATUS_OPTIONS = [
   { label: "All", value: "" },
-  { label: "Visible", value: "VISIBLE" },
+  { label: "Published", value: "PUBLISHED" },
+  { label: "In review", value: "IN_REVIEW" },
+  { label: "Rejected", value: "REJECTED" },
   { label: "Hidden", value: "HIDDEN" },
-  { label: "Deleted by author", value: "DELETED" },
 ] as const;
+
+function parseStatus(raw: string | undefined): PostStatus | undefined {
+  const allowed = [
+    "PUBLISHED",
+    "IN_REVIEW",
+    "REJECTED",
+    "HIDDEN",
+    "DRAFT",
+    "SCHEDULED",
+    "ARCHIVED",
+  ];
+  return raw && allowed.includes(raw) ? (raw as PostStatus) : undefined;
+}
 
 function clampLimit(raw: string | undefined): number {
   const n = parseInt(raw ?? "25", 10);
   return [10, 25, 50, 100].includes(n) ? n : 25;
 }
 
-export default async function AdminCommentsPage({
+export default async function ModerationPostsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; page?: string; limit?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string; limit?: string }>;
 }) {
   const user = await requirePermission("moderation.hide");
   const scope = await resolveScopeFilter(user, "moderation.hide");
 
   const params = await searchParams;
-  const view = VIEW_OPTIONS.some((o) => o.value === params.view) ? (params.view ?? "") : "";
+  const statusParam = params.status ?? "";
+  const status = parseStatus(params.status);
+  const q = params.q?.trim() ?? "";
   const limit = clampLimit(params.limit);
   const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
-  const where: Prisma.CommentWhereInput = {
-    ...commentScopeWhere(scope),
-    ...(view ? { status: view as "VISIBLE" | "HIDDEN" | "DELETED" } : {}),
+  const where: Prisma.PostWhereInput = {
+    ...postScopeWhere(scope),
+    ...(status ? { status } : {}),
+    ...(q
+      ? {
+          AND: [
+            {
+              OR: [
+                { title: { contains: q, mode: "insensitive" as const } },
+                { author: { fullName: { contains: q, mode: "insensitive" as const } } },
+              ],
+            },
+          ],
+        }
+      : {}),
   };
 
-  const [total, comments] = await Promise.all([
-    db.comment.count({ where }),
-    db.comment.findMany({
+  const [total, posts] = await Promise.all([
+    db.post.count({ where }),
+    db.post.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
       select: {
         id: true,
-        body: true,
+        slug: true,
+        title: true,
         status: true,
-        hiddenReason: true,
         createdAt: true,
-        user: { select: { fullName: true, primaryEntity: { select: { name: true } } } },
-        post: { select: { slug: true, title: true } },
+        reactionCount: true,
+        commentCount: true,
+        hiddenReason: true,
+        author: { select: { fullName: true } },
+        publisher: { select: { name: true, kind: true } },
       },
     }),
   ]);
 
-  const rows: CommentRow[] = comments.map((c) => ({
-    id: c.id,
-    body: c.body,
-    status: c.status,
-    hiddenReason: c.hiddenReason,
-    createdAt: c.createdAt.toISOString(),
-    authorName: c.user.fullName,
-    authorEntity: c.user.primaryEntity?.name ?? null,
-    postSlug: c.post.slug,
-    postTitle: c.post.title,
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const rows: PostRow[] = posts.map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    title: p.title,
+    status: p.status,
+    authorName: p.author.fullName,
+    authorEntity: entityDisplayName(p.publisher.name, p.publisher.kind) ?? p.publisher.name,
+    createdAt: p.createdAt.toISOString(),
+    reactionCount: p.reactionCount,
+    commentCount: p.commentCount,
+    hiddenReason: p.hiddenReason,
   }));
 
-  const totalPages = Math.max(1, Math.ceil(total / limit));
   const buildHref = (overrides: Record<string, string | number>) => {
     const next = new URLSearchParams();
-    if (view) next.set("view", view);
+    if (statusParam) next.set("status", statusParam);
+    if (q) next.set("q", q);
     next.set("limit", String(limit));
     next.set("page", String(page));
     for (const [k, v] of Object.entries(overrides)) next.set(k, String(v));
-    return `/admin/comments?${next.toString()}`;
+    return `/moderation/posts?${next.toString()}`;
   };
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Comments</h1>
+      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">All posts</h1>
       <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
-        Hiding is reversible and always carries a reason the author can see.
+        {scope.kind === "all"
+          ? "Every post across the network."
+          : "Posts published by entities in your moderation scope."}
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <nav
-          aria-label="Filter comments"
+          aria-label="Filter by status"
           className="flex flex-wrap gap-1 rounded-[8px] bg-[var(--muted)] p-1"
         >
-          {VIEW_OPTIONS.map((option) => (
+          {STATUS_OPTIONS.map((option) => (
             <Link
               key={option.value}
-              href={buildHref({ view: option.value, page: 1 })}
-              aria-current={view === option.value ? "page" : undefined}
+              href={buildHref({ status: option.value, page: 1 })}
+              aria-current={statusParam === option.value ? "page" : undefined}
               className={[
                 "min-h-[28px] rounded-[4px] px-3 py-1 text-[14px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-                view === option.value
+                statusParam === option.value
                   ? "bg-[var(--card)] text-[color:var(--foreground)]"
                   : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
               ].join(" ")}
@@ -108,24 +150,25 @@ export default async function AdminCommentsPage({
             </Link>
           ))}
         </nav>
+        <PostsSearch q={q} status={statusParam} limit={limit} />
         <div className="ml-auto">
           <PageSizeSelect current={limit} />
         </div>
       </div>
 
       <p className="mt-4 text-[13px] text-[color:var(--muted-foreground)]" role="status">
-        {total} {total === 1 ? "comment" : "comments"}
+        {total} {total === 1 ? "post" : "posts"}
       </p>
 
       <div className="mt-3">
         {rows.length === 0 ? (
           <div className="aiesec-card px-8 py-12 text-center">
             <p className="text-[16px] text-[color:var(--muted-foreground)]">
-              No comments match that filter.
+              No posts match those filters.
             </p>
           </div>
         ) : (
-          <CommentsTable rows={rows} />
+          <PostsTable rows={rows} />
         )}
       </div>
 

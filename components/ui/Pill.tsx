@@ -10,17 +10,26 @@ export function Pill({
   label,
   tint,
   text,
+  square = false,
   className,
 }: {
   label: string;
   tint: string;
   text: string;
+  /**
+   * Square corners. The reference file draws a *topic* as a hard-edged patch of
+   * colour, not as a pill — it is a filing mark rather than a status, and the
+   * corner is what tells them apart at a glance. Lifecycle and reach badges keep
+   * the rounded shape.
+   */
+  square?: boolean;
   className?: string;
 }) {
   return (
     <span
       className={[
-        "inline-flex shrink-0 items-center rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium",
+        "inline-flex shrink-0 items-center px-2 py-0.5 text-[12px] font-medium",
+        square ? "rounded-none" : "rounded-[var(--radius-md)]",
         className,
       ]
         .filter(Boolean)

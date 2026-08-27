@@ -13,8 +13,8 @@ test.describe("unauthenticated access", () => {
     ).toBeVisible();
   });
 
-  test("the admin area is not reachable", async ({ page }) => {
-    await page.goto("/admin/queue");
+  test("a permission-gated work surface is not reachable", async ({ page }) => {
+    await page.goto("/review");
     await expect(page).toHaveURL(/\/login/);
   });
 

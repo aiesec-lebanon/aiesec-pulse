@@ -5,32 +5,48 @@ import { useEffect, useRef, useState } from "react";
 import type { DocumentSection } from "@/lib/content/document";
 
 /**
- * The sticky "in this story" rail — UI ref 2a. Real `<a href="#section-N">`
- * anchors, not click-handler spans: actually addressable, keyboard-operable,
- * and they clear the sticky header on arrival via the `scroll-mt-24` already
- * stamped onto each target heading (DocumentRenderer).
+ * The sticky reading rail — UI ref 2a.
  *
- * The read-percentage figure is scoped to the article content element
- * (`contentId`), not the whole document — this rail is a table of contents
- * for the *story*, and the page keeps going below it (up next, comments), so
- * a page-scroll ratio would still read well under 100% once the reader has
- * genuinely finished. Same rAF-throttled approach `ReadingProgress.tsx`
- * already uses, duplicated deliberately into this new, isolated file rather
- * than factored into a shared hook — `ReadingProgress` (which *is* a
- * whole-page measure, correctly) stays untouched and zero-risk.
+ * Two parts, and they are now independent, which is the point of this revision:
+ *
+ *   - **The section index**, when the story has two or more `H2`s. Real
+ *     `<a href="#section-N">` anchors — addressable, keyboard-operable, and they
+ *     clear the sticky header via the `scroll-mt-24` on each target heading.
+ *   - **The read percentage, always.** It used to be rendered *inside* the
+ *     index and therefore inherited its gate, so a story with one heading or
+ *     none — most short updates — showed no progress at all. Progress is not a
+ *     table of contents; every article has it.
+ *
+ * The measurement went through two wrong versions before this one, both worth
+ * recording:
+ *
+ *   1. `-top / height` reaches 1 only once the article's *bottom* edge has
+ *      passed the *top* of the viewport — i.e. once the whole story has scrolled
+ *      off screen. A reader looking straight at the last line was told 82%.
+ *   2. `(viewportBottom - top) / height` fixed the end and broke the start: it
+ *      counts what is *visible*, so an article whose opening third fits on the
+ *      first screen reported 33% before the reader had scrolled at all.
+ *
+ * What "read" actually means is *how far through its own scroll range the
+ * article has travelled* — 0 before the reader moves, 1 exactly as the last
+ * line reaches the bottom edge. An article shorter than the viewport has no
+ * scroll range, so it is read once its last line is on screen.
  */
 export function ReadingIndex({
   sections,
   contentId,
 }: {
   sections: DocumentSection[];
-  /** The id of the element the read-percentage is measured against. */
+  /** The id of the article body the read-percentage is measured against. */
   contentId: string;
 }) {
   const [activeId, setActiveId] = useState<string | null>(sections[0]?.id ?? null);
   const percentRef = useRef<HTMLSpanElement>(null);
+  const barRef = useRef<HTMLSpanElement>(null);
+  const hasIndex = sections.length >= 2;
 
   useEffect(() => {
+    if (!hasIndex) return;
     const elements = sections
       .map((s) => document.getElementById(s.id))
       .filter((el): el is HTMLElement => el !== null);
@@ -46,27 +62,38 @@ export function ReadingIndex({
     );
     elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [sections]);
+  }, [sections, hasIndex]);
 
   useEffect(() => {
     let ticking = false;
+
     function update() {
       ticking = false;
       const content = document.getElementById(contentId);
       if (!content) return;
-      // How far the content element has scrolled past the viewport's top
-      // edge, as a fraction of its own height: 0 at first contact, 1 once
-      // its bottom has reached the top of the viewport.
+
       const { top, height } = content.getBoundingClientRect();
-      const ratio = height > 0 ? -top / height : 0;
-      const percent = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+      const viewport = window.innerHeight;
+      // How far the article can travel before its last line reaches the bottom
+      // edge. Negative when the whole article already fits on one screen.
+      const range = height - viewport;
+      const ratio = range > 0 ? -top / range : top + height <= viewport ? 1 : 0;
+      const clamped = Math.min(1, Math.max(0, ratio));
+
+      const percent = Math.round(clamped * 100);
       if (percentRef.current) percentRef.current.textContent = String(percent);
+      // Written straight to the node rather than through state: this runs on
+      // every scroll frame, and re-rendering a React tree sixty times a second
+      // to move one rule is the version of this that makes a page feel heavy.
+      if (barRef.current) barRef.current.style.transform = `scaleX(${clamped})`;
     }
+
     function onScroll() {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(update);
     }
+
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
@@ -77,34 +104,52 @@ export function ReadingIndex({
   }, [contentId]);
 
   return (
-    <nav aria-label="In this story" className="flex flex-col">
-      {sections.map((section) => {
-        const active = section.id === activeId;
-        return (
-          <a
-            key={section.id}
-            href={`#${section.id}`}
-            className={[
-              "flex items-center gap-3 border-t border-[var(--hairline)] py-2.5 text-[13px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-              active
-                ? "text-[color:var(--foreground)]"
-                : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
-            ].join(" ")}
-          >
-            <span
-              aria-hidden
-              className={[
-                "h-px shrink-0 bg-[var(--primary)] transition-all duration-[calc(var(--dur-element)*var(--motion-scale))]",
-                active ? "w-3.5" : "w-1.5 opacity-50",
-              ].join(" ")}
-            />
-            {section.label}
-          </a>
-        );
-      })}
-      <p className="pulse-label mt-5">
+    <div className="flex flex-col">
+      {hasIndex && (
+        <>
+          <p className="pulse-label pulse-label-wide mb-4">In this story</p>
+          <nav aria-label="In this story" className="mb-6 flex flex-col">
+            {sections.map((section) => {
+              const active = section.id === activeId;
+              return (
+                <a
+                  key={section.id}
+                  href={`#${section.id}`}
+                  className={[
+                    "flex items-center gap-3 border-t border-[var(--hairline)] py-2.5 text-[12.5px] font-bold leading-[1.35] transition-colors last:border-b focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+                    active
+                      ? "text-[color:var(--foreground)]"
+                      : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
+                  ].join(" ")}
+                >
+                  <span
+                    aria-hidden
+                    className={[
+                      "h-px shrink-0 transition-all duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]",
+                      active ? "w-3.5 bg-[var(--primary)]" : "w-1.5 bg-[var(--border)]",
+                    ].join(" ")}
+                  />
+                  {section.label}
+                </a>
+              );
+            })}
+          </nav>
+        </>
+      )}
+
+      {/* Always. A rule that fills as the reader descends, and the figure
+          beside it — the same information twice, because the rule is read at a
+          glance and the figure is read when you look. */}
+      <p className="pulse-label">
         <span ref={percentRef}>0</span>% read
       </p>
-    </nav>
+      <span aria-hidden className="mt-2 block h-px w-full overflow-hidden bg-[var(--hairline)]">
+        <span
+          ref={barRef}
+          className="block h-full origin-left bg-[var(--primary)] transition-transform duration-[calc(120ms*var(--motion-scale))] ease-out"
+          style={{ transform: "scaleX(0)" }}
+        />
+      </span>
+    </div>
   );
 }
