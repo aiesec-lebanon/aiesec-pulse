@@ -338,7 +338,6 @@ export function PostComposer({
   return (
     <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-16">
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
-        {/* ── Title ── */}
         <div>
           <label
             htmlFor="title"
@@ -397,7 +396,6 @@ export function PostComposer({
           </div>
         </div>
 
-        {/* ── Standfirst ── */}
         <div>
           <label
             htmlFor="summary"
@@ -442,7 +440,6 @@ export function PostComposer({
           </div>
         </div>
 
-        {/* ── Content ── */}
         <div>
           <label
             htmlFor="content"
@@ -480,7 +477,6 @@ export function PostComposer({
           </div>
         </div>
 
-        {/* ── Image ── */}
         <div>
           <p className="mb-1.5 text-[14px] font-medium text-[color:var(--foreground)]">
             Image{" "}
@@ -499,7 +495,6 @@ export function PostComposer({
                 alt={mediaAlt || ""}
                 className="max-h-64 w-full object-cover"
               />
-              {/* Uploading overlay */}
               {isUploading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-[var(--card)]/60 backdrop-blur-[2px]">
                   <Loader2
@@ -510,7 +505,6 @@ export function PostComposer({
                   />
                 </div>
               )}
-              {/* Remove button — only shown once upload is done */}
               {!isUploading && (
                 <button
                   type="button"
@@ -629,7 +623,6 @@ export function PostComposer({
           />
         </div>
 
-        {/* ── External link ── */}
         <div>
           <label
             htmlFor="linkUrl"
@@ -668,7 +661,6 @@ export function PostComposer({
           )}
         </div>
 
-        {/* ── Topics ── */}
         {topics.length > 0 && (
           <TopicPicker
             topics={topics}
@@ -678,7 +670,6 @@ export function PostComposer({
           />
         )}
 
-        {/* ── Schedule ── */}
         {schedulingEnabled && (
           <div>
             <label
@@ -722,7 +713,6 @@ export function PostComposer({
           </div>
         )}
 
-        {/* ── Audience ── */}
         {audienceOptions && (
           <AudiencePicker
             options={audienceOptions}
@@ -733,7 +723,6 @@ export function PostComposer({
           />
         )}
 
-        {/* ── Reach ── */}
         {reachOptions && (
           <ReachPicker
             options={reachOptions}
@@ -747,7 +736,6 @@ export function PostComposer({
           />
         )}
 
-        {/* ── Server error ── */}
         {serverError && (
           <div
             role="alert"
@@ -757,7 +745,6 @@ export function PostComposer({
           </div>
         )}
 
-        {/* ── Actions ── */}
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
             type="submit"

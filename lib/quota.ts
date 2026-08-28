@@ -29,11 +29,10 @@ export type ResolvedQuota = {
 /**
  * Nearest scope wins, so an entity can be given a bespoke allowance.
  *
- * Every candidate sits on one chain from the root down to the author's entity,
- * and an ancestor's path is a prefix of its descendant's — so "nearest" is
- * simply "deepest". A GLOBAL policy has no entity and so no depth, which puts it
- * behind every entity-scoped row: it is the fallback, and depth 0 says exactly
- * that.
+ * Every candidate sits on one chain from root to the author's entity, and an
+ * ancestor's path prefixes its descendant's — so "nearest" means "deepest". A
+ * GLOBAL policy has no entity, hence no depth, so it sits behind every
+ * entity-scoped row as the fallback — depth 0 says exactly that.
  */
 export function nearestByScope<T extends { entityId: string | null }>(
   policies: T[],
@@ -43,9 +42,9 @@ export function nearestByScope<T extends { entityId: string | null }>(
   let nearestDepth = -1;
 
   for (const policy of policies) {
-    // `> nearestDepth`, never `>=`, so the first row wins a tie — the same
-    // arbitrary-but-stable choice the previous per-scope `findFirst` made when
-    // one scope held policies for more than one period.
+    // `> nearestDepth`, never `>=`, so the first row wins ties — the same
+    // arbitrary-but-stable choice the old per-scope `findFirst` made when one
+    // scope held policies for more than one period.
     const depth = policy.entityId ? (depthByEntityId.get(policy.entityId) ?? 0) : 0;
     if (depth > nearestDepth) {
       nearest = policy;
@@ -59,10 +58,10 @@ export function nearestByScope<T extends { entityId: string | null }>(
 /**
  * Nearest scope wins, so an entity can be given a bespoke allowance.
  *
- * `postLevel` picks between the two budgets a role carries: LOCAL is how many
- * posts it may publish into its own MC, NETWORK how many it may promote to the
- * whole network. They are separate policy rows at the same
- * scope, so the level is part of the question, never inferred.
+ * `postLevel` picks between a role's two budgets: LOCAL for posts published
+ * into its own MC, NETWORK for promotions to the whole network — separate
+ * policy rows at the same scope, so level is part of the question, never
+ * inferred.
  */
 export async function resolveQuotaPolicy(
   entityId: string | null,
@@ -70,9 +69,9 @@ export async function resolveQuotaPolicy(
   postLevel: PostLevel,
   at: Date = new Date()
 ): Promise<ResolvedQuota | null> {
-  // Two round trips whatever the depth of the tree, and this runs twice per
-  // publish — once for the composer's quota state, once inside createPost.
-  // Precedence lives in nearestByScope rather than in the order of the queries.
+  // Two round trips regardless of tree depth; this runs twice per publish —
+  // once for the composer's quota state, once inside createPost. Precedence
+  // lives in nearestByScope, not in query order.
   const entity = entityId
     ? await db.entity.findUnique({ where: { id: entityId }, select: { path: true } })
     : null;
@@ -81,11 +80,10 @@ export async function resolveQuotaPolicy(
   // set on the author's own entity is the nearest scope there is.
   const chainPaths = entity ? [...ancestorPaths(entity.path), entity.path] : [];
 
-  // Neither of these needs the other's answer, so they go together and the pair
-  // costs one round trip rather than two. Both are keyed on the same paths: the
-  // policy query filters through the relation, which Prisma compiles to a join
-  // in the one statement — asking for the related row with `include` instead
-  // would add a second, sequential query just to hydrate it.
+  // Neither needs the other's answer, so they run together as one round trip,
+  // not two. Both key on the same paths: the policy query filters through the
+  // relation, which Prisma compiles to a single join — `include` instead would
+  // add a second, sequential query just to hydrate the related row.
   const [chain, policies] = await Promise.all([
     chainPaths.length > 0
       ? db.entity.findMany({
@@ -124,11 +122,10 @@ export async function resolveQuotaPolicy(
 }
 
 /**
- * Which classes need a budget at each level: the ones holding the permission
- * that spends it. A class that holds the permission and has no policy cannot
- * publish or promote at all — a missing policy reads as at-limit, not as
- * unlimited — so the administration surface shows those rows as unset rather
- * than hiding them.
+ * Which classes need a budget at each level: those holding the permission that
+ * spends it. A class with the permission but no policy can't publish or
+ * promote at all — a missing policy reads as at-limit, not unlimited — so the
+ * administration surface shows those rows as unset rather than hiding them.
  */
 export const SPENDING_PERMISSION: Record<PostLevel, PermissionKey> = {
   [PostLevel.LOCAL]: "post.publish",
@@ -200,11 +197,10 @@ export async function quotaStateFor(
 }
 
 /**
- * The pool a promotion is billed against. The NETWORK budget is counted per
- * MC, not per officer, so an MC cannot buy extra network reach
- * by spreading promotions across several MCVPs. A promoter above the MC tier
- * shares an MC with nobody, so their pool is themselves — the same rule, not an
- * exception to it.
+ * The pool a promotion is billed against. The NETWORK budget counts per MC,
+ * not per officer, so an MC can't buy extra network reach by spreading
+ * promotions across several MCVPs. A promoter above the MC tier shares an MC
+ * with nobody, so their pool is themselves — the same rule, not an exception.
  */
 export type PromotionPool = { mcPath: string } | { promoterId: string };
 
@@ -213,20 +209,20 @@ export function promotionPoolFor(promoterId: string, mc: { path: string } | null
 }
 
 /**
- * The window's spend, as a where clause. Kept apart from the count so the rule
- * can be asserted without a database — it is the subtlest decision in the
- * promotion model and the easiest to undo by accident.
+ * The window's spend, as a where clause — kept apart from the count so the
+ * rule can be asserted without a database. The subtlest decision in the
+ * promotion model, and the easiest to undo by accident.
  *
  * Counted on `promotionPeriod` alone — deliberately **not** also on
- * `level = NETWORK`. Including it would make demotion refund the promotion:
- * the window's promotion is spent whether or not it is later withdrawn, or
- * promote/demote cycling becomes an unbounded reach budget.
+ * `level = NETWORK`. Including it would let demotion refund the promotion: the
+ * window's spend stands whether or not it's later withdrawn, or promote/demote
+ * cycling becomes an unbounded reach budget.
  *
- * `excludePostId` leaves the post being promoted out of its own count, so
- * re-promoting something this window already paid for is free while a second
+ * `excludePostId` excludes the promoted post from its own count, so
+ * re-promoting something this window already paid for is free, but a second
  * post is not. Omit it to ask what the pool has actually spent — the number a
- * budget label should show, since two posts in one MC must not report different
- * remaining budgets.
+ * budget label should show, since two posts in one MC must report the same
+ * remaining budget.
  */
 export function promotionCountWhere(
   pool: PromotionPool,

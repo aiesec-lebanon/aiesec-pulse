@@ -10,15 +10,15 @@ const MAX_CHARS = 280;
 /**
  * The member's own standfirst, edited where it is read.
  *
- * Editing in place rather than on a settings page, because this is one field
- * and the whole point of it is how it looks in the hero — a separate form would
- * make the author write blind and then navigate to check. The read state is the
- * hero's own standfirst; the edit state is the same measure and the same type,
- * so what they are typing into is the thing they are making.
+ * Editing happens in place, not on a settings page: this is one field, and
+ * the point of it is how it looks in the hero — a separate form would make
+ * the author write blind, then navigate to check. The read state is the
+ * hero's own standfirst; the edit state matches its measure and type, so
+ * what they type into is the thing they're making.
  *
- * The empty state is a real invitation rather than a blank space. A profile with
- * no bio is the common case, and a hero that simply omits the line gives the
- * member no reason to believe a line is available.
+ * The empty state is a real invitation rather than a blank space. A profile
+ * with no bio is the common case, and a hero that simply omits the line
+ * gives the member no reason to believe a line is available.
  */
 export function BioEditor({ initialBio }: { initialBio: string | null }) {
   const [bio, setBio] = useState(initialBio ?? "");

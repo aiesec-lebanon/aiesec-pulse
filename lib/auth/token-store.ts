@@ -67,7 +67,6 @@ type TokenResponse = {
 };
 
 function toTokenSet(payload: TokenResponse): TokenSet {
-  // Fall back to our clock only if `created_at` is missing.
   const createdAtMs = payload.created_at ? payload.created_at * 1000 : Date.now();
   return {
     accessToken: payload.access_token,

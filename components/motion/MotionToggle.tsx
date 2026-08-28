@@ -11,9 +11,9 @@ import { useMotion } from "@/components/motion/motion-context";
  * by the icon alone.
  *
  * The two icons cross-fade and counter-rotate rather than swapping, so the
- * control demonstrates the thing it controls. Under Reduced that animation
- * collapses with everything else, which is the honest behaviour: the control
- * should look the way it is about to make the rest of the app look.
+ * control demonstrates the thing it controls. Under Reduced, that animation
+ * collapses with everything else — the honest behaviour: the control should
+ * look the way it's about to make the rest of the app look.
  */
 export function MotionToggle() {
   const { motion, setMotion } = useMotion();

@@ -7,12 +7,11 @@ import { useEffect, useState } from "react";
 import { adminLogout } from "@/app/actions/admin-auth";
 
 /**
- * Every destination in this console is the platform credential's. The
- * position-held surfaces that used to sit in this list — the approval queue,
- * all posts, comments — are member routes now (`/review`,
- * `/moderation/posts`, `/moderation/comments`), reached from the app shell's
- * own Governance group, so there is no longer a `sections` map deciding which
- * half of one nav a given identity may see.
+ * Every destination here belongs to the platform credential — position-held
+ * surfaces (approval queue, all posts, comments) moved to member routes
+ * (`/review`, `/moderation/posts`, `/moderation/comments`) under the app
+ * shell's Governance group, so a `sections` map splitting nav by identity is
+ * no longer needed.
  */
 const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/admin/activity", label: "Publishing activity" },
@@ -122,9 +121,9 @@ export function AdminShell({ adminEmail, children }: AdminShellProps) {
           ].join(" ")}
         />
 
-        {/* One nav list rendered into two shells. It used to be written out
-            twice, so a change to the active state or the count badge had to be
-            made in both places or the two viewports drifted apart. */}
+        {/* One nav list rendered into two shells. Previously duplicated, so an
+            active-state or count-badge change had to be made twice, or the
+            viewports drifted apart. */}
         <nav
           aria-label="Admin navigation"
           inert={!sidebarOpen}

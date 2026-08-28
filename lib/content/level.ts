@@ -124,8 +124,8 @@ export type ReachDecision =
 /**
  * The half that must run inside the publish transaction: whether the requested
  * promotion can be paid for, decided against a count taken under the same
- * Serializable snapshot as the publish itself. Two officers of one MC
- * publishing at once cannot both read the same "one left" and both spend it.
+ * Serializable snapshot as the publish itself — so two officers of one MC
+ * publishing at once can't both read the same "one left" and both spend it.
  *
  * Returns a refusal rather than throwing, so the caller can leave the
  * transaction without having written anything.

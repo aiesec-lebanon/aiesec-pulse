@@ -17,9 +17,8 @@ const LEVELS: Array<{ level: PostLevel; label: string }> = [
 ];
 
 /**
- * Gives one MC an allowance of its own. Everything else about the policy is
- * unchanged — it is the same row shape as a default, just scoped, and the
- * nearest scope is the one a publish resolves against.
+ * Gives one MC its own allowance: same row shape as a default, just scoped
+ * — a publish resolves against the nearest scope.
  */
 export function QuotaOverrideForm({
   rolesByLevel,

@@ -9,16 +9,16 @@ import { createPortal } from "react-dom";
  * The cover photograph, openable.
  *
  * A story's cover is cropped hard by the hero — an angled clip on wide
- * viewports, a 16:9 band on narrow ones — so a reader who wants to actually
- * *look* at the photograph currently cannot. This makes the frame a control
- * that opens it at full size, with the crop removed.
+ * viewports, a 16:9 band on narrow ones — so a reader wanting to actually
+ * *look* at the photograph currently can't. This makes the frame a control
+ * that opens it at full size, crop removed.
  *
  * It renders as a transparent button laid over the image rather than wrapping
- * it, because the hero's cover lives inside a `clip-path` container with a
- * parallax layer inside that: wrapping either would either clip the control or
- * hand it a transform. The hint mark in the corner is the affordance — a
- * `cursor: zoom-in` is invisible on touch and to anyone not already moving
- * their pointer.
+ * it: the hero's cover lives inside a `clip-path` container with a parallax
+ * layer inside that, and wrapping either would clip the control or hand it a
+ * transform. The hint mark in the corner is the affordance — `cursor:
+ * zoom-in` is invisible on touch and to anyone not already moving their
+ * pointer.
  *
  * Dialog mechanics follow §9.4 exactly, the same contract `ReasonModal`
  * already meets: `role="dialog"` + `aria-modal`, focus moved to the close
@@ -27,11 +27,11 @@ import { createPortal } from "react-dom";
  * scroll.
  *
  * The dialog is **portalled to `document.body`**, and has to be: the trigger
- * sits inside the hero's `clip-path` container on wide viewports and inside an
- * `overflow: hidden` media frame on narrow ones. Both clip their descendants —
- * `position: fixed` included — so a dialog rendered in place would have opened
- * as an angled sliver of itself. It only ever renders while `open`, which is
- * necessarily after mount, so there is no server-render branch to guard.
+ * sits inside the hero's `clip-path` container on wide viewports and an
+ * `overflow: hidden` media frame on narrow ones. Both clip their descendants,
+ * `position: fixed` included, so a dialog rendered in place would open as an
+ * angled sliver of itself. It renders only while `open` — necessarily after
+ * mount — so there's no server-render branch to guard.
  */
 export function CoverLightbox({
   src,

@@ -8,10 +8,10 @@ import { motionEnabled } from "@/components/motion/motion-context";
  * The network, drawn.
  *
  * A point cloud distributed evenly over a sphere (Fibonacci lattice), rotated
- * in three dimensions and projected to 2-D with real perspective divide, with
- * chords drawn between points that are close in 3-D space. It is the product's
- * own thesis as an image: ~110 member committees on one globe, connected, with
- * the near face lit and the far face receding.
+ * in three dimensions and projected to 2-D with real perspective divide,
+ * chords drawn between points close in 3-D space. It's the product's own
+ * thesis as an image: ~110 member committees on one globe, connected, near
+ * face lit, far face receding.
  *
  * Deliberately 2-D canvas rather than WebGL: a few hundred projected points
  * cost far less than a GL context for the same read. The projection maths is the 3-D part; the renderer is not.
@@ -70,8 +70,8 @@ export function NetworkField({
     const primary = readToken(canvas, "--primary", "#037ef3");
     const success = readToken(canvas, "--success", "#0cb9c1");
     // The same alphas that read as a lit constellation on the dark stage
-    // disappear on a near-white one, so the ink is scaled per theme. Re-read
-    // on the theme change event rather than per frame.
+    // disappear on a near-white one, so ink is scaled per theme — re-read on
+    // the theme-change event rather than per frame.
     let ink = document.documentElement.classList.contains("dark") ? 1 : 1.7;
 
     let width = 0;
@@ -128,9 +128,9 @@ export function NetworkField({
       }
 
       // Chords first, so nodes sit on top of their own connections. The pair
-      // scan is O(n²), so both axes are rejected on a bare subtraction before
-      // any square root runs — that bounding-box test throws out the large
-      // majority of pairs and is what keeps this inside a frame budget.
+      // scan is O(n²), so both axes are rejected via a bare subtraction before
+      // any square root runs — the bounding-box test throws out most pairs
+      // and keeps this inside a frame budget.
       const maxChord = radius * 0.3;
       const maxChordSq = maxChord * maxChord;
       context.lineWidth = 0.6;

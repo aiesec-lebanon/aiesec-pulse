@@ -3,11 +3,11 @@ import { ChevronDown } from "lucide-react";
 import type { ProximityTier, ScoredPost } from "@/lib/feed";
 
 // Why a post appeared, in terms the reader can check — a product
-// requirement, not a debug view. A native <details>/<summary>: no custom ARIA
-// needed, the browser owns the expanded/collapsed state, styled to the
+// requirement, not a debug view. A native <details>/<summary> needs no custom
+// ARIA: the browser owns the expanded/collapsed state, styled to the
 // card/border/radius tokens already used elsewhere.
 // A negligible term (recency on a very old post, an exact-zero affinity) is
-// left out rather than listed at "+0.00", so the list only ever shows terms
+// left out rather than listed as "+0.00", so the list only ever shows terms
 // that actually moved this post.
 
 const NEGLIGIBLE = 0.01;

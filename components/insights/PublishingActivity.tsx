@@ -13,16 +13,16 @@ import { isoWeekShortLabel, lastNIsoWeeks } from "@/lib/week";
 /**
  * Publishing activity, as one implementation behind two doors.
  *
- * It answers the same question for two different identities, at two different
- * reaches, and the *authorisation* is what differs — not the page. So the
- * guard stays in each route (`/insights` requires an AIESEC position with
- * `analytics.view_entity`; `/admin/activity` requires a platform credential)
+ * It answers the same question for two identities, at two reaches, and the
+ * *authorisation* is what differs — not the page. So the guard stays in
+ * each route (`/insights` requires an AIESEC position with
+ * `analytics.view_entity`; `/admin/activity` requires a platform credential),
  * and the already-resolved scope is handed down here.
  *
- * That split is the whole point of the route move: a member reading their own
- * entity's numbers is not administering the platform, and the URL should not
- * tell them they are. Copying the page into two files would have been the
- * other way to do it, and the two would have drifted within a term.
+ * That split is the whole point of the route move: a member reading their
+ * own entity's numbers isn't administering the platform, and the URL
+ * shouldn't tell them they are. Copying the page into two files was the
+ * alternative, and the two would have drifted within a term.
  */
 export async function PublishingActivity({
   scope,

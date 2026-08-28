@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Two things this file exists to hold down: what a class may do comes from the
-// database and not from the seeded defaults, and no state of that database ever
+// Two things this file holds down: what a class may do comes from the
+// database, not the seeded defaults, and no state of that database ever
 // resolves to administering the platform.
 
 vi.mock("@/lib/db", () => ({

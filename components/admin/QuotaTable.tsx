@@ -8,8 +8,8 @@ import { MAX_BUDGET, PERIOD_NAMES } from "@/lib/quota-shared";
 import { ROLE_NAMES, type RoleKey } from "@/lib/rbac/catalogue";
 
 export type QuotaRow = {
-  /** Null when no policy exists yet — the class holds the permission and has
-   *  no allowance, which is a refusal to publish rather than a free hand. */
+  /** Null when no policy exists yet: the class holds the permission but has
+   *  no allowance — a refusal to publish, not a free hand. */
   policyId: string | null;
   roleKey: RoleKey;
   postLevel: PostLevel;
@@ -22,13 +22,13 @@ export type QuotaGroup = { level: PostLevel; label: string; rows: QuotaRow[] };
 const PERIODS = Object.keys(PERIOD_NAMES) as QuotaPeriod[];
 
 /**
- * The budget grid, in the same shape as the permission matrix: one table in
- * the admin card shell, rows banded by what they govern.
+ * The budget grid, shaped like the permission matrix: one table in the
+ * admin card shell, rows banded by what they govern.
  *
- * Every edit is explicit. The matrix toggles optimistically because a checkbox
- * has one meaning and a round trip makes it feel broken; a number does not —
- * a budget half-typed is a different budget, and saving it on each keystroke
- * would write three wrong policies on the way to the right one.
+ * Every edit here is explicit, unlike the matrix's optimistic toggle: a
+ * checkbox has one meaning, so a round trip feels broken, but a number
+ * doesn't — a half-typed budget is a different budget, and saving on each
+ * keystroke would write three wrong policies before the right one.
  */
 export function QuotaTable({
   caption,

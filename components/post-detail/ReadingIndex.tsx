@@ -7,18 +7,17 @@ import type { DocumentSection } from "@/lib/content/document";
 /**
  * The sticky reading rail — UI ref 2a.
  *
- * Two parts, and they are now independent, which is the point of this revision:
+ * Two parts, now independent — the point of this revision:
  *
- *   - **The section index**, when the story has two or more `H2`s. Real
- *     `<a href="#section-N">` anchors — addressable, keyboard-operable, and they
- *     clear the sticky header via the `scroll-mt-24` on each target heading.
- *   - **The read percentage, always.** It used to be rendered *inside* the
- *     index and therefore inherited its gate, so a story with one heading or
- *     none — most short updates — showed no progress at all. Progress is not a
- *     table of contents; every article has it.
+ *   - **The section index**, when the story has two or more `H2`s: real
+ *     `<a href="#section-N">` anchors — addressable, keyboard-operable, and
+ *     cleared of the sticky header via `scroll-mt-24` on each target heading.
+ *   - **The read percentage, always.** It used to render *inside* the index
+ *     and inherit its gate, so a story with one heading or none — most short
+ *     updates — showed no progress at all. Progress isn't a table of
+ *     contents; every article has it.
  *
- * The measurement went through two wrong versions before this one, both worth
- * recording:
+ * Getting there took two wrong versions, both worth recording:
  *
  *   1. `-top / height` reaches 1 only once the article's *bottom* edge has
  *      passed the *top* of the viewport — i.e. once the whole story has scrolled
@@ -83,8 +82,8 @@ export function ReadingIndex({
       const percent = Math.round(clamped * 100);
       if (percentRef.current) percentRef.current.textContent = String(percent);
       // Written straight to the node rather than through state: this runs on
-      // every scroll frame, and re-rendering a React tree sixty times a second
-      // to move one rule is the version of this that makes a page feel heavy.
+      // every scroll frame, and re-rendering a React tree sixty times a
+      // second to move one rule is what makes a page feel heavy.
       if (barRef.current) barRef.current.style.transform = `scaleX(${clamped})`;
     }
 

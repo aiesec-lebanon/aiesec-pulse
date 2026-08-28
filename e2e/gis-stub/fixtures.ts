@@ -189,7 +189,6 @@ const PERSONAS: Record<Exclude<PersonaKey, "gis_down">, PersonaSpec> = {
     note: "Reads and engages. Sits in the same LC as lc_vp, so it can see what lc_vp publishes.",
   },
 
-  // ── The second MC ──────────────────────────────────────────────────────────
   // Same two classes, a whole MC away. Post level is the only thing that can
   // carry a post across this boundary, so these two are how "invisible until
   // promoted" is asserted against something rather than against nothing.
@@ -204,7 +203,6 @@ const PERSONAS: Record<Exclude<PersonaKey, "gis_down">, PersonaSpec> = {
     note: "Reads from inside the other MC. Sees a Testonia post only once it is promoted.",
   },
 
-  // ── The refusals ───────────────────────────────────────────────────────────
   tag_mismatch: {
     fullName: "Test Tag Mismatch",
     positions: [["MCVP", OFFICES.lc]],

@@ -7,7 +7,7 @@ import { redis } from "@/lib/redis";
 
 // A module-level Map is ineffective on serverless: each instance holds its own
 // buckets, so the real limit is max x instance count. The in-memory limiter
-// below is a local-development fallback only.
+// below is a local-dev fallback only.
 
 export type LimitName =
   | "auth"
@@ -22,14 +22,14 @@ export type LimitName =
 const LIMITS: Record<LimitName, { max: number; windowSeconds: number; by: "ip" | "user" }> = {
   auth: { max: 10, windowSeconds: 15 * 60, by: "ip" },
   postSubmit: { max: 5, windowSeconds: 60, by: "user" },
-  // Its own bucket rather than postSubmit's: an officer who has just published
-  // should not find promoting throttled, and each promotion costs a live GIS
-  // round trip that is worth capping on its own. Far
-  // above the weekly promotion quota, so this only ever catches hammering.
+  // Its own bucket, not postSubmit's: an officer who just published shouldn't
+  // find promoting throttled, and each promotion costs a live GIS round trip
+  // worth capping on its own. Far above the weekly promotion quota, so this
+  // only catches hammering.
   promote: { max: 10, windowSeconds: 60 * 60, by: "user" },
-  // The composer autosaves on a 5-second debounce, so
-  // postSubmit's 5/minute budget would be exhausted by normal typing. Headroom
-  // above the ~12 ticks/minute the debounce can produce, not a bare minimum.
+  // The composer autosaves on a 5-second debounce, so postSubmit's 5/minute
+  // budget would be exhausted by normal typing. Headroom above the ~12
+  // ticks/minute the debounce can produce, not a bare minimum.
   draftAutosave: { max: 20, windowSeconds: 60, by: "user" },
   comment: { max: 10, windowSeconds: 60, by: "user" },
   report: { max: 20, windowSeconds: 60 * 60, by: "user" },
@@ -85,9 +85,9 @@ function localCheck(name: LimitName, key: string): RateLimitResult {
   };
 }
 
-// Fails open on a Redis error, except auth: a limiter outage should degrade
-// throttling, not sign everyone out, but an unbounded window in front of the
-// only door into the platform is worse than a brief lockout.
+// Fails open on a Redis error, except for auth: an outage should degrade
+// throttling, not sign everyone out — but an unbounded window on the
+// platform's only door is worse than a brief lockout.
 export async function checkRateLimit(
   name: LimitName,
   identifier: string

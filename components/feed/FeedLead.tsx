@@ -15,33 +15,32 @@ const SLIDE_DURATION_MS = 8000;
 const CARD_STRIDE_PX = 280;
 
 /**
- * The feed's lead complex: one shared pool of up to five posts, one of them
- * in the full-bleed hero at a time, the rest in the rail beneath it. The two
- * halves share `active` — lifted here rather than owned by `HeroRotator` —
- * because the rail has to know which post the hero is currently showing, to
- * leave it out of its own list.
+ * The feed's lead complex: one shared pool of up to five posts, one in the
+ * full-bleed hero at a time, the rest in the rail below. The two halves share
+ * `active`, lifted here rather than owned by `HeroRotator`, because the rail
+ * needs to know which post the hero is showing, to leave it out of its own
+ * list.
  *
- * The rail is titled **"More top stories"**, not "Also today". The old label
- * was a claim the data does not make: this is the top of the feed, whatever
- * its dates happen to be, and on a quiet week those five posts can easily
- * span a fortnight. A section that says "today" over a card dated four days
- * ago is the same class of error as a stat headline over a number nothing
- * derives (§0.8).
+ * The rail is titled **"More top stories"**, not "Also today" — a claim the
+ * data doesn't make. This is the top of the feed regardless of dates, and on
+ * a quiet week those five posts can span a fortnight. A section saying
+ * "today" over a card dated four days ago is the same error class as a stat
+ * headline over a number nothing derives (§0.8).
  *
  * The rail overlaps the hero from `sm:` upward, as 1b does — the hero reserves
  * the room through `overlapping`, so a single-post feed does not end up with a
  * 196px gap under its headline waiting for a rail that never renders.
  *
- * Rotation used to remount the whole row (`key={active}`), which re-revealed
- * four cards to change one. Now the row is stable and `FlipList` animates the
+ * Rotation used to remount the whole row (`key={active}`), re-revealing four
+ * cards to change one. Now the row stays stable and `FlipList` animates the
  * reflow: the card the hero just took over leaves, a new one is dealt in, and
- * the ones in between slide to their new slots.
+ * the ones between slide to their new slots.
  *
- * The pause timer preserves its remaining time rather than resetting to a
- * full dwell on every hover: `remainingRef` is only ever reduced by elapsed
- * time in the running effect's cleanup, and only reset to the full duration
- * when `active` itself changes (a fresh slide always gets a fresh dwell,
- * however it was reached).
+ * The pause timer preserves remaining time rather than resetting to a full
+ * dwell on every hover: `remainingRef` is reduced only by elapsed time in the
+ * running effect's cleanup, and reset to full duration only when `active`
+ * itself changes (a fresh slide always gets a fresh dwell, however it was
+ * reached).
  */
 export function FeedLead({ posts }: { posts: FeedPost[] }) {
   const { motion } = useMotion();
@@ -155,9 +154,9 @@ function SecondaryRail({ posts, revision }: { posts: FeedPost[]; revision: numbe
         )}
       </div>
 
-      {/* Focusable: a scrollable region that cannot be reached by keyboard is
-          a 2.1.1 failure, and axe flags it. `tabIndex` plus a name makes the
-          strip navigable and announced on entry. */}
+      {/* Focusable: a keyboard-unreachable scrollable region is a 2.1.1
+          failure that axe flags. `tabIndex` plus a name makes the strip
+          navigable and announced on entry. */}
       <div
         ref={scrollerRef}
         tabIndex={0}

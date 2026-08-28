@@ -25,11 +25,10 @@ import { InsertImageDialog } from "@/components/editor/InsertImageDialog";
 import { PulseImageNode } from "@/components/editor/PulseImageNode";
 import { isSafeHref, type PulseDocument, sanitiseDocument } from "@/lib/content/document";
 
-// The extension list is where the toolbar is kept from offering anything the
-// sanitiser will silently strip on save.
-// Every node/mark lib/content/document.ts doesn't allowlist is switched off
-// here rather than merely left off the toolbar, so a keyboard shortcut or a
-// paste can't smuggle it in either.
+// The extension list keeps the toolbar from offering anything the sanitiser
+// will silently strip on save. Every node/mark lib/content/document.ts
+// doesn't allowlist is switched off here, not just left off the toolbar,
+// so a keyboard shortcut or paste can't smuggle it in either.
 function editorExtensions() {
   return [
     StarterKit.configure({
@@ -53,7 +52,7 @@ function editorExtensions() {
   ];
 }
 
-// Mirrors the cover-image field's own rule set exactly (components/PostComposer.tsx)
+// Mirrors the cover-image field's rule set exactly (components/PostComposer.tsx)
 // — one signed-upload endpoint, one policy, enforced wherever an author attaches
 // an image.
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -82,9 +81,9 @@ export function RichTextEditor({
   ariaInvalid,
 }: RichTextEditorProps) {
   const editor = useEditor({
-    // Deferred to after mount: TipTap's own SSR/hydration guidance for
-    // Next.js — creating the editor during the server render produces a
-    // markup mismatch, since ProseMirror needs a real DOM.
+    // Deferred to after mount, per TipTap's SSR/hydration guidance for
+    // Next.js: creating the editor during server render produces a markup
+    // mismatch, since ProseMirror needs a real DOM.
     immediatelyRender: false,
     editable: !disabled,
     content,

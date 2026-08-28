@@ -21,21 +21,21 @@ import { initialsOf } from "@/lib/topics-shared";
 export const metadata = { title: "Your posts · AIESEC Pulse" };
 
 /**
- * The member's own page, built on UI ref **4a**'s composition — the angled
- * initials hero, the four-cell stat strip, the sticky section index beside a
- * single reading column.
+ * The member's own page, built on UI ref **4a**'s composition: angled
+ * initials hero, four-cell stat strip, sticky section index beside a single
+ * reading column.
  *
- * It is 4a's *layout*, not 4a's content, because this page answers a different
- * question from a public author profile: not "what has this person published?"
- * but "what is happening to everything I wrote?". So the index tracks
- * lifecycle sections — published, waiting, needs another look — and the
- * numbered index rows are reserved for the posts that are actually live and
- * therefore linkable. A rejected post is not a destination; it is a task, and
- * it keeps its editing panel.
+ * It's 4a's *layout*, not its content — this page answers a different
+ * question than a public author profile: not "what has this person
+ * published?" but "what is happening to everything I wrote?". So the index
+ * tracks lifecycle sections — published, waiting, needs another look — and
+ * numbered rows are reserved for posts that are actually live and therefore
+ * linkable. A rejected post isn't a destination but a task, so it keeps its
+ * editing panel.
  *
- * 4a's overview paragraph, pull-quote and "recognition" cards are dropped
- * rather than invented: `User` carries no bio, quote or award field. The
- * standfirst is a factual line assembled from what a query can answer.
+ * 4a's overview paragraph, pull-quote, and "recognition" cards are dropped,
+ * not invented: `User` carries no bio, quote, or award field. The standfirst
+ * is a factual line assembled from what a query can answer.
  */
 export default async function ProfilePage() {
   const user = await requireSession();
@@ -132,10 +132,10 @@ export default async function ProfilePage() {
         }
       />
 
-      {/* The rail only earns its column when it has more than one section to
-          track (`ProfileIndexRail` renders nothing below that). Without the
-          condition, a profile with a single section left a blank 230px gutter
-          and pushed its only content a third of the way across the page. */}
+      {/* The rail only earns its column with more than one section to track
+          (`ProfileIndexRail` renders nothing below that) — without the
+          condition, a single-section profile left a blank 230px gutter,
+          pushing its only content a third of the way across the page. */}
       <div
         className={[
           "mx-auto w-full max-w-[1240px] px-6 pt-14",

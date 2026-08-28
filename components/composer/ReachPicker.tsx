@@ -19,15 +19,15 @@ type Props = {
 /**
  * How far this post will travel, chosen at publication.
  *
- * Two shapes, matching `AudiencePicker`'s fixed/open split so the composer has
- * one grammar for "reach" rather than two:
+ * Two shapes, matching `AudiencePicker`'s fixed/open split, so the composer
+ * has one grammar for "reach," not two:
  *
- * - **network** — an AI-level office publishes to the network by position.
- *   There is nothing to decide, so this is a sentence, not a control.
- * - **choice** — the publisher may spend one of their MC's promotions now
- *   instead of returning to the post afterwards. Same permission, same budget,
- *   same mandatory note as the promotion panel on post detail; the budget is
- *   stated before the choice, because a promotion is meant to be deliberate.
+ * - **network** — an AI-level office publishes to the network by position:
+ *   nothing to decide, so this is a sentence, not a control.
+ * - **choice** — the publisher may spend one of their MC's promotions now,
+ *   rather than later. Same permission, budget, and mandatory note as post
+ *   detail's promotion panel; the budget shows before the choice, since a
+ *   promotion should be deliberate.
  */
 export function ReachPicker({
   options,

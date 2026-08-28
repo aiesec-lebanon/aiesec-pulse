@@ -117,12 +117,12 @@ export async function GET(request: NextRequest) {
       return failure(baseUrl, "exchange_failed");
     }
 
-    // Fail closed. There used to be a grace window here that signed a caller in
-    // on their last-known identity when GIS was unreachable, and it was wrong in
-    // the case it existed for: an outage is precisely when Pulse cannot tell
-    // whether a position was revoked an hour ago, so the window let stale
-    // authority keep working for up to three days. Authority is what GIS says it
-    // is right now, or it is nothing.
+    // Fail closed. A grace window here used to sign a caller in on their
+    // last-known identity when GIS was unreachable — wrong in the case it
+    // existed for: an outage is precisely when Pulse can't tell whether a
+    // position was revoked an hour ago, so the window let stale authority
+    // keep working for up to three days. Authority is what GIS says right
+    // now, or nothing.
     logger.error("GIS unavailable; sign-in refused rather than served from cache", {
       error,
       severity: "HIGH",

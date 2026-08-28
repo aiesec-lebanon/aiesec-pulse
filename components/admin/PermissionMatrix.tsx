@@ -16,11 +16,10 @@ export type MatrixCell = `${RoleKey}:${PermissionKey}`;
 
 const cellKey = (role: RoleKey, permission: PermissionKey): MatrixCell => `${role}:${permission}`;
 
-// The catalogue is already ordered by domain; this only names the runs so the
-// rows read as a few short lists rather than one long one. A band with nothing
-// under it is dropped rather than rendered as an empty heading — administration
-// left the catalogue when it moved to a credential login, and the band outlived
-// its permissions.
+// The catalogue is already ordered by domain; this labels the runs so rows
+// read as short lists, not one long one. An empty band is dropped rather
+// than shown as a heading — administration left the catalogue when it
+// moved to a credential login, outliving its permissions.
 const GROUPS: ReadonlyArray<{ label: string; prefix: string }> = [
   { label: "Posts", prefix: "post." },
   { label: "Comments", prefix: "comment." },

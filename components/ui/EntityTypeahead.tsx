@@ -13,12 +13,12 @@ const MIN_QUERY_LENGTH = 2;
 /**
  * Name lookahead over the office tree, once.
  *
- * It was written inside the composer's audience picker, and the quota
- * administration form needed the same control against a different search and a
- * different guard — so the search itself is a prop rather than an import. The
- * two callers differ in what they are allowed to look up, not in how looking up
- * behaves. `search` is expected to be a stable reference — both callers pass a
- * server action imported at module scope — since only the query re-runs it.
+ * Written inside the composer's audience picker; the quota administration
+ * form needed the same control against a different search and guard, so the
+ * search itself is a prop rather than an import. The two callers differ in
+ * what they are allowed to look up, not how looking up behaves. `search`
+ * should be a stable reference — both callers pass a server action imported
+ * at module scope — since only the query re-runs it.
  */
 export function EntityTypeahead({
   id,

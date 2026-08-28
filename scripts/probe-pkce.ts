@@ -3,9 +3,9 @@ import "dotenv/config";
 import { createHash, randomBytes } from "node:crypto";
 
 // A script rather than runtime detection: authorization codes are single-use,
-// so a speculatively sent challenge that gets rejected breaks every login.
-// The probe is partial — a server that ignores an unknown parameter looks the
-// same as one that honours it.
+// so a rejected speculative challenge breaks every login. The probe is
+// partial — a server ignoring an unknown parameter looks identical to one
+// honouring it.
 
 function requireEnv(name: string): string {
   const value = process.env[name];

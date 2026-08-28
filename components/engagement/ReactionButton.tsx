@@ -19,16 +19,15 @@ const DEBOUNCE_MS = 300;
  *
  * The press is *felt*: the heart overshoots and settles, a ring of the
  * reaction colour throws off the control and dissolves, and the new figure
- * rolls up out of the old one's place inside a clipped window. All three are
- * one-shot animations on keyed elements, so they play once per press and never
- * loop, and all three collapse to nothing under Reduced through
- * `--motion-scale` / `--motion-travel` — a reaction is still confirmed by the
- * colour, the fill and the live region, which are the parts that carry
- * meaning.
+ * rolls up from the old one's place inside a clipped window. All three are
+ * one-shot animations on keyed elements — they play once per press, never
+ * loop, and collapse to nothing under Reduced via `--motion-scale` /
+ * `--motion-travel`. A reaction stays confirmed by colour, fill, and the
+ * live region — the parts that carry meaning.
  *
- * `pressKey` rather than a boolean "animating" flag: remounting the animated
- * elements is what restarts a CSS animation, and a flag would need a timer to
- * clear it, which is one more thing to get wrong on unmount.
+ * `pressKey`, not a boolean "animating" flag: remounting the animated
+ * elements restarts a CSS animation, while a flag would need a timer to
+ * clear it — one more thing to get wrong on unmount.
  */
 export function ReactionButton({ postId, initialReacted, initialCount }: Props) {
   const [reacted, setReacted] = useState(initialReacted);
@@ -52,7 +51,7 @@ export function ReactionButton({ postId, initialReacted, initialCount }: Props) 
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
 
     const next = !reacted;
-    // The surviving closure holds the last server-consistent state, which is the
+    // The surviving closure holds the last server-consistent state — the
     // correct revert target.
     const revertReacted = reacted;
     const revertCount = count;

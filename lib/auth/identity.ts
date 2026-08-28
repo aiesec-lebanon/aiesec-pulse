@@ -23,10 +23,10 @@ import { warnIfPositionless } from "@/server-utils/gis";
 
 export type SyncResult = {
   /**
-   * `null` only when nothing resolved *and* no account exists yet: a person who
-   * cannot sign in should not leave a row behind for having tried. An existing
-   * account is always reconciled, even down to zero grants, because losing every
-   * position is exactly the case where the old ones must stop working.
+   * `null` only when nothing resolved *and* no account exists — a failed
+   * sign-in shouldn't leave a row behind. An existing account is always
+   * reconciled, even to zero grants, since losing every position is exactly
+   * when the old ones must stop working.
    */
   user: User | null;
   /** Zero means sign-in is refused. Nothing else in the result changes that. */
@@ -42,10 +42,9 @@ async function toPositionInputs(person: GisPerson): Promise<PositionInput[]> {
   for (const position of person.current_positions) {
     if (!position.office?.id) continue;
 
-    // Unknown offices become placeholders rather than failing the login. The
-    // entity is resolved here and not used for the level check — level comes
-    // from `office.tag`, never from where the tree happens to have parked a
-    // placeholder.
+    // Unknown offices become placeholders rather than failing the login.
+    // Resolved here but not used for the level check — level comes from
+    // `office.tag`, never from where the tree parks a placeholder.
     await resolveOfficeEntity(position.office);
 
     inputs.push({
@@ -66,11 +65,10 @@ async function roleIdByKey(key: string): Promise<string | null> {
 }
 
 /**
- * A denied position means either a title we do not recognise — ordinary, and
- * the reason the vocabulary is extended from real data by a maintainer — or the
- * two axes disagreeing, which means our model of GIS is wrong and is worth
- * waking someone for. Both carry title, office and tag so the record is
- * actionable without a second query.
+ * A denied position means either an unrecognised title — ordinary, and how
+ * the vocabulary gets extended from real data — or the two axes disagreeing,
+ * meaning our model of GIS is wrong and worth waking someone for. Both carry
+ * title, office, and tag so the record is actionable without a second query.
  */
 function logDenials(userId: string, denied: readonly PositionDenial[]): void {
   for (const denial of denied) {
@@ -98,10 +96,10 @@ function logDenials(userId: string, denied: readonly PositionDenial[]): void {
 }
 
 /**
- * There is no implicit `member` grant. Membership is a position like any other
- * and has to come back from GIS as one; granting it to whoever completed the
- * OAuth handshake would mean a renamed or expired position quietly downgrading
- * someone to a working account instead of failing loudly.
+ * There is no implicit `member` grant — membership is a position like any
+ * other and must come back from GIS as one. Granting it to whoever completed
+ * the OAuth handshake would let a renamed or expired position quietly
+ * downgrade someone to a working account instead of failing loudly.
  */
 export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult> {
   warnIfPositionless(person);

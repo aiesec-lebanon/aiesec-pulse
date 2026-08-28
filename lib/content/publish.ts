@@ -17,20 +17,20 @@ import { type PermissionKey, PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/c
 
 // Shared by every path that turns a submission into a PUBLISHED/IN_REVIEW
 // post — createPost, resubmitPost, and publishDraft. Not exported from a
-// "use server" action module because these aren't themselves guarded
-// entry points: they're internals the caller has already authorised, and
-// guessMimeType/CONTAINER_BLOCK_TYPES walking is plain sync/async utility
-// code that "use server" files aren't allowed to export directly.
+// "use server" action module because these aren't guarded entry points
+// themselves: they're internals the caller has already authorised, and this
+// plain sync/async utility code isn't something "use server" files are
+// allowed to export directly.
 
 /**
  * The class a quota is billed against at `entityId`: the widest tier the user
- * holds, provided they may actually exercise `permission` there. Null when they
- * may not, which is a refusal rather than a fallback to the narrowest tier.
+ * holds, provided they may actually exercise `permission` there. Null when
+ * they may not — a refusal, not a fallback to the narrowest tier.
  *
- * Takes the permission rather than assuming `post.publish`, because promotion
- * is budgeted the same way against a different capability — and because the
- * matrix is admin-editable, so a class that may promote
- * cannot be assumed to publish.
+ * Takes the permission rather than assuming `post.publish`, because
+ * promotion is budgeted the same way against a different capability, and the
+ * matrix is admin-editable — so a class that may promote can't be assumed to
+ * publish.
  */
 export async function quotaRoleFor(
   user: { id: string },

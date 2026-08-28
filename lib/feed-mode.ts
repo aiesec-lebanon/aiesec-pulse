@@ -1,8 +1,7 @@
-// Cookie name/type live outside app/actions/feed-preferences.ts deliberately:
-// a "use server" module may only export async functions (React Server
-// Functions), so a runtime constant like FEED_MODE_COOKIE can't live there —
-// same reason SESSION_COOKIE lives in lib/auth/session.ts rather than inside
-// an action file.
+// Cookie name/type live outside app/actions/feed-preferences.ts: a "use server"
+// module may only export async functions (React Server Functions), so a
+// runtime constant like FEED_MODE_COOKIE can't live there — same reason
+// SESSION_COOKIE lives in lib/auth/session.ts, not inside an action file.
 
 export type FeedMode = "latest" | "for-you";
 

@@ -49,15 +49,15 @@ async function ensureFlagEnabled(page: Page, key: string) {
 }
 
 /**
- * "For you" is the default feed mode, and it ranks on engagement as well as
- * recency (lib/feed.ts) — so a brand-new post with no reactions legitimately
- * loses its place among the seven cards the page renders to an older one that
- * has some. That is the ranking working, not the publish failing.
+ * "For you" is the default feed mode, ranking on engagement as well as
+ * recency (lib/feed.ts) — so a brand-new post with no reactions can
+ * legitimately lose its place among the seven cards shown to an older one
+ * that has some. That's the ranking working, not the publish failing.
  *
- * Latest is the unranked escape hatch, and it is the only surface on which
- * "the post I just published is there" is a guarantee. Asserting the heading
- * afterwards keeps the tab-absent case honest: if the toggle never switched,
- * the h1 still reads "For you" and the test says so.
+ * Latest is the unranked escape hatch, the only surface where "the post I
+ * just published is there" is guaranteed. Asserting the heading afterwards
+ * keeps the tab-absent case honest: if the toggle never switched, the h1
+ * still reads "For you" and the test says so.
  */
 async function openLatestFeed(page: Page) {
   // The mode is a cookie (lib/feed-mode.ts). Setting it is the same state a

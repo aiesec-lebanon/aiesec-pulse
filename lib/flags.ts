@@ -5,8 +5,8 @@ import { logger } from "@/lib/logger";
 import { cached, cacheDelete, cacheKeys } from "@/lib/redis";
 
 // The seeded catalogue (prisma/seed.ts) is the source of truth for which keys
-// exist; this list mirrors it so callers get a typo-checked key instead of a
-// bare string.
+// exist; this list mirrors it so callers get typo-checked keys, not bare
+// strings.
 export const FLAG_KEYS = [
   "feed.ranked",
   "posts.drafts",

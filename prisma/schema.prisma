@@ -92,10 +92,9 @@ model User {
   email           String?
   avatarUrl       String?
   /// A member's own one-or-two sentences, shown as the standfirst on their
-  /// profile and on any story they wrote. Pulse-owned, not from GIS: GIS has no
-  /// field for it and no way for an application to write one back. Nullable
-  /// because most members will never set it, and a profile has to read
-  /// correctly with it empty.
+  /// profile and their stories. Pulse-owned — GIS has no field for it and no
+  /// write-back path. Nullable: most members never set one, and the profile
+  /// must still render correctly.
   bio             String?
   primaryEntityId String?
   locale          String     @default("en")
@@ -278,11 +277,10 @@ model Post {
   termLabel         String?
 
   title          String
-  /// The phrase inside `title` the author chose to set italic in the topic's
-  /// colour — the editorial accent §0.3 of the design system describes. Stored
-  /// as the substring rather than an offset pair, so editing the rest of the
-  /// headline can never corrupt it: a phrase that no longer appears is simply
-  /// ignored at render (see `splitOnWord`).
+  /// The phrase inside `title` the author set italic in the topic's colour —
+  /// the §0.3 editorial accent. Stored as the substring, not an offset pair,
+  /// so editing the headline elsewhere can't corrupt it; a phrase that no
+  /// longer appears is just ignored at render (see `splitOnWord`).
   titleAccent    String?
   summary        String?
   /// Portable rich-text document (TipTap/ProseMirror JSON).
@@ -832,10 +830,9 @@ model UserRestriction {
   @@index([userId, endsAt])
 }
 
-/// Publishing quotas as configuration, administered at runtime. Budgets two
-/// different acts, discriminated by `postLevel`: LOCAL caps how many posts a
-/// publisher puts into their own MC, NETWORK caps how many an MC may promote to
-/// the whole network.
+/// Publishing quotas as configuration, administered at runtime. `postLevel`
+/// discriminates two budgeted acts: LOCAL caps posts into the publisher's own
+/// MC, NETWORK caps promotions to the whole network.
 model QuotaPolicy {
   id        String      @id @default(cuid())
   scopeType ScopeType

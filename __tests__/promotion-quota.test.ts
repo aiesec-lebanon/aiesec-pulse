@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { promotionCountWhere, promotionPoolFor } from "@/lib/quota";
 
-// The promotion budget has two rules that are easy to state and easy to undo by
-// accident: it is spent per MC rather than per officer, and it stays spent when
-// a post is demoted. Both live in a where clause, so both are asserted here
-// against the clause itself rather than through a database round trip.
+// The promotion budget has two rules easy to state and easy to undo by
+// accident: it's spent per MC, not per officer, and it stays spent when a
+// post is demoted. Both live in a where clause, so both are asserted
+// against the clause itself, not through a database round trip.
 
 const MC = { path: "/ai/mena/lb" };
 const WEEK = "2026-W34";

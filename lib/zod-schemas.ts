@@ -24,9 +24,8 @@ const httpUrl = z
 const optionalHttpUrl = z.union([httpUrl, z.literal("")]).optional();
 
 // The composer sends an ISO instant already converted to UTC client-side
-// (lib/timezone.ts) — this only re-checks shape and futurity, the way every
-// other client-computed value here is still validated server-side rather
-// than trusted.
+// (lib/timezone.ts) — this only re-checks shape and futurity, since every
+// client-computed value here is still validated server-side, not trusted.
 const scheduledAtField = z
   .string()
   .trim()
@@ -39,11 +38,11 @@ const scheduledAtField = z
     message: "Scheduled time must be in the future",
   });
 
-// Absent entirely means "use the default for what this publisher may
-// target" (lib/org/scope.ts's decideAudienceForSubmission) — the composer
-// only ever sends this for a publisher who actually has a picker to choose
-// from; the shape itself is re-validated against that publisher's real scope
-// server-side regardless of what's sent here.
+// Absent means "use the default for what this publisher may target"
+// (lib/org/scope.ts's decideAudienceForSubmission) — sent only when the
+// composer's publisher has a picker to choose from. The shape is still
+// re-validated against that publisher's real scope server-side, regardless
+// of what's sent here.
 const audienceField = z
   .object({
     scopeType: z.enum(["GLOBAL", "REGION", "ENTITY"]),
@@ -51,16 +50,16 @@ const audienceField = z
   })
   .optional();
 
-// Absent means "no topics" on a fresh create; on an update it's re-sent in
-// full each time (never merged) — a post's topics on create/publish/resubmit
-// are exactly what the picker showed selected, not accumulated. An id that
-// doesn't name a real, active Topic is silently dropped server-side
-// (lib/content/topics.ts's resolveValidTopicIds), not rejected — a tag
-// carries no authorisation weight.
+// Absent means "no topics" on a fresh create; an update re-sends the full
+// set each time, never merged — topics on create/publish/resubmit are
+// exactly what the picker showed, not accumulated. An id naming no real,
+// active Topic is silently dropped server-side (lib/content/topics.ts's
+// resolveValidTopicIds), not rejected — a tag carries no authorisation
+// weight.
 const topicIdsField = z.array(z.string().trim().min(1)).max(20).optional();
 
-// Sanitised here too, not just on read — a document arriving from a Server
-// Action's argument is untrusted input like any other (lib/content/document.ts).
+// Sanitised here too, not just on read — a document arriving as a Server
+// Action argument is untrusted input like any other (lib/content/document.ts).
 // Length limits are enforced against the flattened text, matching what the
 // composer's own character counter shows the author.
 const bodyJsonField = z
@@ -80,12 +79,12 @@ export const createPostSchema = z
       .trim()
       .min(3, "Give your post a title of at least 3 characters")
       .max(200, "Titles are limited to 200 characters"),
-    // The phrase the author chose to set italic in the topic's colour. Stored
-    // as the substring rather than an offset pair, so editing the rest of the
-    // headline cannot corrupt it; a phrase that no longer appears is ignored at
-    // render rather than mis-highlighting. Not validated against the title:
-    // that would reject a legitimate edit-then-retype, and the render path is
-    // already safe when it does not match.
+    // The phrase the author set italic in the topic's colour. Stored as a
+    // substring, not an offset pair, so editing the rest of the headline
+    // can't corrupt it; a phrase no longer present is simply ignored at
+    // render, not mis-highlighted. Not validated against the title: that
+    // would reject a legitimate edit-then-retype, and the render path is
+    // already safe on a mismatch.
     titleAccent: z.string().trim().max(200, "Highlights are limited to 200 characters").optional(),
     bodyJson: bodyJsonField,
     summary: z.string().trim().max(400, "Summaries are limited to 400 characters").optional(),
@@ -112,20 +111,19 @@ export const createPostSchema = z
     path: ["promotionNote"],
   });
 
-// z.input, not z.infer/z.output: this is the parameter type for createPost/
-// resubmitPost/publishDraft, i.e. what a caller sends before validation —
+// z.input, not z.infer/z.output — the parameter type for createPost/
+// resubmitPost/publishDraft: what a caller sends before validation.
 // scheduledAt arrives as the composer's UTC ISO string, not yet the `Date`
-// the schema's transform produces. Every field here was already untransformed
-// except this one; bodyJson stayed correct under z.infer only because its
-// input type is `unknown`, wide enough to accept what the composer already
-// holds — that coincidence doesn't extend to a field whose input and output
-// types genuinely differ.
+// its transform produces. Every other field here was untransformed; bodyJson
+// stayed correct under z.infer only because its input type, `unknown`, is
+// wide enough for what the composer already holds — a coincidence that
+// doesn't extend to a field whose input and output types genuinely differ.
 export type CreatePostInput = z.input<typeof createPostSchema>;
 
-// Deliberately lenient: "leave and return to it" means a draft must be
-// saveable in whatever half-finished state it's in — no minimum title/body
-// length, and no cross-field alt-text-required rule. Full completeness is
-// re-enforced by createPostSchema at the moment a draft is actually published.
+// Deliberately lenient: a draft must be saveable in whatever half-finished
+// state it's in — "leave and return to it" — so no minimum title/body length
+// and no cross-field alt-text-required rule. createPostSchema re-enforces
+// full completeness when the draft is actually published.
 const draftBodyJsonField = z
   .unknown()
   .transform((value): PulseDocument => sanitiseDocument(value))
@@ -184,10 +182,10 @@ export const promotePostSchema = z.object({
 });
 
 /**
- * A member's own standfirst. 280 characters because it is a standfirst, not an
- * essay: the profile hero gives it a 46ch measure and three lines, and anything
- * longer stops being a line a reader takes in at a glance. Empty clears it —
- * "remove my bio" has to be expressible.
+ * A member's own standfirst — 280 characters because it's a standfirst, not
+ * an essay: the profile hero gives it a 46ch measure and three lines, and
+ * anything longer stops being something a reader takes in at a glance. Empty
+ * clears it — "remove my bio" must be expressible.
  */
 export const updateBioSchema = z.object({
   bio: z.string().trim().max(280, "Keep your bio to 280 characters or fewer"),

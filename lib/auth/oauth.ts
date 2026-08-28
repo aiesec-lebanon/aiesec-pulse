@@ -5,12 +5,12 @@ import { cookies } from "next/headers";
 import { pkceChallenge, randomToken, safeEqual } from "@/lib/crypto";
 import { env } from "@/lib/env";
 
-// `state` is unconditional: without it the callback accepts any code
-// presented to it, which is a login-CSRF.
+// `state` is unconditional: without it, the callback accepts any code
+// presented to it — a login-CSRF.
 //
 // PKCE is opt-in behind AIESEC_OAUTH_PKCE_S256 because the authorization
-// server must accept S256, and codes are single-use — a speculatively sent
-// challenge that gets rejected breaks every login with no code left to retry.
+// server must accept S256, and codes are single-use: a speculatively sent
+// challenge that gets rejected breaks the login with no code left to retry.
 
 const STATE_COOKIE = "pulse_oauth_state";
 const VERIFIER_COOKIE = "pulse_oauth_verifier";

@@ -17,14 +17,14 @@ export const metadata = { title: "Review queue · AIESEC Pulse" };
 /**
  * The approval queue, at `/review`.
  *
- * It used to live at `/admin/queue`, which was wrong on both counts. It is not
- * administration — it is an AIESEC position doing editorial work inside its own
- * entity — and it was never reachable by a platform administrator in the first
- * place: the guard is `requirePermission("post.approve")`, which requires a
- * *member* session, so a credential admin opening `/admin/queue` was redirected
- * straight back to the member sign-in. A URL that promises administration and
- * delivers a permission check on a different identity is a broken promise to
- * both audiences, and `/admin/*` is now what it says it is.
+ * It used to live at `/admin/queue`, wrong on both counts: this is editorial
+ * work by an AIESEC position inside its own entity, not administration, and
+ * it was never reachable by a platform administrator anyway —
+ * `requirePermission("post.approve")` requires a *member* session, so a
+ * credential admin opening `/admin/queue` was redirected straight back to
+ * member sign-in. A URL promising administration but gating a different
+ * identity broke its promise to both audiences; `/admin/*` now is what it
+ * says it is.
  */
 export default async function ReviewQueuePage() {
   const user = await requirePermission("post.approve");

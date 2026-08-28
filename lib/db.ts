@@ -7,18 +7,18 @@ import { PrismaClient } from "@/app/generated/prisma/client";
 const CLIENT_ID = "20260527200507";
 
 /**
- * `PrismaPg` hands its config straight to `pg.Pool`, whose `max` defaults to 10.
- * That is the right order of magnitude on Vercel, where each serverless instance
- * serves roughly one request at a time and a large per-instance pool multiplied
- * by the instance count is how a database runs out of connections — so the
- * default here stays 10 and production behaviour is unchanged.
+ * `PrismaPg` hands its config straight to `pg.Pool`, whose `max` defaults to
+ * 10 — the right order of magnitude on Vercel, where each serverless instance
+ * serves roughly one request at a time, and a large per-instance pool times
+ * the instance count is how a database runs out of connections. So the
+ * default stays 10, and production behaviour is unchanged.
  *
- * It is the wrong number for a single long-lived server taking concurrent
- * traffic: one `next start` process fielding four parallel Playwright workers,
- * where every request spends most of its life waiting on a remote round trip,
- * queues behind those 10 slots. `DATABASE_POOL_MAX` raises it for that shape of
- * deployment; the Supabase pooler in transaction mode multiplexes it back
- * down.
+ * It's the wrong number for a single long-lived server under concurrent
+ * traffic: one `next start` process fielding four parallel Playwright
+ * workers, where every request spends most of its life waiting on a remote
+ * round trip, queues behind those 10 slots. `DATABASE_POOL_MAX` raises it for
+ * that deployment shape; the Supabase pooler in transaction mode multiplexes
+ * it back down.
  */
 const DEFAULT_POOL_MAX = 10;
 
@@ -46,10 +46,10 @@ export const db = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
 
-// Serializable is what stops two submissions racing at `used = max - 1` from
-// both publishing. The retry is what makes it usable: Postgres does not block
-// conflicting transactions, it aborts one at commit, so without it the loser
-// surfaces as a 500 to a blameless publisher.
+// Serializable stops two submissions racing at `used = max - 1` from both
+// publishing. The retry makes it usable: Postgres doesn't block conflicting
+// transactions, it aborts one at commit, so without it the loser surfaces as
+// a 500 despite being blameless.
 const SERIALIZATION_FAILURE = "40001";
 const DEADLOCK_DETECTED = "40P01";
 const MAX_ATTEMPTS = 5;

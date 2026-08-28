@@ -2,20 +2,19 @@
  * A headline in the display serif, with one word — or one phrase — set italic
  * in an accent colour.
  *
- * The accent is the signature device of the whole system: it names what a
- * story is about from inside the sentence rather than beside it. It is
- * deliberately opt-in — nothing picks the word automatically, because the
- * word that carries a headline is an editorial judgement and an algorithm
- * reaching for "the" or "a" would make every headline look accidental. What a
- * caller *may* pass is a phrase the story is already filed under; see
- * `lib/content/accent.ts`.
+ * The accent is the system's signature device: it names what a story is
+ * about from inside the sentence rather than beside it. Deliberately opt-in,
+ * since which word carries a headline is an editorial judgement — an
+ * algorithm reaching for "the" or "a" would make every headline look
+ * accidental. A caller *may* pass a phrase the story is already filed under;
+ * see `lib/content/accent.ts`.
  *
- * Multi-word accents are supported because 2a's own headline uses one ("nine
- * weeks", "rebuilt"), and because a topic name is rarely one word. Runs of
- * whitespace in the target are matched loosely, so a phrase still matches a
- * title that happens to wrap its words differently.
+ * Multi-word accents are supported — 2a's own headline uses one ("nine
+ * weeks", "rebuilt"), and topic names are rarely one word — so whitespace in
+ * the target is matched loosely: a phrase still matches a title whose words
+ * wrap differently.
  *
- * Colour is never the only cue. The accent is italic as well as coloured, so
+ * Colour is never the only cue: the accent is italic as well as coloured, so
  * the emphasis survives for a reader who cannot see the hue.
  */
 export function DisplayTitle({

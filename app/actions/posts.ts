@@ -119,10 +119,9 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const audiences = audienceDecision.audiences;
   const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
-  // How far this post reaches the moment it publishes. After the audience,
-  // because an AI-level office's network default gives way to a narrowed
-  // audience. Resolved outside the transaction; only the budget count has to
-  // happen inside it.
+  // How far this post reaches once it publishes. After the audience, because
+  // an AI-level office's network default gives way to a narrowed audience.
+  // Resolved outside the transaction; only the budget count runs inside it.
   const reach = await reachContextFor(
     user,
     entityId,
@@ -557,14 +556,14 @@ const promotableSelect = {
 } as const;
 
 /**
- * Everything `promotePost`, `demotePost` and the control's budget label all
- * have to establish: that the actor may act on this post, that it belongs to
- * their own MC, and which budget the act is billed against. Shared so the three
- * cannot drift on any of it — a demotion that skipped the same-MC check would
- * be a way to withdraw another MC's post.
+ * Everything `promotePost`, `demotePost`, and the control's budget label
+ * must establish: that the actor may act on this post, that it's their
+ * own MC, and which budget the act is billed against. Shared so the three
+ * can't drift — a demotion that skipped the same-MC check would let
+ * someone withdraw another MC's post.
  *
- * Revalidating positions against GIS is the callers' job, not this one's: the
- * two writes do it and the budget read does not.
+ * Revalidating positions against GIS is the callers' job, not this one's:
+ * the two writes do it and the budget read does not.
  */
 async function promotionContextFor(
   postId: string,
@@ -606,22 +605,22 @@ async function promotionContextFor(
 }
 
 /**
- * What the control shows before the click, so the cost is known in advance.
- * Null when the viewer has no promotion authority over the post, which is what
- * hides the control.
+ * What the control shows before the click, so the cost is known in
+ * advance. Null when the viewer lacks promotion authority over the post,
+ * which hides the control.
  *
- * Deliberately does not revalidate against GIS: this is a read on every render
- * of a post page, and that latency is paid only where authority is actually
- * exercised. A number shown to someone whose position has just lapsed is a
+ * Deliberately skips GIS revalidation: this read runs on every post-page
+ * render, and that latency is paid only where authority is actually
+ * exercised. A number shown to someone whose position just lapsed is a
  * stale label; the write behind it still refuses.
  */
 export async function promotionBudgetFor(postId: string): Promise<PromotionBudget | null> {
   const user = await requireSession();
 
-  // GLOBAL scope asks "may they promote anywhere at all", which is the right
-  // question for whether to render a control and answers from the per-request
-  // grant cache. Every member who cannot promote leaves here without touching
-  // Post; the scoped check below is still what decides this post.
+  // GLOBAL scope asks "may they promote anywhere at all" — the right question
+  // for rendering a control — answered from the per-request grant cache. A
+  // member who can't promote leaves here without touching Post; the scoped
+  // check below still decides this post.
   if (!(await can(user, "post.promote"))) return null;
 
   const context = await promotionContextFor(postId, "post.promote");

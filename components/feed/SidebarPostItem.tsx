@@ -8,9 +8,9 @@ import type { FeedPost } from "@/types/feed";
 /**
  * The quiet register — the "Elsewhere in the network" row from 1b: a
  * hairline rule, a mono index number, the headline, and a trailing age. The
- * cover thumbnail is kept (the reference's row has none, but dropping ours
- * would be a real loss for a row that otherwise carries no image at all);
- * everything else matches 1b's leading-number / trailing-metadata shape.
+ * cover thumbnail is kept even though the reference's row has none — dropping
+ * it would be a real loss for a row that otherwise carries no image — but
+ * everything else matches 1b's leading-number/trailing-metadata shape.
  *
  * The hover moment is the rule itself, which wipes to brand blue from the left
  * as the pointer arrives.

@@ -78,7 +78,6 @@ async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   }
 }
 
-// ── Redis ────────────────────────────────────────────────────────────────────
 // Deleting rows is only half of it. The ranked-feed window is cached per entity
 // for 60s (lib/feed.ts) and flags for 15s (lib/flags.ts), so a purge that
 // ignored Redis would leave the next run reading ids that no longer exist —
@@ -107,8 +106,6 @@ async function forgetKeys(keys: string[]): Promise<void> {
     }
   }
 }
-
-// ── The purge ────────────────────────────────────────────────────────────────
 
 export type PurgeSummary = {
   users: number;
@@ -237,8 +234,6 @@ async function purge(db: Db): Promise<PurgeSummary> {
   };
 }
 
-// ── The office tree ──────────────────────────────────────────────────────────
-
 /**
  * Creates the stub's interior offices before the first spec runs.
  *
@@ -288,7 +283,6 @@ async function seedInteriorOffices(db: Db): Promise<void> {
   }
 }
 
-// ── Feature flags ────────────────────────────────────────────────────────────
 // Flags are seeded configuration rather than suite data, so they cannot simply
 // be deleted — but several specs turn them on and would otherwise leave them on,
 // which is a change to a shared development database that nobody asked for.
@@ -338,8 +332,6 @@ async function restoreFlags(db: Db): Promise<string[]> {
   return restored;
 }
 
-// ── Entry points ─────────────────────────────────────────────────────────────
-
 function describe(summary: PurgeSummary): string {
   return (
     `${summary.posts} posts, ${summary.users} accounts, ` +
@@ -377,8 +369,6 @@ export async function cleanUpDatabase(): Promise<void> {
     }
   });
 }
-
-// ── Command line ─────────────────────────────────────────────────────────────
 
 export const CLEANUP_MODES = ["prepare", "clean"] as const;
 export type CleanupMode = (typeof CLEANUP_MODES)[number];

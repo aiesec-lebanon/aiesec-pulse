@@ -21,9 +21,9 @@ type Props = {
 /**
  * The send control. Two small things carry the interaction: the arrow leans
  * into the direction of travel on hover, and the whole control dips on press —
- * so a comment feels sent rather than merely submitted. While the action is in
- * flight the arrow keeps moving on its own, which is the honest signal that
- * something is happening (the optimistic row has already appeared above).
+ * so a comment feels sent, not merely submitted. While the action is in
+ * flight, the arrow keeps moving on its own — the honest signal something
+ * is happening (the optimistic row has already appeared above).
  */
 function SubmitButton({ empty }: { empty: boolean }) {
   const { pending } = useFormStatus();

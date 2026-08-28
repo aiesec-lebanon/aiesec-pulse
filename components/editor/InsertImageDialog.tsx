@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Same focus-trap / Escape-to-close / focus-return shape as ReasonModal.
-// Like that component, state is never reset in an effect — the caller keys
-// this by the pending upload so a new image gets a fresh instance instead.
+// Same focus-trap / Escape-to-close / focus-return shape as ReasonModal —
+// like that component, state is never reset in an effect; the caller keys
+// this by the pending upload, so a new image gets a fresh instance.
 export function InsertImageDialog({
   open,
   previewUrl,
@@ -90,8 +90,8 @@ export function InsertImageDialog({
           />
         )}
 
-        {/* A <form> here would nest inside the composer's own outer <form> —
-            invalid HTML that silently corrupts the outer form's submission.
+        {/* A <form> here would nest inside the composer's outer <form> —
+            invalid HTML that silently corrupts its submission.
             Enter-to-confirm and the buttons are wired by hand instead. */}
         <div className="mt-4">
           <label

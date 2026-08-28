@@ -9,27 +9,25 @@ import { tokensForKind } from "@/lib/topics-shared";
  * Choosing the phrase in a headline that goes italic in the topic's colour.
  *
  * The design system's signature device (§0.3) is one accented phrase per
- * headline, and it is explicit that the choice is editorial and must never be
- * inferred — "an algorithm reaching for 'the' would make every headline look
- * accidental". So it has to be asked for. The question is how to ask without
- * turning a one-second decision into a form.
+ * headline, and the choice must be editorial, never inferred — "an algorithm
+ * reaching for 'the' would make every headline look accidental." It has to
+ * be asked for, without turning a one-second decision into a form.
  *
- * **Not** a text input asking the author to retype part of their own headline:
- * that can be misspelled, can go stale the moment the title is edited, and
- * makes the author do the diffing. Instead the headline is dealt out as its own
- * words, and tapping a word selects it. Tapping a word next to the selection
- * extends it; tapping either end trims it back; tapping the selection's middle
- * clears it. Contiguity is enforced by construction — there is no gesture that
- * produces "volunteers … town", which the renderer could not express anyway.
+ * **Not** a text input for retyping part of the headline: it can be
+ * misspelled, go stale when the title changes, and forces a diff. Instead
+ * the headline is dealt out as words — tapping one selects it, tapping next
+ * to the selection extends it, tapping either end trims it, and tapping the
+ * middle clears it. Contiguity is enforced by construction — no gesture
+ * produces "volunteers … town", which the renderer couldn't express anyway.
  *
- * Each chip shows what it will look like, in the topic's own colour, so the
- * decision is made by looking rather than by imagining. The whole control
- * disappears when there is no headline yet: an empty row of chips inviting a
- * choice about nothing is worse than no control.
+ * Each chip shows what it will look like, in the topic's colour, so the
+ * decision is made by looking, not imagining. The control disappears when
+ * there's no headline yet: an empty row of chips inviting a choice about
+ * nothing is worse than no control.
  *
- * Storage is the substring, not an index pair — see `Post.titleAccent`. That is
- * what makes an accent survive an edit elsewhere in the headline and fail
- * silently (no accent) rather than loudly (the wrong words) when it does not.
+ * Storage is the substring, not an index pair — see `Post.titleAccent`.
+ * That lets an accent survive an edit elsewhere in the headline, and fail
+ * silently (no accent), not loudly (wrong words), when it doesn't.
  */
 export function TitleAccentPicker({
   title,
@@ -131,16 +129,16 @@ export function TitleAccentPicker({
   );
 }
 
-/** Whitespace-separated words, in order. Punctuation rides along with its word,
- *  which is what the renderer's own whole-word match expects. */
+/** Whitespace-separated words, in order. Punctuation rides with its word —
+ *  matching what the renderer's whole-word match expects. */
 function tokenise(title: string): string[] {
   return title.trim().split(/\s+/).filter(Boolean);
 }
 
 /**
  * Where the stored phrase sits in the current word list, or null when it no
- * longer appears — which is the honest answer after the author edits the
- * headline out from under it, and matches what the renderer does.
+ * longer appears — the honest answer after the author edits the headline
+ * out from under it, and matches what the renderer does.
  */
 function selectedRange(words: string[], value: string): { start: number; end: number } | null {
   const phrase = tokenise(value);

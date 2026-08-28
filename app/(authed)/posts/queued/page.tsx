@@ -18,7 +18,6 @@ export default async function PostQueuedPage() {
           <EnvelopeIllustration className="h-auto w-32" />
         </Reveal>
 
-        {/* Message */}
         <Reveal y={20} delay={90} className="flex flex-col gap-4">
           <h1 className="pulse-display pulse-display-md text-[color:var(--foreground)]">
             Your update is in review.

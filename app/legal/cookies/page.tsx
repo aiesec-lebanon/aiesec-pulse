@@ -5,9 +5,9 @@ export const metadata = {
   description: "Every cookie AIESEC Pulse sets, and why.",
 };
 
-// No consent banner: strictly necessary cookies do not need one, and asking
-// for consent that is not required trains people to click through the ones
-// that matter. The table must stay exhaustive and match the code.
+// No consent banner: strictly necessary cookies don't need one, and asking
+// for unneeded consent just trains people to click through the ones that
+// matter. The table must stay exhaustive and match the code.
 export default function CookiesPage() {
   return (
     <>

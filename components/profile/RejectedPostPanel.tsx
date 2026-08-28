@@ -151,7 +151,6 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
 
       {open && (
         <div className="mt-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-5">
-          {/* Rejection reason */}
           {post.rejectionReason && (
             <div className="mb-5 rounded-[var(--radius-md)] border border-[var(--destructive)]/30 bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))] px-4 py-3">
               <p className="text-[12px] font-medium uppercase tracking-wide text-[color:var(--destructive-text)]">
@@ -164,7 +163,6 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
           )}
 
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-            {/* Title */}
             <div>
               <label
                 htmlFor={`edit-title-${post.id}`}
@@ -194,7 +192,6 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
               )}
             </div>
 
-            {/* Content */}
             <div>
               <label
                 htmlFor={`edit-content-${post.id}`}
@@ -225,7 +222,6 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
               )}
             </div>
 
-            {/* Link URL */}
             <div>
               <label
                 htmlFor={`edit-link-${post.id}`}

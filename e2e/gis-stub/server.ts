@@ -88,7 +88,6 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-// ── /authorize ───────────────────────────────────────────────────────────────
 // The browser lands here after /api/auth/start redirects it. `state` is echoed
 // back untouched: verifying it is the application's job, and a stub that
 // "helpfully" regenerated it would hide a login-CSRF regression.
@@ -118,7 +117,6 @@ function authorize(req: IncomingMessage, res: ServerResponse, url: URL) {
   res.end();
 }
 
-// ── /token ───────────────────────────────────────────────────────────────────
 async function token(req: IncomingMessage, res: ServerResponse) {
   const form = new URLSearchParams(await readBody(req));
   const grant = form.get("grant_type");
@@ -143,7 +141,6 @@ async function token(req: IncomingMessage, res: ServerResponse) {
   });
 }
 
-// ── /graphql ─────────────────────────────────────────────────────────────────
 async function graphql(req: IncomingMessage, res: ServerResponse) {
   const selection = decodeSelection((req.headers.authorization ?? "").replace(/^Bearer\s+/i, ""));
   if (!selection) {

@@ -4,9 +4,9 @@ import Link from "next/link";
 import { type BlockNode, sanitiseDocument, type TextNode } from "@/lib/content/document";
 
 // mediaId -> public URL. Sanitisation keeps a document's image blocks even
-// when the id doesn't resolve to anything (resolution is deliberately not
-// sanitisation's job); a caller that hasn't looked up media yet simply
-// passes nothing, and those blocks render as nothing rather than broken img.
+// when the id doesn't resolve (resolution is deliberately not sanitisation's
+// job); a caller that hasn't looked up media yet just passes nothing, and
+// those blocks render as nothing rather than a broken img.
 export type MediaLookup = Record<string, string>;
 
 // Re-sanitised on read as well as write, so a row from an older build or a

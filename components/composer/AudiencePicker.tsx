@@ -34,9 +34,9 @@ const SCOPE_OPTIONS: Array<{ key: AudienceValue["scopeType"]; label: string }> =
 ];
 
 /**
- * A publisher without `post.target_beyond` has no real choice of audience, so
- * this is information rather than a control for them. Publishers holding it
- * get the full picker.
+ * A publisher without `post.target_beyond` has no real choice of audience,
+ * so this is information, not a control. Publishers holding it get the
+ * full picker.
  */
 export function AudiencePicker({ options, value, onChange, error, disabled }: Props) {
   if (options.kind === "fixed") {

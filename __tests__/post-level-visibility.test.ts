@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { EntityKind, PostLevel, ScopeType } from "@/app/generated/prisma/enums";
 import { localRootOf, type ScopeSet, visibilityFilter } from "@/lib/org/scope";
 
-// Visibility has two halves, and both are pure decisions over data
-// the caller has already fetched — where a viewer's local reach starts, and
-// what "visible" then means. Exercised here without a database, so the rule
-// itself is pinned down rather than only the query that happens to express it.
+// Visibility has two halves, both pure decisions over data the caller
+// already fetched: where a viewer's local reach starts, and what "visible"
+// means. Exercised without a database, so the rule itself is pinned down,
+// not just the query that expresses it.
 
 const AI = { id: "ent_ai", kind: EntityKind.GLOBAL, path: "/ai" };
 const MENA = { id: "ent_mena", kind: EntityKind.REGION, path: "/ai/mena" };

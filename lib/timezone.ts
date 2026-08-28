@@ -1,7 +1,7 @@
 // No date/timezone library is a project dependency, so converting a
-// `datetime-local` picker's wall-clock
-// value into the correct UTC instant for an arbitrary IANA zone is done with
-// plain Intl — the standard "format, diff, correct" technique.
+// `datetime-local` picker's wall-clock value into the correct UTC instant
+// for an arbitrary IANA zone uses plain Intl — the standard "format, diff,
+// correct" technique.
 
 function offsetParts(instant: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -29,11 +29,10 @@ function offsetParts(instant: Date, timeZone: string) {
 
 /**
  * Interprets a `datetime-local` input's value (bare wall-clock digits, no
- * zone) as a moment in `timeZone` and returns the equivalent UTC instant.
- * Needed because the picker reports whatever the browser's own clock reads,
- * but scheduling honours the author's stored
- * `User.timezone`, not the browser's — "Monday 9am Beirut" must mean that
- * regardless of where the author's browser happens to be.
+ * zone) as a moment in `timeZone`, returning the equivalent UTC instant.
+ * Needed because the picker reflects the browser's own clock, but scheduling
+ * honours the author's stored `User.timezone` — "Monday 9am Beirut" must
+ * mean that regardless of where the author's browser is.
  */
 export function zonedWallTimeToUtc(localDateTime: string, timeZone: string): Date {
   const naiveUtc = new Date(`${localDateTime}:00.000Z`);

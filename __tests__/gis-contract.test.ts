@@ -15,14 +15,14 @@ import { __testing } from "@/server-utils/gis";
 const { currentPersonSchema } = __testing;
 
 /**
- * The e2e suite signs in by answering as GIS. That is only worth anything while
- * the fixtures still look like GIS: a stub that has drifted from the real
- * response shape produces a green suite against a service that no longer exists,
- * which is worse than no suite at all.
+ * The e2e suite signs in by answering as GIS, which only helps while the
+ * fixtures still match GIS's real response shape — a drifted stub produces a
+ * green suite against a service that no longer exists, worse than no suite
+ * at all.
  *
- * So every fixture is parsed here through the same schema the callback uses, and
- * then run through the same cross-check the callback runs. If AIESEC changes the
- * `currentPerson` shape, this fails in CI rather than in production.
+ * Every fixture here is parsed through the callback's schema and run through
+ * its cross-check, so a change to AIESEC's `currentPerson` shape fails in CI,
+ * not production.
  */
 
 const PEOPLE = PERSONA_KEYS.filter((key) => key !== "gis_down");

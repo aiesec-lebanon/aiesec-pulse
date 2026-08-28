@@ -8,15 +8,15 @@ import { getAdminSession } from "@/lib/auth/admin-session";
  *
  * It used to admit two identities and show them different halves of one shell:
  * a credential login for configuring the platform, and an AIESEC position for
- * moderating content. That was never a clean split, and three of the sections
- * it offered a position holder — the approval queue, all posts, comments —
- * were guarded by `requirePermission`, which needs a *member* session, so the
- * credential admin they were sitting beside could not open any of them.
+ * moderating content. Never a clean split — three sections offered to a
+ * position holder (the approval queue, all posts, comments) were guarded by
+ * `requirePermission`, which needs a *member* session, so the credential
+ * admin beside them couldn't open any of them.
  *
  * The position-held surfaces moved out to member-facing routes (`/review`,
  * `/moderation/posts`, `/moderation/comments`, `/insights`), where they sit in
- * the ordinary app shell alongside every other page a member uses. What is
- * left here is configuration, and it needs exactly one guard.
+ * the ordinary app shell alongside every other page a member uses. What's
+ * left here is configuration, needing exactly one guard.
  */
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const admin = await getAdminSession();

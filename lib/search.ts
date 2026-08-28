@@ -9,23 +9,23 @@ import { requireSession } from "@/lib/rbac/guards";
 import { type FilterableEntity, KIND_LABELS } from "@/lib/search-shared";
 
 // websearch_to_tsquery over the generated searchVector column, ranked with
-// ts_rank, snippeted with ts_headline. The audience check uses EXISTS (matching lib/org/scope.ts's visibilityFilter() Prisma
-// semantics exactly) so a post targeted at more than one entity the viewer
-// belongs to can't produce duplicate rows.
+// ts_rank, snippeted with ts_headline. The audience check uses EXISTS —
+// matching lib/org/scope.ts's visibilityFilter() Prisma semantics exactly —
+// so a post targeted at several of the viewer's entities can't produce
+// duplicate rows.
 
 // Re-exported so server-side callers (the search page, SearchResultRow) can
 // keep importing everything from this one module — only the client-side
-// SearchForm needs to reach past this file to lib/search-shared directly.
+// SearchForm needs lib/search-shared directly.
 export { type FilterableEntity, KIND_LABELS };
 
 export type SnippetPart = { text: string; highlighted: boolean };
 
-// ts_headline is asked (via chr(1)/chr(2) in the query below) to wrap
-// matches in charCode 1/2 rather than HTML, so the snippet can be rendered
-// as plain React text nodes below — never dangerouslySetInnerHTML — with no
-// risk of a post body that happens to contain literal "<mark>"-like text
-// being interpreted as markup. fromCharCode rather than embedding the raw
-// control character keeps the source file plain, diffable ASCII.
+// ts_headline is asked (via chr(1)/chr(2) below) to wrap matches in charCode
+// 1/2 rather than HTML, so the snippet renders as plain React text nodes —
+// never dangerouslySetInnerHTML — with no risk that a post body's literal
+// "<mark>"-like text gets read as markup. fromCharCode, not a raw control
+// character, keeps this source file plain, diffable ASCII.
 const SNIPPET_START = String.fromCharCode(1);
 const SNIPPET_STOP = String.fromCharCode(2);
 
@@ -82,11 +82,10 @@ function parseDate(value: string | undefined): Date | null {
 }
 
 /**
- * Pure param parsing, independent of any request or database — a topic id
- * or kind that doesn't resolve to anything real is dropped rather than
- * rejected, the same "silently ignore a stale filter" call topics.ts's
- * resolveValidTopicIds already makes, since a filter carries no
- * authorisation weight the way audience targeting does.
+ * Pure param parsing, independent of any request or database — an
+ * unresolvable topic id or kind is dropped, not rejected. Same "silently
+ * ignore a stale filter" call as topics.ts's resolveValidTopicIds, since a
+ * filter carries no authorisation weight the way audience targeting does.
  */
 export function parseSearchFilters(params: RawSearchParams): SearchFilters {
   const query = (firstValue(params.q) ?? "").trim();
@@ -149,11 +148,10 @@ export async function searchPosts(
   const scope = await scopeSetFor(user);
 
   // Same union the feed and topic archive enforce (lib/org/scope.ts's
-  // visibilityFilter): a post is visible because it is NETWORK, or because it
-  // is aimed at somewhere in the viewer's local scope. Search is neither a way
-  // around targeting nor a way around level — hold one of the two arms back
-  // here and a promoted post from another MC would be readable in the feed and
-  // missing from search.
+  // visibilityFilter): a post is visible if it's NETWORK, or aimed at
+  // somewhere in the viewer's local scope. Search bypasses neither targeting
+  // nor level — drop either arm and a promoted post from another MC would
+  // show in the feed but be missing from search.
   const visibilityCondition = scope.unrestricted
     ? Prisma.sql`TRUE`
     : Prisma.sql`(
@@ -205,11 +203,11 @@ export async function searchPosts(
 
   // CROSS JOIN, not the comma-join form
   // (`FROM "Post" p, websearch_to_tsquery(...) q`) — Postgres accepts the
-  // comma form fine on its own (verified directly against it), but Prisma
-  // 7's $queryRaw interpreter throws "invalid reference to FROM-clause entry
-  // for table p" once an explicit `JOIN ... ON` referencing p follows it in
-  // the same FROM clause. ANSI CROSS JOIN sidesteps whatever that parser
-  // trips on and behaves identically.
+  // comma form fine on its own (verified directly), but Prisma 7's $queryRaw
+  // interpreter throws "invalid reference to FROM-clause entry for table p"
+  // once an explicit `JOIN ... ON` referencing p follows in the same FROM
+  // clause. ANSI CROSS JOIN sidesteps whatever the parser trips on, behaving
+  // identically.
   const rows = await db.$queryRaw<RawHit[]>(Prisma.sql`
     SELECT
       p."id" AS "id",
@@ -253,9 +251,9 @@ export async function searchPosts(
 }
 
 // A flat, alphabetised list for the filter bar's plain <select> — no
-// typeahead here, unlike the composer's AudiencePicker. Small enough to list in full at this org's actual scale;
-// escalate to the same trigram search the audience picker already uses if
-// that stops being true.
+// typeahead, unlike the composer's AudiencePicker. Small enough to list in
+// full at this org's actual scale; escalate to the trigram search the
+// audience picker already uses if that changes.
 export async function listFilterableEntities(): Promise<FilterableEntity[]> {
   const rows = await db.entity.findMany({
     where: { isActive: true },

@@ -13,28 +13,28 @@ import type { FeedPost } from "@/types/feed";
 
 /**
  * 1b's tilt plate: a real `--card` surface with `--elev-2`, pointer
- * perspective, and a 3px bar in the post's topic colour across the top of the
- * image. The one sanctioned exception to §0.5's "no card grid" rule.
+ * perspective, and a 3px bar in the post's topic colour across the image's
+ * top — the one sanctioned exception to §0.5's "no card grid" rule.
  *
  * **The card is the link.** It used to be a `<Link>` on the headline with an
  * `::after` overlay meant to cover the whole plate — which it never did: the
- * text panel carries `.pulse-tilt-layer`, and a `transform` makes an element
- * the containing block for its absolutely-positioned descendants, so the
- * overlay stopped at the panel's own edges and the cover image was dead to the
- * click. Wrapping the plate in one anchor removes the class of bug rather than
- * moving the overlay, and gives the whole 260×360 plate a single hit area.
+ * text panel carries `.pulse-tilt-layer`, and `transform` makes an element
+ * the containing block for absolutely-positioned descendants, so the overlay
+ * stopped at the panel's edges and the cover image was dead to the click.
+ * Wrapping the plate in one anchor removes the bug class entirely, giving the
+ * whole 260×360 plate a single hit area.
  *
- * The topic is a label here, not a second link — as in 1b. A nested anchor is
- * invalid, and layering one above a full-plate link needs exactly the
+ * The topic is a label here, not a second link, as in 1b — a nested anchor is
+ * invalid, and layering one above a full-plate link would need exactly the
  * z-index-across-stacking-contexts fight that produced the bug above. The
- * topic stays one click away, from the story itself.
+ * topic stays one click away, via the story itself.
  *
- * **Width comes from the caller.** The plate was hard-coded to 260px, which is
- * right in the feed's horizontal rail and wrong in every `grid-cols-3` that
- * also uses it — a 260px card in a 380px cell, with a remove button pinned to
- * the cell's far edge, is what the bookmarks page looked like. Its own
- * skeleton is fixed instead (image height, a reserved label row, a two-line
- * title), so a row of these is the same height whatever the copy does.
+ * **Width comes from the caller.** The plate was hard-coded to 260px — right
+ * in the feed's horizontal rail, wrong in every `grid-cols-3` that also uses
+ * it: a 260px card in a 380px cell, remove button pinned to the cell's far
+ * edge, is what the bookmarks page looked like. Its own skeleton is fixed
+ * instead (image height, a reserved label row, a two-line title), so a row of
+ * these is the same height whatever the copy does.
  */
 export function SecondaryPostCard({ post }: { post: FeedPost }) {
   const primaryTopic = post.topics[0];
@@ -87,10 +87,11 @@ export function SecondaryPostCard({ post }: { post: FeedPost }) {
             {post.title}
           </span>
 
-          {/* Two lines, not one. An office's name and a timestamp on the same
+          {/* Two lines, not one: an office's name and timestamp on the same
               11px mono line ran out of room in a 260px card and truncated the
-              publisher — the one fact on the card that says whose story this is.
-              Splitting them also matches the reference card's own footer. */}
+              publisher — the one fact on the card that says whose story this
+              is. Splitting them also matches the reference card's own
+              footer. */}
           <span className="mt-auto block pt-3.5">
             <span className="pulse-label pulse-label-tight block truncate">
               <EntityName name={publisher} className="normal-case tracking-[0.06em]" />

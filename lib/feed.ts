@@ -104,9 +104,8 @@ function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>):
       id: row.author.id,
       fullName: row.author.fullName,
       avatarUrl: row.author.avatarUrl,
-      // The reader-facing brand lockup, resolved once at the boundary rather
-      // than at each of the fourteen surfaces that name a publisher — every
-      // one of which would otherwise have to remember the rule.
+      // The reader-facing brand lockup, resolved once at the boundary instead
+      // of separately by each of the fourteen surfaces that name a publisher.
       entityName: entityDisplayName(row.publisher.name, row.publisher.kind),
     },
     publisherEntityId: row.publisher.id,
@@ -118,10 +117,10 @@ function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>):
   };
 }
 
-// Shared by getFeedPage and getTopicFeed so "what counts as visible" can
-// never drift between the main feed and a topic archive. Both conditions are
-// nested under AND because each is an OR in its own right — spreading the
-// second over the first would silently drop the expiry check.
+// Shared by getFeedPage and getTopicFeed so "what counts as visible" never
+// drifts between them. Both conditions nest under AND because each is
+// itself an OR — spreading the second over the first would silently drop
+// the expiry check.
 function visiblePublishedWhere(scope: ScopeSet): Prisma.PostWhereInput {
   const now = new Date();
   return {
@@ -231,9 +230,9 @@ export type TopicStats = {
 };
 
 // The archive's own stat strip — every figure a real aggregate over the same
-// visibility-scoped rows the list itself shows, never a stand-in. There is no
-// "posts read" or "engagement" figure here because nothing upstream of this
-// query derives one honestly for a topic as a whole.
+// visibility-scoped rows the list shows, never a stand-in. No "posts read" or
+// "engagement" figure here, since nothing upstream of this query derives one
+// honestly for a topic as a whole.
 export async function getTopicStats(topicId: string): Promise<TopicStats> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
@@ -261,11 +260,10 @@ export async function getTopicStats(topicId: string): Promise<TopicStats> {
 const BOOKMARKS_PAGE_SIZE = 12;
 
 // Ordered by when the viewer bookmarked the post, not when it was published
-// — starting the query from Bookmark rather than Post is what gives that
-// ordering for free. visiblePublishedWhere on the nested post relation drops
-// a bookmark whose post has since been unpublished or fallen outside the
-// viewer's audience, same "never a way around targeting" rule getTopicFeed
-// already follows.
+// — starting from Bookmark rather than Post gives that ordering for free.
+// visiblePublishedWhere on the nested post relation drops a bookmark whose
+// post has since been unpublished or fallen outside the viewer's audience —
+// the same "never a way around targeting" rule getTopicFeed already follows.
 /** A bookmarked post, plus when this reader saved it — UI ref 6a's own
  *  "Saved today / 3 days ago" column, which is real `Bookmark.createdAt`
  *  rather than the post's publication date. */
@@ -305,9 +303,9 @@ export async function getBookmarkedPosts(
 
 export type BookmarkTopic = { id: string; name: string; kind: TopicKind };
 
-// The filter row's own options: only topics the viewer's bookmarks actually
-// carry, not every topic in the system — a chip for a topic with nothing
-// behind it is a dead end, not a filter.
+// The filter row's options: only topics the viewer's bookmarks carry, not
+// every topic in the system — a chip with nothing behind it is a dead end,
+// not a filter.
 export async function getBookmarkTopics(): Promise<BookmarkTopic[]> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
@@ -332,9 +330,9 @@ export async function getBookmarksCount(): Promise<number> {
  *  across pages rather than restarting at 01 on page two. */
 export const PROFILE_PAGE_SIZE = 12;
 
-// Author and entity profiles both page through the same visibility-scoped
-// post list the feed and topic archive already enforce — a profile is not a
-// second way to see something the viewer's scope would otherwise hide.
+// Author and entity profiles page through the same visibility-scoped post
+// list the feed and topic archive enforce — a profile isn't a second way to
+// see something the viewer's scope would otherwise hide.
 export async function getAuthorPosts(
   authorId: string,
   page: number
@@ -462,31 +460,29 @@ export async function getRelatedPosts(
 }
 
 // ---------------------------------------------------------------------------
-// Ranking. Deterministic and weighted, no learned model; every term below is
-// inspectable per-post via getPostRankingBreakdown, which backs the "why this
-// appeared" disclosure.
+// Ranking: deterministic and weighted, no learned model. Every term is
+// inspectable per-post via getPostRankingBreakdown, which backs the "why
+// this appeared" disclosure.
 //
-// The computation is meant to happen in SQL over a bounded candidate set. The
-// *bounding* — visiblePublishedWhere + ORDER BY + LIMIT
-// 500, so this never scans the full archive — is SQL, in rankingCandidatesFor
-// below. The score arithmetic itself runs in JS over that already-bounded set
-// (≤500 rows of plain numbers), the same call search made choosing EXISTS/CROSS
-// JOIN over the doc's illustrated SQL: it keeps the formula a plain,
-// unit-testable function — this repo's established pattern for business
-// logic (dueScheduledPostsQuery, decideAudienceForSubmission both work the
-// same way) — and it's what lets a single post's breakdown share the exact
+// Bounding happens in SQL, scoring in JS. The *bounding* —
+// visiblePublishedWhere + ORDER BY + LIMIT 500, so this never scans the full
+// archive — is in rankingCandidatesFor below; the score arithmetic runs over
+// that bounded set (≤500 rows of plain numbers), the same call search made
+// choosing EXISTS/CROSS JOIN over the doc's illustrated SQL. It keeps the
+// formula a plain, unit-testable function — this repo's established pattern
+// for business logic (dueScheduledPostsQuery, decideAudienceForSubmission
+// work the same way) — and lets a single post's breakdown share the exact
 // code path that ranked the feed, rather than a second, raw-SQL formula that
 // could silently drift from it.
 //
-// Caching: the feed candidate cache is keyed by "scope set", but the formula
-// itself defines affinity (Follow) and seen (PostRead) as per-viewer terms —
-// two members of the same entity can have different follows and read
-// history, so flattening those into a shared cache entry would silently
-// undo the personalisation the feed is meant to provide. Resolved by caching only the
-// scope-shared half (which posts are candidates, and every term that only
-// depends on the entity tree — see cacheKeys.feedRanked) and layering the
-// two genuinely personal terms on top at request time, cheaply, since they're
-// bounded lookups against the already-cached candidate ids.
+// Caching: the candidate cache is keyed by scope set, but affinity (Follow)
+// and seen (PostRead) are per-viewer terms — two members of the same entity
+// can have different follows and read history, so a shared cache entry
+// would silently flatten the feed's personalisation. Fix: cache only the
+// scope-shared half (which posts are candidates, plus every term depending
+// only on the entity tree — see cacheKeys.feedRanked), then layer the two
+// personal terms on top at request time — cheap, since they're bounded
+// lookups against the already-cached candidate ids.
 // ---------------------------------------------------------------------------
 
 export type RankingWeights = {
@@ -511,9 +507,9 @@ const RANKING_WEIGHT_DEFAULTS: RankingWeights = {
   normaliser: 50,
 };
 
-// A missing or unreadable row falls back to the seeded default rather than
-// zeroing the term out — a DB hiccup should degrade ranking quality, not
-// silently flatten a term to nothing.
+// A missing or unreadable row falls back to the seeded default, not zero —
+// a DB hiccup should degrade ranking quality, not silently flatten a term
+// to nothing.
 async function loadRankingWeights(): Promise<RankingWeights> {
   const rows = await db.rankingWeight.findMany({ select: { key: true, weight: true } });
   const byKey = new Map(rows.map((r) => [r.key, r.weight]));
@@ -537,12 +533,11 @@ const PROXIMITY_BY_TIER: Record<ProximityTier, number> = {
 
 /**
  * "same LC = 1.0, same MC = 0.8, same region = 0.5, global = 0.3" — tiers of
- * shared ancestry between the viewer's own
- * entity and the post's publisher entity (Entity.path, e.g.
- * "/ai/mena/lb/aub"), not a literal equality check: a post published by the
- * viewer's own MC (an ancestor of the viewer's LC, not the same node) is
- * "same MC", not "global". A viewer with no primary entity has no home base
- * to be close to anything, so every post lands at the global floor.
+ * shared ancestry between the viewer's entity and the post's publisher
+ * entity (Entity.path, e.g. "/ai/mena/lb/aub"), not literal equality: a post
+ * from the viewer's own MC (an ancestor of the viewer's LC, not the same
+ * node) is "same MC", not "global". A viewer with no primary entity has no
+ * home base to be close to anything, so every post lands at the global floor.
  */
 export function proximityTier(viewerPath: string | null, publisherPath: string): ProximityTier {
   if (!viewerPath) return "global";
@@ -566,9 +561,8 @@ export function proximityTier(viewerPath: string | null, publisherPath: string):
 }
 
 /**
- * Every DB lookup already resolved, so the formula itself stays a pure
- * function of primitives — unit-testable with hand-built fixtures, no
- * database, no mocking.
+ * Every DB lookup already resolved, so the formula stays a pure function of
+ * primitives — unit-testable with hand-built fixtures, no database, no mocking.
  */
 export type RankingCandidateInput = {
   publishedAt: Date;
@@ -594,11 +588,10 @@ export type RankingTerms = {
 export type ScoredPost = { score: number; terms: RankingTerms };
 
 /**
- * The ranking formula. `terms[*].weighted` always sums to
- * `score` (seen's `weighted` is pre-negated) — that invariant is what makes
- * the per-post breakdown (getPostRankingBreakdown) a projection of the exact
- * numbers that ranked the feed, not a second computation that could drift
- * from it.
+ * The ranking formula. `terms[*].weighted` always sums to `score` (seen's
+ * `weighted` is pre-negated), so the per-post breakdown
+ * (getPostRankingBreakdown) projects the exact numbers that ranked the feed
+ * — not a second computation that could drift from it.
  */
 export function scorePost(
   candidate: RankingCandidateInput,
@@ -655,9 +648,9 @@ export function scorePost(
         pinned: candidate.pinned,
         needsAck: candidate.needsAck,
       },
-      // 0 - seenWeighted, not unary negation: negating a zero seenWeighted
-      // would produce -0, which is arithmetically harmless but an odd value
-      // to hand back to a caller (e.g. Object.is-based test assertions).
+      // 0 - seenWeighted, not unary negation — negating zero produces -0:
+      // harmless arithmetically, but an odd value for a caller (e.g.
+      // Object.is-based test assertions).
       seen: { value: seenValue, weighted: 0 - seenWeighted, alreadyRead: candidate.alreadyRead },
     },
   };
@@ -691,11 +684,11 @@ type RankingRow = {
   requiresAck: boolean;
 };
 
-// Redis round-trips everything through JSON, so Dates would come back as
-// strings on a cache hit while staying Date instances on a miss (or under
-// the process-local fallback) — a divergence that would only surface once
-// Redis is actually configured. Converting explicitly at both ends keeps the
-// shape identical regardless of which backing store served it.
+// Redis round-trips everything through JSON, so Dates come back as strings
+// on a cache hit but stay Date instances on a miss (or the process-local
+// fallback) — a divergence that surfaces only once Redis is configured.
+// Converting explicitly at both ends keeps the shape identical regardless of
+// backing store.
 type CachedRankingRow = Omit<RankingRow, "publishedAt" | "createdAt" | "pinnedUntil"> & {
   publishedAt: string | null;
   createdAt: string;
@@ -703,10 +696,9 @@ type CachedRankingRow = Omit<RankingRow, "publishedAt" | "createdAt" | "pinnedUn
 };
 
 /**
- * The expensive, shared half of ranking: cached per scope set (see
- * cacheKeys.feedRanked for why that is sound even though affinity and seen
- * are personal). Personal terms are layered on by
- * the caller — never cached here.
+ * The expensive, shared half of ranking, cached per scope set
+ * (cacheKeys.feedRanked explains why that's sound despite affinity/seen
+ * being personal). The caller layers on personal terms — never cached here.
  */
 async function rankingCandidatesFor(scope: ScopeSet): Promise<RankingRow[]> {
   const key = cacheKeys.feedRanked(scope.primaryEntityId ?? "none");
@@ -848,8 +840,8 @@ export async function getForYouFeedPage(
  * The single-post equivalent of getForYouFeedPage's scoring, for the "why
  * this appeared" disclosure (post detail, For You mode only). Independent of
  * the cached candidate window — a linked post outside the top 500 still gets
- * an accurate breakdown — but shares scorePost, so the numbers shown can
- * never drift from what actually ranked the feed.
+ * an accurate breakdown — but shares scorePost, so the numbers can never
+ * drift from what ranked the feed.
  */
 export async function getPostRankingBreakdown(postId: string): Promise<ScoredPost | null> {
   const user = await requireSession();
@@ -896,20 +888,19 @@ export type TrendingAuthor = {
  * The "Elsewhere in the network" section, as one query set rather than two
  * unrelated ones.
  *
- * The bug this replaces was a real trust failure, not a layout problem: the
- * headline counted distinct publishers *from the last seven days* while the
- * list underneath showed whatever came next in the feed — so a reader saw "1
- * entity has published this week" over a story dated three months ago. §0's
- * Trust row and §0.8's "stat headlines are real numbers or nothing" both rule
- * that out, and the fix is to make the number and the list describe the same
- * window.
+ * The bug this replaced was a trust failure, not a layout one: the headline
+ * counted distinct publishers *from the last seven days* while the list
+ * below showed whatever came next in the feed — so a reader saw "1 entity
+ * has published this week" over a story three months old. §0's Trust row
+ * and §0.8's "stat headlines are real numbers or nothing" rule that out;
+ * the fix makes the number and the list describe the same window.
  *
- * The window widens until it has something to show. A network that has been
- * quiet for a fortnight gets "published this month" over posts from this
- * month, and a brand-new deployment gets "published so far" over everything
- * it has. At no point does the sentence claim a period the rows below it do
- * not come from — which is also why the window is returned rather than the
- * caller being trusted to phrase it.
+ * The window widens until it finds something to show: a network quiet for
+ * a fortnight gets "published this month" over posts from this month, and
+ * a brand-new deployment gets "published so far" over everything it has.
+ * The sentence never claims a period the rows below it don't come from —
+ * which is why the window is returned rather than trusting the caller to
+ * phrase it.
  */
 export type ElsewhereWindow = "week" | "month" | "all";
 

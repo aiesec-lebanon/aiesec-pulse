@@ -58,14 +58,13 @@ export function splitBrandLockup(displayName: string): { mark: string | null; re
  * straight to `DisplayTitle`'s `accentWord`: **the place, not the wordmark**.
  * "AIESEC in Brazil" accents "in Brazil".
  *
- * The wordmark is the constant on every office in the network and the place is
- * the variable. An accent on the constant would be the same mark on every page,
- * which is a decoration rather than a signal — and that is the direction the
- * first implementation had it.
+ * The wordmark is constant across the network and the place is the variable.
+ * Accenting the constant would put the same mark on every page — decoration,
+ * not a signal — which is the direction the first implementation had it.
  *
- * Null when there is nothing to accent: "AIESEC International" is all wordmark
- * and no place, "Middle East and Africa" never took a prefix. That is what
- * makes this safe to call unconditionally.
+ * Null when there's nothing to accent: "AIESEC International" is all
+ * wordmark and no place, "Middle East and Africa" never took a prefix —
+ * which is what makes this safe to call unconditionally.
  */
 export function brandPlaceAccent(displayName: string): string | null {
   const { mark, rest } = splitBrandLockup(displayName);

@@ -12,7 +12,7 @@ export type AuthorProfile = {
   /** The member's own standfirst, when they have written one. */
   bio: string | null;
   onPulseSince: Date;
-  /** The entity the member is currently placed at, if any.  is already
+  /** The entity the member is currently placed at, if any. Name is already
    *  the reader-facing brand lockup — see lib/org/display.ts. */
   primaryEntity: { id: string; name: string } | null;
   /** The current AIESEC position title (e.g. "MCVP"), if the grant is active. */
@@ -21,11 +21,10 @@ export type AuthorProfile = {
   viewerFollowState: "none" | "following" | "muted";
 };
 
-// `User.bio` is the one narrative field on a profile, and it exists because a
-// member writes it — see M21. The quote and the "recognition" list from UI ref
-// 4a still have nothing behind them and are still dropped rather than invented:
-// this profile carries what a real query can answer, plus what its subject
-// chose to say.
+// `User.bio` is the one narrative field on a profile, because a member wrote
+// it — see M21. UI ref 4a's quote and "recognition" list have nothing behind
+// them and stay dropped rather than invented: this profile carries what a
+// real query can answer, plus what its subject chose to say.
 export async function getAuthorProfile(userId: string): Promise<AuthorProfile | null> {
   const viewer = await requireSession();
   const now = new Date();

@@ -219,7 +219,6 @@ test.describe("post level", () => {
       timeout: 15_000,
     });
 
-    // The second post never travelled.
     await signInAs("member", "/feed", isolate);
     expect(await canSee(page, secondPath, secondTitle)).toBe(false);
     expect(await canSee(page, firstPath, firstTitle)).toBe(true);

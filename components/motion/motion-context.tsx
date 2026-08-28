@@ -6,23 +6,22 @@ import { createContext, useContext, useEffect, useSyncExternalStore } from "reac
  * Motion preference.
  *
  * Motion is a first-class part of this interface, and "full" is the default —
- * but only for a reader who has not already told their operating system
- * otherwise. `prefers-reduced-motion: reduce` is honoured as the *starting*
- * value, and an explicit choice made inside Pulse overrides it in either
- * direction. That is a deliberate change from the previous position ("an OS
- * preference set years ago for a different device shouldn't silently decide
- * what this product looks like"): the header no longer carries a standalone
- * Motion button, so the OS signal is the only thing standing between a
- * motion-sensitive reader and a page full of parallax. The explicit control
- * moved into the account menu and the sign-in header, where it is still one
- * click from anywhere.
+ * but only for a reader who hasn't already told their OS otherwise.
+ * `prefers-reduced-motion: reduce` is honoured as the *starting* value, and an
+ * explicit choice inside Pulse overrides it either way. This is a deliberate
+ * change from the previous position ("an OS preference set years ago for a
+ * different device shouldn't silently decide what this product looks like"):
+ * the header no longer carries a standalone Motion button, so the OS signal
+ * is the only thing standing between a motion-sensitive reader and a page
+ * full of parallax. The explicit control moved into the account menu and the
+ * sign-in header — still one click from anywhere.
  *
  * Because the OS is now a real input, opting *in* to full motion has to be
  * stored explicitly — removing the key would hand the decision straight back
  * to the OS the reader just overruled.
  *
- * "reduced" is not "none". It zeroes `--motion-travel` and `--motion-scale`
- * (see globals.css), which stops scenes, parallax, 3-D tilt, the rotators and
+ * "reduced" is not "none": it zeroes `--motion-travel` and `--motion-scale`
+ * (see globals.css), stopping scenes, parallax, 3-D tilt, the rotators and
  * the ambient canvas, while colour, focus and state transitions survive —
  * those carry meaning, not atmosphere.
  *
@@ -72,7 +71,7 @@ function subscribe(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
   window.addEventListener(LOCAL_CHANGE_EVENT, onChange);
   // The OS setting can change mid-session (a "reduce motion" shortcut, a
-  // scheduled accessibility profile). Without this the page would keep
+  // scheduled accessibility profile) — without this the page would keep
   // animating until the next navigation.
   const media = window.matchMedia(REDUCED_QUERY);
   media.addEventListener("change", onChange);

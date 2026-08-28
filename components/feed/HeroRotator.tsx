@@ -24,23 +24,23 @@ const TITLE_ID = "hero-rotator-title";
  * The full-bleed rotating lead — 1b in the reference file. Purely a
  * controlled view: `FeedLead` (`components/feed/FeedLead.tsx`) owns
  * `active`/`running` and the timer, because the sibling "more top stories"
- * rail needs the same `active` index to know which post to leave out of its
- * own list — two components reading one piece of state, not two copies of it.
+ * rail needs that same `active` index to leave the hero's post out of its own
+ * list — two components reading one piece of state, not two copies of it.
  *
- * **Every slide stays mounted.** That is what makes a change of lead a
- * cross-dissolve rather than a swap: the outgoing photograph is still on
- * screen, still painted, while the incoming one settles out of its own scale
- * and bloom (`.pulse-hero-slide`), a projector wipe crosses the frame once,
- * and the copy is dealt back in on a stagger. Rendering only the active slide
- * — which is what this component used to do — makes all of that impossible,
- * because there is nothing to dissolve *from*.
+ * **Every slide stays mounted.** That's what makes a change of lead a
+ * cross-dissolve rather than a swap: the outgoing photograph stays on screen
+ * and painted while the incoming one settles out of its own scale and bloom
+ * (`.pulse-hero-slide`), a projector wipe crosses the frame once, and the
+ * copy deals back in on a stagger. Rendering only the active slide — this
+ * component's old behaviour — makes all of that impossible: there's nothing
+ * to dissolve *from*.
  *
- * No `border-radius` anywhere on the frame, deliberately: a full-bleed
- * section that spans the page edge to edge reads as a rendering fault with
- * rounded corners. Height is aspect-ratio-driven up to a capped `max-h`, so a
- * very tall (or ultrawide) viewport never turns the hero into something a
- * reader has to scroll past to reach the rest of the page. The extra bottom
- * padding at `lg:` is the room the "more top stories" rail overlaps into.
+ * No `border-radius` on the frame, deliberately: a full-bleed section
+ * spanning edge to edge reads as a rendering fault if its corners are
+ * rounded. Height is aspect-ratio-driven up to a capped `max-h`, so a very
+ * tall (or ultrawide) viewport never turns the hero into something a reader
+ * has to scroll past. The extra bottom padding at `lg:` is room for the
+ * "more top stories" rail to overlap into.
  */
 export function HeroRotator({
   slides,
@@ -54,9 +54,9 @@ export function HeroRotator({
   slides: FeedPost[];
   active: number;
   running: boolean;
-  /** Whether the secondary rail will overlap the frame's bottom edge — which
-   *  is the only reason to reserve room for it. A one-post feed renders no
-   *  rail, and must not be left with a 196px void under its headline. */
+  /** Whether the secondary rail overlaps the frame's bottom edge — the only
+   *  reason to reserve room for it. A one-post feed renders no rail, and must
+   *  not be left with a 196px void under its headline. */
   overlapping: boolean;
   onPick: (index: number) => void;
   onPause: () => void;
@@ -66,10 +66,10 @@ export function HeroRotator({
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const rotatable = slides.length > 1;
 
-  // Focus follows the active tick, but only when the change came from inside
-  // this component (a click or an arrow key) — not every time `active`
-  // changes, which also happens on the timer's own auto-advance and would
-  // otherwise steal focus from wherever the reader actually is.
+  // Focus follows the active tick, but only when the change originates inside
+  // this component (a click or arrow key) — not on every `active` change,
+  // since the timer's own auto-advance would otherwise steal focus from
+  // wherever the reader actually is.
   function pick(index: number) {
     onPick(index);
     tabRefs.current[index]?.focus();
@@ -95,9 +95,9 @@ export function HeroRotator({
   const slide = slides[active];
   const href = `/posts/${slide.slug}`;
   const primaryTopic = slide.topics[0];
-  // The author's own accent phrase. `splitOnWord` rather than `DisplayTitle`
-  // because this headline carries its own size and clamp — and because the
-  // size classes are unlayered, so a `text-[clamp(...)]` utility on
+  // The author's own accent phrase. `splitOnWord`, not `DisplayTitle`,
+  // because this headline carries its own size and clamp, and because the
+  // size classes are unlayered — a `text-[clamp(...)]` utility on
   // `DisplayTitle` would silently lose to `.pulse-serif-xl`.
   const headline = splitOnWord(slide.title, slide.titleAccent);
   const accentColor = primaryTopic ? tokensForKind(primaryTopic.kind).text : undefined;
@@ -163,11 +163,11 @@ export function HeroRotator({
           remounts and replays rather than looping. */}
       {rotatable && <span key={`wipe-${active}`} aria-hidden className="pulse-wipe z-[3]" />}
 
-      {/* The frame itself is the link. It is a direct child of the section —
-          not a `::after` on the headline — because `#hero-rotator-panel` is
-          absolutely positioned and would have bounded the overlay to the
-          bottom strip, leaving the photograph, which is what a reader
-          actually aims at, dead to the click. */}
+      {/* The frame itself is the link — a direct child of the section, not a
+          `::after` on the headline, because `#hero-rotator-panel` is
+          absolutely positioned and would bound the overlay to the bottom
+          strip, leaving the photograph — what a reader actually aims at —
+          dead to the click. */}
       <Link
         href={href}
         aria-labelledby={TITLE_ID}
@@ -229,11 +229,11 @@ export function HeroRotator({
 
           <span aria-hidden className="w-px flex-1 bg-gradient-to-b from-white/25 to-white/5" />
 
-          {/* Always mounted (once motion is full and there's more than one
-              slide) — only `animation-play-state` toggles on hover/focus.
-              The earlier version conditionally rendered this on `running`,
-              which unmounted-and-remounted it on every pause, restarting the
-              fill from 0% instead of freezing it in place. */}
+          {/* Always mounted (motion full, more than one slide) — only
+              `animation-play-state` toggles on hover/focus. The earlier
+              version conditionally rendered this on `running`, unmounting and
+              remounting it on every pause and restarting the fill from 0%
+              instead of freezing it in place. */}
           <span aria-hidden className="relative h-16 w-[2px] overflow-hidden bg-white/15">
             {motion === "full" && (
               <span
@@ -253,10 +253,10 @@ export function HeroRotator({
 
       {/* `pointer-events-none` so the frame link underneath keeps the whole
           area clickable; the one genuinely interactive child opts back in.
-          The copy sits in the shell's own content column, so the headline lines
-          up with the header wordmark and with every page below it — it used to
-          use a 112px padding of its own, which on a wide screen put it 250px
-          out of step with everything else. */}
+          The copy sits in the shell's own content column, so the headline
+          lines up with the header wordmark and every page below it — it used
+          to carry its own 112px padding, putting it 250px out of step with
+          everything else on a wide screen. */}
       <div
         id="hero-rotator-panel"
         role="tabpanel"

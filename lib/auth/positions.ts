@@ -8,22 +8,21 @@ import { fetchCurrentPerson } from "@/server-utils/gis";
 
 /**
  * Persisted grants are authoritative for reads, but a stale grant must not
- * authorise a write. Before a privileged action the acting
- * user's positions are re-fetched from GIS and reconciled inside the same
- * request, so a position that has disappeared or changed since login fails the
- * action rather than being spent on it.
+ * authorise a write. Before a privileged action, the acting user's positions
+ * are re-fetched from GIS and reconciled within the same request, so a
+ * position that's disappeared or changed since login fails the action
+ * instead of being spent on it.
  *
- * This is the middle path the document describes, not a per-request GIS call:
- * Pulse pays the latency only where authority is actually being exercised.
+ * The middle path the document describes, not a per-request GIS call: Pulse
+ * pays the latency only where authority is actually exercised.
  *
  * Call it **before** the permission check, never after. Reconciliation ends
- * grants that GIS no longer returns and busts the authorisation cache, and
- * `lib/rbac/can.ts` memoises grants per request — a check that ran first would
- * hold the answer from before the refresh.
+ * grants GIS no longer returns and busts the authorisation cache, and
+ * `lib/rbac/can.ts` memoises grants per request — a check that ran first
+ * would hold the pre-refresh answer.
  *
- * Fails closed on every branch. There is no degraded mode and no staleness
- * ceiling: if GIS cannot confirm the position now, the position does not
- * authorise anything now.
+ * Fails closed on every branch: no degraded mode, no staleness ceiling. If
+ * GIS can't confirm the position now, it doesn't authorise anything now.
  */
 export type RevalidationResult = { ok: true } | { ok: false; error: string };
 

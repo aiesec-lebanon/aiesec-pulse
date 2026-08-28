@@ -9,15 +9,14 @@ export const metadata = { title: "Publishing activity · AIESEC Pulse" };
 /**
  * An officer's own publishing numbers, at `/insights`.
  *
- * The same view a platform administrator sees at `/admin/activity`, scoped by
- * the position instead of by the credential — `resolveScopeFilter` narrows it
- * to the entities where this member actually holds `analytics.view_entity`, so
- * an MCVP sees their MC's subtree and nothing above it.
+ * The same view an admin sees at `/admin/activity`, scoped by position not
+ * credential: `resolveScopeFilter` narrows it to entities where this member
+ * holds `analytics.view_entity` — an MCVP sees only their MC's subtree.
  *
- * Under `/admin` this page had to branch on which of two identities was
- * present, and it put an officer reading their own entity's numbers behind a
- * URL that told them they were administering the platform. One guard per
- * route, one shell per audience, one implementation of the page.
+ * Under `/admin` this page branched on which of two identities was present,
+ * putting an officer reading their own entity's numbers behind a URL implying
+ * they administered the platform. Now: one guard per route, one shell per
+ * audience, one implementation.
  */
 export default async function InsightsPage() {
   const user = await requirePermission("analytics.view_entity");

@@ -5,28 +5,26 @@ import { useLayoutEffect, useRef } from "react";
 /**
  * A list whose items *move* when the list reorders, instead of teleporting.
  *
- * The problem this solves is specific and was visible on the feed: the "more
- * top stories" rail drops whichever post the hero is currently showing, so
- * every rotation removes one card and inserts another, and the three cards in
- * between change slot. Rendered plainly, all four appear to blink into new
- * positions at once — the single hardest cut left in the app, firing every
- * eight seconds.
+ * The problem this solves was visible on the feed: the "more top stories"
+ * rail drops whichever post the hero is showing, so every rotation removes
+ * one card, inserts another, and shifts the three between. Rendered plainly,
+ * all four blink into new positions at once — the single hardest cut left in
+ * the app, firing every eight seconds.
  *
- * FLIP is the standard answer and it is only ~40 lines, so it lives here
- * rather than pulling in an animation library: measure every child's box
- * *before* the DOM updates (First), read it again after (Last), write the
- * difference back as a transform so each child appears not to have moved
- * (Invert), then clear the transform on the next frame and let CSS carry it
- * home (Play).
+ * FLIP is the standard answer, and at only ~40 lines it lives here rather
+ * than pulling in an animation library: measure every child's box *before*
+ * the DOM updates (First), read it again after (Last), write the difference
+ * back as a transform so each child appears not to have moved (Invert), then
+ * clear the transform next frame and let CSS carry it home (Play).
  *
  * Two details that matter:
  *
- *   - Identity comes from `data-flip-key`, which the caller stamps on each
- *     child. Indices are useless here: the whole point is that item three
+ *   - Identity comes from `data-flip-key`, stamped on each child by the
+ *     caller. Indices are useless here — the whole point is that item three
  *     became item two.
- *   - A child that was not in the previous measurement is *new*, and gets the
- *     enter animation rather than a move — a card arriving from nowhere should
- *     not slide in from position zero.
+ *   - A child absent from the previous measurement is *new*, and gets the
+ *     enter animation rather than a move — a card arriving from nowhere
+ *     shouldn't slide in from position zero.
  *
  * Reduced motion needs no branch: `.pulse-flip` multiplies its offset by
  * `--motion-travel`, so the inverted transform evaluates to zero and every
@@ -72,8 +70,8 @@ export function FlipList({
       const before = previous.get(key);
       if (!before) {
         item.classList.remove("pulse-flip-enter");
-        // Force a reflow so removing and re-adding the class actually restarts
-        // the animation for an item that is re-entering the list.
+        // Force a reflow so removing and re-adding the class restarts the
+        // animation for an item re-entering the list.
         void item.offsetWidth;
         item.classList.add("pulse-flip-enter");
         continue;

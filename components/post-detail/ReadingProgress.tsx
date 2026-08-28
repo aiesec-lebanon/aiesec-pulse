@@ -6,16 +6,15 @@ import { useEffect, useRef, useState } from "react";
  * Reading progress.
  *
  * The value it reports is informational, not decorative, so it renders under
- * every motion setting — what the Motion preference governs is the *easing* on
- * the fill, via `--motion-scale`. At Reduced the width snaps to the scrolled
- * position instead of gliding to it; the bar itself never disappears.
+ * every motion setting — the Motion preference only governs the fill's
+ * *easing*, via `--motion-scale`. At Reduced the width snaps to the scrolled
+ * position instead of gliding; the bar itself never disappears.
  *
  * The width is written straight to the element from the rAF callback rather
  * than through state: this fires on every scroll frame, and re-rendering a
- * React tree sixty times a second to move one bar is the classic version of
- * this component that makes a page feel heavy. State is kept only for the
- * `aria-valuenow` announcement, and only when the rounded percentage actually
- * changes.
+ * React tree sixty times a second to move one bar is the classic way this
+ * kind of component makes a page feel heavy. State is kept only for the
+ * `aria-valuenow` announcement, and only when the rounded percentage changes.
  */
 export function ReadingProgress() {
   const fillRef = useRef<HTMLDivElement>(null);

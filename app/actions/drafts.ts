@@ -47,15 +47,15 @@ export type SaveDraftResult =
 
 /**
  * Create-or-update a `Post{status: DRAFT}` + a `PostVersion` snapshot.
- * Inline images inside `bodyJson` are deliberately left as the raw upload URL
- * here (not run through materialisation) — this is called on a 5-second
- * autosave cadence, and there is no channel to hand a rewritten mediaId back
- * to an actively-typing TipTap instance without disturbing it. Materialising
- * to a real Media row happens once, at actual publish time (see
- * `lib/content/publish.ts`). The cover image has no such constraint (it's a
- * plain `useState`, not an uncontrolled editor), so it's resolved eagerly
- * below, idempotently, so re-saving the same attached image on every tick
- * doesn't mint a new Media row each time.
+ * Inline images in `bodyJson` are deliberately left as the raw upload URL,
+ * not materialised — this runs on a 5-second autosave cadence, with no
+ * channel to hand a rewritten mediaId back to an actively-typing TipTap
+ * instance without disturbing it. Materialisation to a real Media row
+ * happens once, at publish time (see `lib/content/publish.ts`). The cover
+ * image has no such constraint — it's a plain `useState`, not an
+ * uncontrolled editor — so it's resolved eagerly below, idempotently, so
+ * re-saving the same attached image on every tick doesn't mint a new
+ * Media row each time.
  */
 export async function saveDraft(input: SaveDraftInput, postId?: string): Promise<SaveDraftResult> {
   const user = await requireSession();
@@ -329,9 +329,9 @@ export async function publishDraft(
   const audienceSize = await resolveAudienceSize(audiences);
   const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
-  // Publishing a draft is a publication like any other, so it makes the same
-  // reach decision createPost does — the composer is shared and offers the
-  // choice on both routes.
+  // Publishing a draft is a publication like any other, so it uses the same
+  // reach decision as createPost — the shared composer offers the choice on
+  // both routes.
   const reach = await reachContextFor(
     user,
     post.publisherEntityId,
@@ -462,10 +462,9 @@ export async function deleteDraft(
     { type: "post", id: postId, entityId: post.publisherEntityId },
     { title: post.title },
     async () => {
-      // Hard delete, not hidden/archived: an unpublished draft was never seen
-      // by anyone but its author, so the reversible-moderation principle
-      // doesn't apply — retention.ts already
-      // hard-deletes stale drafts the same way.
+      // Hard delete, not hidden/archived: an unpublished draft was seen only
+      // by its author, so reversible-moderation doesn't apply — retention.ts
+      // already hard-deletes stale drafts the same way.
       await db.post.delete({ where: { id: postId } });
       revalidatePath("/drafts");
       return { ok: true as const };

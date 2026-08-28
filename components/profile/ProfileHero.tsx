@@ -20,23 +20,22 @@ const COLUMN = "mx-auto w-full max-w-[1240px] px-6";
  *
  * **The hero and the strip fill exactly one screen.** The frame is
  * `calc(100svh - var(--rail-h))` less the strip's own height, so a reader
- * arriving on a profile sees the whole hero with the totals sitting on the
- * bottom edge of the screen — not a fixed 500px band with 300px of dead space
- * under the type and the totals half-peeking above the fold. That is why the
- * strip is rendered here rather than by the page: the two have to be measured
- * together, and three pages composing that themselves is three chances to get
- * it wrong.
+ * arriving sees the whole hero with the totals on the screen's bottom edge
+ * — not a fixed 500px band with 300px of dead space under the type and the
+ * totals half-peeking above the fold. That's why the strip is rendered
+ * here, not by the page: the two must be measured together, and three
+ * pages each composing it themselves is three chances to get it wrong.
  *
  * **Imagery bleeds; type does not.** The wedges span the viewport; every line
  * of type sits in the shell's `max-w-[1240px]` column, so the name lines up
  * with the header wordmark and with the reading column below.
  *
- * The initials are `aria-hidden`: the name is right there in an `h1`, and two
- * stray letters announced before it is noise. Everything here is real — a name,
- * a position, an entity, a member count — because `User` and `Entity` carry no
- * pull-quote or recognition field, and 4a's are illustrative copy. The one
- * exception is the standfirst, which is a real `User.bio` when the member has
- * written one.
+ * The initials are `aria-hidden`: the name is right there in an `h1`, and
+ * two stray letters announced first would be noise. Everything here is
+ * real — name, position, entity, member count — because `User` and `Entity`
+ * carry no pull-quote or recognition field, and 4a's are illustrative copy.
+ * The one exception is the standfirst, a real `User.bio` when the member
+ * has written one.
  *
  * The wedges are `lg:`-only: a shallow diagonal across a 390px viewport is a
  * stripe, not a composition.

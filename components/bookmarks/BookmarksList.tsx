@@ -19,20 +19,20 @@ import { tokensForKind } from "@/lib/topics-shared";
  * headline in the editorial serif, topic and publisher in the topic's colour,
  * when it was saved, and a remove control — not a card grid.
  *
- * The grid it replaces was wrong in three separate ways, all visible at once:
+ * The grid it replaced was wrong in three ways, all visible at once:
  * `SecondaryPostCard` was hard-coded to 260px, so every card floated inside a
- * 380px grid cell; the remove button was positioned against the *cell* rather
- * than the card, which is why it sat in mid-air a hundred pixels to the right
- * of the thing it removed; and a three-up grid of tilting plates is the feed's
- * lead treatment, which §0.5 reserves for exactly that — a list a reader
- * browses is a list, and a list is hairlines.
+ * 380px grid cell; the remove button was positioned against the *cell*, not
+ * the card, so it sat in mid-air a hundred pixels from what it removed; and
+ * a three-up grid of tilting plates is the feed's lead treatment, which §0.5
+ * reserves for exactly that — a list a reader browses is a list, and a list
+ * is hairlines.
  *
- * Removal is optimistic and owned here, so a row leaves immediately instead of
- * waiting for `toggleBookmark`'s own `revalidatePath`. It leaves *properly*:
- * `.pulse-row-out` collapses the row's height so the rows below close the gap,
- * and `FlipList` carries the survivors to their new positions. A row that
- * vanishes and a list that jumps is the version of this interaction that makes
- * a reader wonder what else they just deleted.
+ * Removal is optimistic and owned here, so a row leaves immediately instead
+ * of waiting on `toggleBookmark`'s own `revalidatePath`. It leaves
+ * *properly*: `.pulse-row-out` collapses the row's height so the rows below
+ * close the gap, and `FlipList` carries the survivors to their new
+ * positions. A row that vanishes and a list that jumps makes a reader
+ * wonder what else just got deleted.
  */
 
 /** Long enough for `.pulse-row-out` to finish before the row is unmounted. */
@@ -68,9 +68,9 @@ export function BookmarksList({ initialPosts }: { initialPosts: BookmarkedPost[]
     startTransition(async () => {
       try {
         const result = await toggleBookmark(postId);
-        // The action toggled it back ON (a race with another tab, or a stale
-        // click after it was already removed) — put it back rather than
-        // silently disagreeing with the server's own record.
+        // The action toggled it back ON (a race with another tab, or a
+        // stale click after removal) — put it back rather than silently
+        // disagree with the server's record.
         if (result.ok && result.bookmarked) restore();
       } catch {
         restore();

@@ -10,10 +10,10 @@ import { parseBudget } from "@/lib/quota-shared";
 import { ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { checkAdmin } from "@/lib/rbac/guards";
 
-// The lever the promotion design exists to give an administrator: how many
-// posts a class may publish into its own MC, and how many of those an MC may
-// put in front of the whole network. Both are the same table and the same
-// precedence rule — nearest scope wins — so both are administered here.
+// The lever the promotion design gives an administrator: how many posts a
+// class may publish into its own MC, and how many of those an MC may put
+// before the whole network. Both use the same table and precedence rule —
+// nearest scope wins — so both are administered here.
 //
 // Nothing caches a quota policy: resolveQuotaPolicy reads the table on every
 // publish, so a saved budget is live on the next post rather than after a TTL.

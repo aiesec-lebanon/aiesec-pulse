@@ -7,11 +7,11 @@ import { DisplayTitle } from "@/components/ui/DisplayTitle";
  * Empty and error states, as one component and as type rather than as
  * illustration.
  *
- * The floating glow-orb graphic went with the redesign. A drawing in an empty
- * state is decoration standing where an explanation should be: it says
- * "nothing here" in a language the rest of the product does not speak, and it
- * looks the same whether the feed is empty, the search found nothing, or the
- * network is down. A sentence set in the display serif says which.
+ * The floating glow-orb graphic went with the redesign — a drawing in an
+ * empty state is decoration standing where an explanation should be. It says
+ * "nothing here" in a language the rest of the product doesn't speak, and
+ * looks identical whether the feed is empty, the search found nothing, or
+ * the network is down. A sentence set in the display serif says which.
  *
  * `tone` switches the accent from brand blue to the warning colour — the one
  * variation any caller has needed, and never the only cue, since the sentence

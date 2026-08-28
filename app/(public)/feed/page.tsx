@@ -41,12 +41,11 @@ export default async function FeedPage({
 
   const heading = mode === "for-you" ? "For you" : "Latest";
 
-  // The page's h1 — visually hidden. The reference file's own header is the
-  // shell's nav bar; there is no separate "For you" title-and-standfirst
-  // block beneath it, the rotator is the page's visual lead. A heading still
-  // has to exist for a screen-reader user landing on the route, and for the
-  // one-h1-per-page contract e2e/accessibility.spec.ts already checks — it
-  // just carries no visual weight of its own any more.
+  // The page's h1 — visually hidden. The reference file's header is the
+  // shell's nav bar; there's no separate "For you" title-and-standfirst block
+  // beneath it — the rotator is the page's visual lead. A heading still has
+  // to exist for a screen-reader user landing on the route, and for the
+  // one-h1-per-page contract e2e/accessibility.spec.ts checks.
   const pageHeading = <h1 className="sr-only">{heading}</h1>;
 
   if (leadPool.length === 0) {
@@ -66,10 +65,10 @@ export default async function FeedPage({
     );
   }
 
-  // The closing index is its own query rather than the next slice of this page,
-  // so its headline count and its rows describe the same time window — see
-  // `getElsewhereDigest`. It excludes what the lead is already showing, and it
-  // runs only once there is a lead at all: an empty feed has nothing to be
+  // The closing index is its own query, not the next slice of this page, so
+  // its headline count and rows describe the same time window — see
+  // `getElsewhereDigest`. It excludes what the lead already shows, and runs
+  // only when there's a lead at all: an empty feed has nothing to be
   // "elsewhere" from.
   const elsewhere = await getElsewhereDigest(leadPool.map((post) => post.id));
 

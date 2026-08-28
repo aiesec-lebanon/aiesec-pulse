@@ -79,10 +79,8 @@ export function RejectModal({ postId, open, onClose }: RejectModalProps) {
       aria-labelledby="reject-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
 
-      {/* Panel */}
       <div
         ref={dialogRef}
         className="relative bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] w-full max-w-md p-6 flex flex-col gap-5 shadow-lg"

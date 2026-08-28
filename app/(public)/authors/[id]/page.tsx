@@ -31,15 +31,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 /**
  * A member's public page — UI ref **4a**, sharing its whole composition with
- * `/profile`: the angled initials hero, the stat strip, the sticky section
- * index beside one reading column, and the numbered "Published" index whose
- * rows grow a rule and an arrow on hover.
+ * `/profile`: angled initials hero, stat strip, sticky section index beside
+ * one reading column, and the numbered "Published" index whose rows grow a
+ * rule and arrow on hover.
  *
- * What 4a shows and this cannot: an overview paragraph, a pull-quote and three
- * "recognition" cards. `User` carries no bio, quote or award field, so all
- * three are dropped rather than filled with plausible copy (§0's Trust row).
- * The standfirst is assembled from real fields instead — where they publish
- * from, and since when.
+ * What 4a shows that this can't: an overview paragraph, a pull-quote, and
+ * three "recognition" cards — `User` has no bio, quote, or award field, so
+ * they're dropped rather than faked (§0's Trust row). The standfirst uses
+ * real fields instead: where they publish from, since when.
  *
  * "Elsewhere in {entity}" is 4a's closing section and *is* real: recent posts
  * from the same office by other members.
@@ -122,10 +121,10 @@ export default async function AuthorProfilePage({
         }
       />
 
-      {/* The rail only earns its column when it has more than one section to
-          track (`ProfileIndexRail` renders nothing below that). Without the
-          condition, a profile with a single section left a blank 230px gutter
-          and pushed its only content a third of the way across the page. */}
+      {/* The rail only earns its column with more than one section to track
+          (`ProfileIndexRail` renders nothing below that) — without the
+          condition, a single-section profile left a blank 230px gutter,
+          pushing its only content a third of the way across the page. */}
       <div
         className={[
           "mx-auto w-full max-w-[1240px] px-6 pt-14",

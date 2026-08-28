@@ -3,10 +3,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mediaUrl, publicStorageBase } from "@/lib/feed";
 
 /**
- * `SUPABASE_URL` is the S3 endpoint used for presigned uploads, not the origin
- * public objects are served from. Concatenating the public path onto it yields
- * a URL that 404s on every cover image — a whole-feed failure that only shows up
- * once real media exists, which is exactly the kind of thing a unit test should
+ * `SUPABASE_URL` is the S3 endpoint for presigned uploads, not the origin
+ * public objects are served from. Concatenating the public path onto it
+ * yields a URL that 404s on every cover image — a whole-feed failure that
+ * only shows up once real media exists, exactly what a unit test should
  * catch instead.
  */
 const ORIGINAL = { url: process.env.SUPABASE_URL, publicUrl: process.env.SUPABASE_PUBLIC_URL };

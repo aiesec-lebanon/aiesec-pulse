@@ -1,15 +1,15 @@
 import type { RoleKey } from "@/lib/rbac/catalogue";
 
-// Authority is the product of two axes and both must agree. `office.tag` says
-// what level a position sits at; `role.name` says what
-// the position is. Each class declares the tag it requires, and a disagreement
-// denies the position rather than guessing which axis to trust — guessing is
-// the only outcome that can silently over-grant.
+// Authority is the product of two axes, and both must agree: `office.tag`
+// says what level a position sits at, `role.name` says what the position is.
+// Each class declares the tag it requires; a disagreement denies the position
+// rather than guessing which axis to trust, since guessing is the only path
+// to a silent over-grant.
 //
-// Deliberately not what `auth-template/` does. That integration derives level
-// with `roleName.toUpperCase().includes('MC')` and ignores `office.tag`
-// entirely, which matches `AI` inside `AIESEC` and `MC` inside `MCPartner`, and
-// lets a renamed EXPA position silently change someone's reach.
+// Deliberately not `auth-template/`'s approach, which derives level via
+// `roleName.toUpperCase().includes('MC')` and ignores `office.tag` entirely —
+// matching `AI` inside `AIESEC` and `MC` inside `MCPartner`, and letting a
+// renamed EXPA position silently change someone's reach.
 
 export type OfficeTag = "AI" | "MC" | "LC";
 
@@ -112,11 +112,10 @@ function denial(
 }
 
 /**
- * Denial is per-position, never per-user: someone holding one recognised and
- * one unrecognised position keeps the recognised one. A user left with no
- * grants at all cannot sign in, which is `lib/auth/identity.ts`'s call to make,
- * not this module's — it stays pure so the cross-check is testable without a
- * database.
+ * Denial is per-position, never per-user — someone holding one recognised
+ * and one unrecognised position keeps the recognised one. Whether zero
+ * grants means they can't sign in is `lib/auth/identity.ts`'s call, not this
+ * module's: staying pure keeps the cross-check testable without a database.
  */
 export function derivePositionGrants(positions: readonly PositionInput[]): MappingOutcome {
   const grants: DerivedGrant[] = [];
@@ -159,10 +158,10 @@ export function derivePositionGrants(positions: readonly PositionInput[]): Mappi
     });
   }
 
-  // Two positions of the same class and scope are one grant. Which of them
-  // survives is not cosmetic — a global class such as `member` collapses every
-  // office into one row, and the survivor's office is what the member is
-  // attributed to — so the representative is the lowest office id rather than
+  // Two positions of the same class and scope collapse into one grant. Which
+  // survives isn't cosmetic — a global class like `member` collapses every
+  // office into one row, and the survivor's office is what the member gets
+  // attributed to — so the representative is the lowest office id, not
   // whichever GIS listed first.
   const byKey = new Map<string, DerivedGrant>();
   for (const grant of grants) {
@@ -180,9 +179,9 @@ const CLASS_PRECEDENCE = new Map(POSITION_CLASSES.map((c, index) => [c.role, ind
 
 /**
  * The office a member is attributed to. Taking `current_positions[0]` made a
- * person's home entity a function of GIS response ordering; this reads the
- * closed list's own order — most senior class first, then the lowest office id
- * — so the answer is the same on every login.
+ * person's home entity depend on GIS response ordering; this instead reads
+ * the closed list's own order — most senior class first, then lowest office
+ * id — so the answer is the same on every login.
  */
 export function choosePrimaryOfficeId(grants: readonly DerivedGrant[]): string | null {
   if (grants.length === 0) return null;

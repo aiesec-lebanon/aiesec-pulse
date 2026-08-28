@@ -19,8 +19,8 @@ export type ScopeSet = {
   entityIds: string[];
   /**
    * The viewer sits at the global root, so every entity is already beneath
-   * them and there is nothing for the local arm to exclude. Materialising every
-   * entity id would give the same answer at far greater cost.
+   * them — nothing for the local arm to exclude. Materialising every entity
+   * id would give the same answer at far greater cost.
    */
   unrestricted: boolean;
   primaryEntityId: string | null;
@@ -44,11 +44,11 @@ type EntityRef = { id: string; kind: EntityKind; path: string };
  * Where a viewer's local reach starts, isolated from the database so the rule
  * is unit-testable against a hand-built chain.
  *
- * The local root is the viewer's **MC**, not their
- * ancestor chain — the chain never contained sibling LCs, so an LC member could
- * not see the LC next door under the same MC. A viewer above the MC tier has no
- * MC to anchor to and roots at their own entity instead, which at the global
- * root means the whole tree.
+ * The local root is the viewer's **MC**, not their ancestor chain — the chain
+ * never contained sibling LCs, so an LC member couldn't see the LC next door
+ * under the same MC. Above the MC tier there's no MC to anchor to, so it
+ * roots at the viewer's own entity instead — at the global root, that's the
+ * whole tree.
  */
 export function localRootOf(
   chain: readonly EntityRef[],
@@ -132,10 +132,10 @@ export function defaultAudience(): Array<{ scopeType: ScopeType; entityId: strin
   return [{ scopeType: ScopeType.GLOBAL, entityId: null }];
 }
 
-// Shared by every page that needs to show a publisher their effective quota
-// tier before they submit (most permissive grant wins) — currently
-// /posts/new and /posts/[slug]/edit. Server Actions resolve their own,
-// entity-scoped version of this at write time; this is the display-only read.
+// Shared by every page needing to show a publisher their effective quota tier
+// before submitting (most permissive grant wins) — currently /posts/new and
+// /posts/[slug]/edit. Server Actions resolve their own entity-scoped version
+// at write time; this is the display-only read.
 export async function publishingRoleKeyFor(userId: string): Promise<RoleKey> {
   const grants = await db.roleGrant.findMany({
     where: {
@@ -178,10 +178,11 @@ export async function resolveAudienceSize(
 }
 
 /**
- * What a publisher may choose as their post's audience. `fixed` means there
- * is no real choice to offer — no MC or LC class may target beyond its own
- * scope — so the composer shows their entity as information, not a control. `open` (post.target_beyond)
- * gets the full picker: GLOBAL, any region, or any entity via typeahead.
+ * What a publisher may choose as their post's audience. `fixed` means there's
+ * no real choice — no MC or LC class may target beyond its own scope — so the
+ * composer shows their entity as information, not a control. `open`
+ * (post.target_beyond) gets the full picker: GLOBAL, any region, or any
+ * entity via typeahead.
  */
 export type AudienceOptions =
   | { kind: "fixed"; entityId: string; label: string }

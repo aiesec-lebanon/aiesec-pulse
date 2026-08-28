@@ -1,23 +1,21 @@
 /**
- * A row of measurements under a hero or a page intro: entity, date, reading
- * time, count — each a label in the instrument register over a value in the
- * display serif, divided by hairlines rather than boxed into cards.
+ * A row of measurements under a hero or page intro: entity, date, reading
+ * time, count — labels in the instrument register over values in the display
+ * serif, divided by hairlines rather than cards.
  *
  * Cards would make four facts look like four things to click. The strip reads
- * as one instrument panel, which is what it is, and it is the reason the same
- * shape can carry a story's provenance, a topic's totals and a moderation
- * queue's counters without being redesigned each time.
+ * as one instrument panel — the same shape carries a story's provenance, a
+ * topic's totals, and a moderation queue's counters without redesign each time.
  *
  * On a narrow viewport the cells stack two-up rather than scrolling: four
- * numbers squeezed onto one line stop being readable well before they stop
+ * numbers squeezed onto one line stop being readable before they stop
  * fitting.
  *
- * `contained` is what makes it line up with the rest of the app. Under a
- * full-bleed hero the strip's *rules* have to reach both page edges, but its
- * first cell must start where every other page's content starts — the shell's
- * own `max-w-[1240px]` column. Without it, the strip began at the page margin
- * while the header wordmark sat in a centred container, and on a 1920px screen
- * the two were 300px out of step.
+ * `contained` aligns the strip with the rest of the app: under a full-bleed
+ * hero, the *rules* must reach both page edges while the first cell must start
+ * where every other page's content does — the shell's own `max-w-[1240px]`
+ * column. Without it, the strip started at the page margin while the header
+ * wordmark sat in a centred container: 300px out of step on a 1920px screen.
  */
 export function SpecStrip({
   cells,

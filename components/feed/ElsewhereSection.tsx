@@ -6,11 +6,11 @@ import type { FeedPost } from "@/types/feed";
  * 1b's closing section: a stat-led serif headline beside a numbered list of
  * headlines, over a scrolling ticker built from the same posts.
  *
- * The headline and the list now come from one query (`getElsewhereDigest`) and
- * describe one window. They used to be independent — a seven-day publisher
- * count over whatever came next in the feed — which put "1 entity has
- * published this week" above a story from three months earlier. A stat that
- * does not describe what is under it is worse than no stat (§0.8).
+ * The headline and list now share one query (`getElsewhereDigest`) describing
+ * one window. They used to be independent — a seven-day publisher count over
+ * whatever came next in the feed — putting "1 entity has published this week"
+ * above a story from three months earlier. A stat that doesn't describe what's
+ * under it is worse than no stat (§0.8).
  */
 
 const WINDOW_PHRASE: Record<ElsewhereWindow, string> = {
@@ -37,10 +37,10 @@ export function ElsewhereSection({
     (post) => `${post.author.entityName ?? post.author.fullName} — ${post.title}`
   );
 
-  // One duplicate of a two-item list is a two-item list: the track measured
-  // ~600px on a 1240px page, so the marquee started halfway across and left
-  // the left half of the section blank. The set is repeated until it can fill
-  // a track, *then* doubled for the seamless -50% loop.
+  // One duplicate of a two-item list is still a two-item list: at ~600px on a
+  // 1240px page, the marquee started halfway across, leaving the left half of
+  // the section blank. The set repeats until it fills a track, *then* doubles
+  // for the seamless -50% loop.
   const repeats = Math.max(1, Math.ceil(MIN_TICKER_ENTRIES / entries.length));
   const track = Array.from({ length: repeats }, () => entries).flat();
 

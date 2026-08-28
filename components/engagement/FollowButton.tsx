@@ -15,20 +15,20 @@ type Props = {
   /** Icon-only, for tight spaces (feed card meta rows). Defaults to icon+text. */
   compact?: boolean;
   /**
-   * `inline` (default) is the quiet text+icon control that sits in a metadata
-   * rule. `prominent` is the boxed one 4a puts in a profile hero — the one
-   * place §0.6 sanctions a box, because a standalone action needs the box to
-   * read as pressable at all. Following inverts to an outline, so the two
-   * states are told apart by shape as well as by colour and icon.
+   * `inline` (default) is the quiet text+icon control in a metadata rule.
+   * `prominent` is the boxed one 4a puts in a profile hero — the one place
+   * §0.6 sanctions a box, since a standalone action needs to read as
+   * pressable. Following inverts to an outline, so the two states read
+   * apart by shape as well as colour and icon.
    */
   variant?: "inline" | "prominent";
 };
 
 const DEBOUNCE_MS = 300;
 
-// Same shape as ReactionButton: debounced so a
-// double-tap can't fire two round-trips whose responses arrive out of order,
-// optimistic with a revert-on-failure, aria-live announced.
+// Same shape as ReactionButton: debounced so a double-tap can't fire two
+// round-trips whose responses arrive out of order, optimistic with
+// revert-on-failure, aria-live announced.
 export function FollowButton({
   targetType,
   targetId,
@@ -58,7 +58,7 @@ export function FollowButton({
 
     const revert = state;
     // A muted target that gets "followed" here lands on "following" too —
-    // this button only ever expresses the follow/unfollow half of the
+    // this button only expresses the follow/unfollow half of the
     // toggle: mute has no inline control here.
     setState(state === "following" ? "none" : "following");
     setPressKey((k) => k + 1);
