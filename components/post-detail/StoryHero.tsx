@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import type { TopicKind } from "@/app/generated/prisma/enums";
 import { Parallax } from "@/components/motion/Parallax";
@@ -15,7 +16,7 @@ export type StoryHeroProps = {
   titleAccent: string | null;
   cover: string | null;
   coverAlt: string;
-  primaryTopic: { name: string; kind: TopicKind } | null;
+  primaryTopic: { slug: string; name: string; kind: TopicKind } | null;
   specCells: Array<{ label: string; value: React.ReactNode }>;
 };
 
@@ -58,7 +59,14 @@ export function StoryHero({
 
   const eyebrow = (
     <p className="pulse-label mb-6 flex flex-wrap items-center gap-3">
-      {primaryTopic && <TopicPill name={primaryTopic.name} kind={primaryTopic.kind} />}
+      {primaryTopic && (
+        <Link
+          href={`/topics/${primaryTopic.slug}`}
+          className="pointer-events-auto rounded-[var(--radius-md)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          <TopicPill name={primaryTopic.name} kind={primaryTopic.kind} />
+        </Link>
+      )}
     </p>
   );
 

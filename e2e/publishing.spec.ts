@@ -162,12 +162,9 @@ test.describe("approval queue", () => {
     // Author's own profile (unranked), not the feed — avoids the race of
     // winning one of the feed's seven ranked slots against other workers.
     await signInAs("lc_vp", "/profile", isolate);
-    const row = page.locator("li", { hasText: title });
-    await expect(row.getByText(/^published$/i)).toBeVisible();
-    const postPath = new URL(
-      (await row.getByRole("link").first().getAttribute("href"))!,
-      "http://localhost"
-    ).pathname;
+    const row = page.locator("#profile-published").getByRole("link", { name: title });
+    await expect(row).toBeVisible();
+    const postPath = new URL((await row.getAttribute("href"))!, "http://localhost").pathname;
 
     // Post detail applies the same audience filter as the feed (404 on
     // mismatch) — a visibility check immune to the feed's ranking noise.
@@ -254,8 +251,9 @@ test.describe("scheduling", () => {
     expect((await response.json()).published).toBeGreaterThanOrEqual(1);
 
     await page.goto("/profile");
-    const row = page.locator("li", { hasText: title });
-    await expect(row.getByText(/^published$/i)).toBeVisible();
+    await expect(
+      page.locator("#profile-published").getByRole("link", { name: title })
+    ).toBeVisible();
   });
 
   test("scheduling for a past time is rejected", async ({
@@ -269,7 +267,7 @@ test.describe("scheduling", () => {
 
     await signInAs("lc_vp", "/feed", isolate);
     await page.goto("/posts/new");
-    await page.locator("#title").fill(uniqueTitle("E2E past schedule"));
+    await page.locator("#title").fill(uniqueTitle("E2E past-due post"));
     await page.locator("#content").pressSequentially(BODY);
 
     // .fill() bypasses the native picker's `min` attribute, so this exercises
