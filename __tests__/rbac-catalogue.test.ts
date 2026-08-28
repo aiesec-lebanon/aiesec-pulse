@@ -4,130 +4,213 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  isManualOnly,
   PERMISSION_KEYS,
-  permissionsForRole,
+  PUBLISHING_TIERS,
   ROLE_KEYS,
   rolePermissionPairs,
+  seededPermissionsFor,
 } from "@/lib/rbac/catalogue";
 
-// The catalogue lives in the module, the M2 migration and the seed. A role added
-// to one and forgotten in another is silent, so this makes it a CI failure.
+// The catalogue lives in the module, migrations, and seed — drift between
+// them is silent unless asserted here. Permissions are seeded across two
+// migrations (read both below); roles/quotas are fully redefined by the
+// later one and read only that.
 
-const MIGRATION_SQL = readFileSync(
-  join(process.cwd(), "prisma/migrations/20260814090002_m2_rbac_catalogue/migration.sql"),
-  "utf8"
+const sql = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
+
+const MIGRATION_SQL = sql("prisma/migrations/20260821090001_position_classes/migration.sql");
+
+const ADMIN_SPLIT_SQL = sql(
+  "prisma/migrations/20260821120002_administration_off_positions/migration.sql"
 );
 
-describe("role and permission catalogue", () => {
-  it("defines every role in the catalogue", () => {
+const POST_LEVEL_SQL = sql("prisma/migrations/20260822090001_m19_post_level/migration.sql");
+
+const CATALOGUE_SQL =
+  sql("prisma/migrations/20260814090002_m2_rbac_catalogue/migration.sql") + MIGRATION_SQL;
+
+describe("position classes", () => {
+  it("recognises exactly the eight AIESEC titles", () => {
     expect([...ROLE_KEYS].sort()).toEqual(
       [
-        "break_glass_admin",
-        "entity_editor",
-        "entity_moderator",
-        "entity_publisher",
-        "global_moderator",
-        "global_publisher",
+        "ai_manager",
+        "ai_vp",
+        "lc_president",
+        "lc_vp",
+        "mc_president",
+        "mc_vp",
         "member",
-        "platform_admin",
+        "pai",
       ].sort()
     );
   });
 
-  it("defines every permission in the catalogue", () => {
-    expect(PERMISSION_KEYS).toHaveLength(22);
-    expect(PERMISSION_KEYS).toContain("admin.privacy_execute");
-    expect(PERMISSION_KEYS).toContain("moderation.appeal_decide");
-  });
-
-  it("seeds the same role keys as the M2 migration", () => {
-    for (const key of ROLE_KEYS) {
-      expect(MIGRATION_SQL, `role '${key}' is missing from the M2 migration`).toContain(`'${key}'`);
+  it("no longer defines a role Pulse could confer but AIESEC could not revoke", () => {
+    // A Pulse-owned role has no offboarding path at handover, so every key
+    // must mirror a position AIESEC actually issues.
+    for (const retired of [
+      "entity_publisher",
+      "entity_editor",
+      "entity_moderator",
+      "global_publisher",
+      "global_moderator",
+      "platform_admin",
+      "break_glass_admin",
+    ]) {
+      expect(
+        ROLE_KEYS as readonly string[],
+        `'${retired}' is still in the catalogue`
+      ).not.toContain(retired);
     }
   });
 
-  it("seeds the same permission keys as the M2 migration", () => {
-    for (const key of PERMISSION_KEYS) {
-      expect(MIGRATION_SQL, `permission '${key}' is missing from the M2 migration`).toContain(
-        `'${key}'`
+  it("defines every permission in the catalogue", () => {
+    expect(PERMISSION_KEYS).toHaveLength(19);
+    expect(PERMISSION_KEYS).toContain("post.promote");
+    expect(PERMISSION_KEYS).toContain("post.demote");
+  });
+
+  it("retires admin.grant_role — grants come from GIS, not from Pulse", () => {
+    expect(PERMISSION_KEYS as readonly string[]).not.toContain("admin.grant_role");
+    expect(MIGRATION_SQL).toContain(`DELETE FROM "Permission" WHERE "key" = 'admin.grant_role'`);
+  });
+
+  it("carries no administration capability at all", () => {
+    // Platform admin uses a separate credential login — no AIESEC position
+    // permission exists, and no matrix state can confer one.
+    for (const retired of [
+      "admin.configure_roles",
+      "admin.configure",
+      "admin.audit_view",
+      "admin.privacy_execute",
+      "analytics.view_network",
+    ]) {
+      expect(
+        PERMISSION_KEYS as readonly string[],
+        `'${retired}' is still a permission`
+      ).not.toContain(retired);
+      expect(ADMIN_SPLIT_SQL, `'${retired}' is not deleted by the migration`).toContain(
+        `'${retired}'`
       );
     }
+    expect(PERMISSION_KEYS.filter((key) => key.startsWith("admin."))).toEqual([]);
   });
 
-  it("grants platform_admin and break_glass_admin every permission", () => {
-    expect(permissionsForRole("platform_admin")).toHaveLength(PERMISSION_KEYS.length);
-    expect(permissionsForRole("break_glass_admin")).toHaveLength(PERMISSION_KEYS.length);
+  it("seeds the same role keys as the position-classes migration", () => {
+    for (const key of ROLE_KEYS) {
+      expect(MIGRATION_SQL, `role '${key}' is missing from the migration`).toContain(`'${key}'`);
+    }
+  });
+
+  it("seeds the same permission keys as the migrations", () => {
+    for (const key of PERMISSION_KEYS) {
+      expect(CATALOGUE_SQL, `permission '${key}' is created by no migration`).toContain(`'${key}'`);
+    }
+  });
+
+  it("seeds pai, ai_vp and ai_manager the whole remaining catalogue", () => {
+    for (const role of ["pai", "ai_vp", "ai_manager"] as const) {
+      expect(seededPermissionsFor(role), `role ${role}`).toHaveLength(PERMISSION_KEYS.length);
+    }
   });
 });
 
-describe("permission matrix — what each role must NOT hold", () => {
-  const holds = (role: Parameters<typeof permissionsForRole>[0], permission: string) =>
-    (permissionsForRole(role) as readonly string[]).includes(permission);
+describe("default permission matrix — what each class must NOT hold", () => {
+  const holds = (role: Parameters<typeof seededPermissionsFor>[0], permission: string) =>
+    (seededPermissionsFor(role) as readonly string[]).includes(permission);
 
-  it("a member cannot publish, approve, moderate or administer", () => {
+  it("a member cannot publish, approve or moderate", () => {
     expect(holds("member", "post.publish")).toBe(false);
     expect(holds("member", "post.draft")).toBe(false);
     expect(holds("member", "post.approve")).toBe(false);
     expect(holds("member", "moderation.hide")).toBe(false);
-    expect(holds("member", "admin.configure")).toBe(false);
-    expect(holds("member", "admin.privacy_execute")).toBe(false);
   });
 
-  it("an entity publisher cannot approve its own queue or moderate", () => {
-    expect(holds("entity_publisher", "post.approve")).toBe(false);
-    expect(holds("entity_publisher", "moderation.hide")).toBe(false);
-    expect(holds("entity_publisher", "post.target_beyond")).toBe(false);
-    expect(holds("entity_publisher", "analytics.view_entity")).toBe(false);
+  it("an LCVP publishes but neither approves nor moderates", () => {
+    expect(holds("lc_vp", "post.publish")).toBe(true);
+    expect(holds("lc_vp", "post.approve")).toBe(false);
+    expect(holds("lc_vp", "moderation.hide")).toBe(false);
+    expect(holds("lc_vp", "analytics.view_entity")).toBe(false);
   });
 
-  it("an entity moderator cannot publish", () => {
-    expect(holds("entity_moderator", "post.publish")).toBe(false);
-    expect(holds("entity_moderator", "post.draft")).toBe(false);
-    expect(holds("entity_moderator", "post.approve")).toBe(false);
+  it("an MCVP approves and edits but does not moderate or restrict", () => {
+    expect(holds("mc_vp", "post.approve")).toBe(true);
+    expect(holds("mc_vp", "post.edit_any")).toBe(true);
+    expect(holds("mc_vp", "moderation.hide")).toBe(false);
+    expect(holds("mc_vp", "moderation.restrict_user")).toBe(false);
   });
 
-  it("only global roles and admins may target beyond their own scope", () => {
-    expect(holds("entity_publisher", "post.target_beyond")).toBe(false);
-    expect(holds("entity_editor", "post.target_beyond")).toBe(false);
-    expect(holds("global_publisher", "post.target_beyond")).toBe(true);
-    expect(holds("platform_admin", "post.target_beyond")).toBe(true);
-  });
-
-  it("only global moderators and admins may restrict a user", () => {
-    expect(holds("entity_moderator", "moderation.restrict_user")).toBe(false);
-    expect(holds("global_moderator", "moderation.restrict_user")).toBe(true);
-  });
-
-  it("erasure is reachable only through platform_admin", () => {
-    for (const role of ROLE_KEYS) {
-      const expected = role === "platform_admin" || role === "break_glass_admin";
-      expect(holds(role, "admin.privacy_execute"), `role ${role}`).toBe(expected);
+  it("promotion is seeded to mc_president and above, and to nothing below", () => {
+    // An MCP decides what their MC puts in front of the whole network.
+    // Extending it to mc_vp is an admin's call, not a default.
+    for (const permission of ["post.promote", "post.demote"]) {
+      expect(holds("member", permission)).toBe(false);
+      expect(holds("lc_vp", permission)).toBe(false);
+      expect(holds("lc_president", permission)).toBe(false);
+      expect(holds("mc_vp", permission)).toBe(false);
+      expect(holds("mc_president", permission)).toBe(true);
+      expect(holds("ai_manager", permission)).toBe(true);
+      expect(holds("pai", permission)).toBe(true);
     }
   });
 
-  it("network analytics is reachable only through platform_admin", () => {
-    expect(holds("entity_editor", "analytics.view_network")).toBe(false);
-    expect(holds("global_moderator", "analytics.view_network")).toBe(false);
-    expect(holds("platform_admin", "analytics.view_network")).toBe(true);
+  it("only AI classes may target an audience beyond their own scope", () => {
+    expect(holds("lc_president", "post.target_beyond")).toBe(false);
+    expect(holds("mc_president", "post.target_beyond")).toBe(false);
+    expect(holds("ai_manager", "post.target_beyond")).toBe(true);
+  });
+
+  it("only mc_president and above may restrict a user", () => {
+    expect(holds("lc_president", "moderation.restrict_user")).toBe(false);
+    expect(holds("mc_president", "moderation.restrict_user")).toBe(true);
+  });
+
+  it("no class holds an administration capability, because none exists", () => {
+    for (const role of ROLE_KEYS) {
+      const administrative = seededPermissionsFor(role).filter((key) => key.startsWith("admin."));
+      expect(administrative, `role ${role}`).toEqual([]);
+    }
   });
 });
 
-describe("manual-only roles", () => {
-  it("treats publishing roles as GIS-derived, never hand-granted", () => {
-    // Entity data comes from GIS; platform-only roles are granted
-    // manually on top of it. Granting a publisher by hand would be reverted by
-    // the next sync, so `grantRole` refuses it.
-    expect(isManualOnly("entity_publisher")).toBe(false);
-    expect(isManualOnly("global_publisher")).toBe(false);
-    expect(isManualOnly("member")).toBe(false);
+describe("publishing tiers", () => {
+  it("covers every class that may publish, most permissive first", () => {
+    const publishers = ROLE_KEYS.filter((role) =>
+      (seededPermissionsFor(role) as readonly string[]).includes("post.publish")
+    );
+    expect([...PUBLISHING_TIERS].sort()).toEqual([...publishers].sort());
+    expect(PUBLISHING_TIERS[0]).toBe("pai");
+    expect(PUBLISHING_TIERS[PUBLISHING_TIERS.length - 1]).toBe("lc_vp");
   });
 
-  it("treats editor, moderator and admin roles as human appointments", () => {
-    expect(isManualOnly("entity_editor")).toBe(true);
-    expect(isManualOnly("entity_moderator")).toBe(true);
-    expect(isManualOnly("global_moderator")).toBe(true);
-    expect(isManualOnly("platform_admin")).toBe(true);
+  it("has a quota policy seeded for every tier", () => {
+    for (const key of PUBLISHING_TIERS) {
+      expect(MIGRATION_SQL, `no quota default for '${key}'`).toContain(`'quota_default_${key}'`);
+    }
+  });
+});
+
+describe("promotion quota", () => {
+  it("seeds a NETWORK budget for every class that may promote", () => {
+    // post.promote with no NETWORK policy behind it is a dead control —
+    // resolveQuotaPolicy returns null and the action refuses. Seed both together.
+    const promoters = ROLE_KEYS.filter((role) =>
+      (seededPermissionsFor(role) as readonly string[]).includes("post.promote")
+    );
+    expect(promoters.length).toBeGreaterThan(0);
+
+    for (const key of promoters) {
+      expect(POST_LEVEL_SQL, `no NETWORK quota for '${key}'`).toContain(`'quota_network_${key}'`);
+    }
+  });
+
+  it("gives no promotion budget to a class that cannot promote", () => {
+    for (const key of ROLE_KEYS) {
+      if ((seededPermissionsFor(key) as readonly string[]).includes("post.promote")) continue;
+      expect(POST_LEVEL_SQL, `'${key}' has a NETWORK quota it can never spend`).not.toContain(
+        `'quota_network_${key}'`
+      );
+    }
   });
 });
 

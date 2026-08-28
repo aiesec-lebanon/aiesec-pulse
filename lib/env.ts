@@ -22,6 +22,9 @@ const serverSchema = z.object({
 
   DATABASE_URL: nonEmpty,
   DIRECT_URL: blankAsAbsent(nonEmpty),
+  // pg pool size per process. Unset is right on serverless; raise it only for a
+  // long-lived server taking concurrent traffic — see lib/db.ts.
+  DATABASE_POOL_MAX: blankAsAbsent(z.coerce.number().int().positive()),
 
   // Not NEXT_PUBLIC_*: /api/auth/start performs the redirect server-side, so the
   // client id never needs to reach the browser.
@@ -39,6 +42,12 @@ const serverSchema = z.object({
 
   NEXT_PUBLIC_BASE_URL: url,
 
+  // Platform administration is a separate credential login, not an AIESEC
+  // position — no GIS response confers it.
+  ADMIN_EMAIL: z.string().trim().email("ADMIN_EMAIL must be an email address"),
+  ADMIN_PASSWORD: z.string().min(8, "ADMIN_PASSWORD must be at least 8 characters"),
+  ADMIN_SESSION_SECRET: z.string().min(32, "ADMIN_SESSION_SECRET must be at least 32 characters"),
+
   // SUPABASE_URL is the S3 endpoint used for presigned uploads. Public object
   // URLs are derived from it by `publicStorageBase()`; SUPABASE_PUBLIC_URL
   // overrides that for a custom media domain or a self-hosted deployment.
@@ -54,7 +63,6 @@ const serverSchema = z.object({
   INNGEST_SIGNING_KEY: blankAsAbsent(nonEmpty),
   SENTRY_DSN: blankAsAbsent(nonEmpty),
   OTEL_EXPORTER_OTLP_ENDPOINT: blankAsAbsent(url),
-  BREAK_GLASS_ALERT_WEBHOOK: blankAsAbsent(url),
 
   // Declares a non-Vercel host as the live deployment (see isProductionDeployment).
   PULSE_DEPLOYMENT: blankAsAbsent(nonEmpty),
@@ -96,16 +104,14 @@ export const has = {
       process.env.SUPABASE_S3_ACCESS_KEY_ID &&
       process.env.SUPABASE_S3_SECRET_ACCESS_KEY
     ),
-  breakGlassAlerting: () => Boolean(process.env.BREAK_GLASS_ALERT_WEBHOOK),
 };
 
-// NODE_ENV cannot answer this: `next start` sets it to "production"
-// unconditionally, so CI, a local smoke test and the live site are
-// indistinguishable by it.
+// NODE_ENV can't answer this: `next start` sets it "production"
+// unconditionally, so CI, local smoke tests, and the live site look alike.
 export const isProductionDeployment = (): boolean =>
   process.env.VERCEL_ENV === "production" || process.env.PULSE_DEPLOYMENT === "production";
 
-export const isProductionBuild = () => process.env.NODE_ENV === "production";
+const isProductionBuild = () => process.env.NODE_ENV === "production";
 
 export function assertProductionEnv(): void {
   load();

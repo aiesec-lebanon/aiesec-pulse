@@ -4,14 +4,14 @@ dotenv.config(); // .env as fallback
 
 import { defineConfig } from "prisma/config";
 
-// An unset variable in .env loads as "", so `??` does not fall back and Prisma
-// reports a confusing P1013 "invalid database string" for a merely blank one.
+// A blank .env var loads as "", so `??` won't fall back — Prisma then
+// reports a confusing P1013 for what's really just an empty value.
 const optional = (name: string): string | undefined => {
   const value = process.env[name];
   return value && value.trim() !== "" ? value : undefined;
 };
 
-// The CLI needs the non-pooled connection; the runtime client uses the pooler.
+// CLI needs the non-pooled connection; the runtime client uses the pooler.
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {

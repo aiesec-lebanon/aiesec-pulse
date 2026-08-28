@@ -34,27 +34,54 @@ test.describe("axe-core, WCAG 2.2 AA", () => {
   });
 
   test("composer", async ({ page, signInAs }) => {
-    await signInAs("publisher", "/posts/new");
+    await signInAs("lc_vp", "/posts/new");
     await expectNoA11yViolations(page, "/posts/new");
   });
 
-  test("moderation queue", async ({ page, signInAs }) => {
-    await signInAs("editor", "/admin/queue");
-    await expectNoA11yViolations(page, "/admin/queue");
+  test("drafts", async ({ page, signInAs }) => {
+    await signInAs("lc_vp", "/drafts");
+    await expectNoA11yViolations(page, "/drafts");
   });
 
-  test("admin tables", async ({ page, signInAs }) => {
-    await signInAs("admin", "/admin/posts");
-    await expectNoA11yViolations(page, "/admin/posts");
+  test("search", async ({ page, signInAs }) => {
+    await signInAs("member", "/search");
+    await expectNoA11yViolations(page, "/search");
+  });
+
+  test("bookmarks", async ({ page, signInAs }) => {
+    await signInAs("member", "/bookmarks");
+    await expectNoA11yViolations(page, "/bookmarks");
+  });
+
+  test("topic archive", async ({ page, signInAs }) => {
+    await signInAs("member", "/topics/bd");
+    await expectNoA11yViolations(page, "/topics/bd");
+  });
+
+  test("moderation queue", async ({ page, signInAs }) => {
+    await signInAs("mc_vp", "/review");
+    await expectNoA11yViolations(page, "/review");
+  });
+
+  test("moderation tables", async ({ page, signInAs }) => {
+    await signInAs("pai", "/moderation/posts");
+    await expectNoA11yViolations(page, "/moderation/posts");
+    await page.goto("/moderation/comments");
+    await expectNoA11yViolations(page, "/moderation/comments");
+  });
+
+  test("admin sign-in", async ({ page }) => {
+    await page.goto("/admin/login");
+    await expectNoA11yViolations(page, "/admin/login");
+  });
+
+  test("administration surfaces", async ({ page, signInAsAdmin }) => {
+    await signInAsAdmin();
+    await expectNoA11yViolations(page, "/admin/roles");
     await page.goto("/admin/audit");
     await expectNoA11yViolations(page, "/admin/audit");
-    await page.goto("/admin/roles");
-    await expectNoA11yViolations(page, "/admin/roles");
-  });
-
-  test("emergency console sign-in", async ({ page }) => {
-    await page.goto("/break-glass");
-    await expectNoA11yViolations(page, "/break-glass");
+    await page.goto("/admin/privacy");
+    await expectNoA11yViolations(page, "/admin/privacy");
   });
 });
 
@@ -125,25 +152,12 @@ test.describe("keyboard operation", () => {
 
     expect(undersized).toEqual([]);
   });
-
-  test("3.3.8 — the emergency sign-in form allows paste and password managers", async ({
-    page,
-  }) => {
-    await page.goto("/break-glass");
-    const password = page.getByLabel("Password");
-
-    // `autocomplete="off"` and paste-blocking both defeat password managers,
-    // which is precisely who should be using this credential.
-    await expect(password).toHaveAttribute("autocomplete", "current-password");
-    await password.fill("pasted-value-should-stick");
-    await expect(password).toHaveValue("pasted-value-should-stick");
-  });
 });
 
 test.describe("document structure", () => {
   test("every core page has exactly one h1", async ({ page, signInAs }) => {
-    await signInAs("admin");
-    for (const path of ["/feed", "/profile", "/settings/privacy", "/admin/queue", "/admin/audit"]) {
+    await signInAs("pai");
+    for (const path of ["/feed", "/profile", "/settings/privacy", "/review", "/admin/audit"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 }), `h1 count on ${path}`).toHaveCount(1);
     }

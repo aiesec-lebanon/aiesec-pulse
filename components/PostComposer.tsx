@@ -2,132 +2,173 @@
 
 import { ExternalLink, ImageIcon, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { createPost, type CreatePostResult } from "@/app/actions/posts";
+import { publishDraft, saveDraft } from "@/app/actions/drafts";
+import { createPost } from "@/app/actions/posts";
+import {
+  AudiencePicker,
+  type AudiencePickerOptions,
+  DEFAULT_AUDIENCE_VALUE,
+} from "@/components/composer/AudiencePicker";
+import { ComposerPreview } from "@/components/composer/ComposerPreview";
+import { ReachPicker, type ReachValue } from "@/components/composer/ReachPicker";
+import { TitleAccentPicker } from "@/components/composer/TitleAccentPicker";
+import { TopicPicker } from "@/components/composer/TopicPicker";
+import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
+import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import { ReasonModal } from "@/components/ui/ReasonModal";
+import type { ReachOptions } from "@/lib/content/level";
+import type { TopicOption } from "@/lib/content/topics";
+import { formatAsWallTime, timeZoneOffsetLabel, zonedWallTimeToUtc } from "@/lib/timezone";
 import { createPostSchema } from "@/lib/zod-schemas";
 
-function extractDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
+type FieldErrors = Partial<
+  Record<
+    | "title"
+    | "bodyJson"
+    | "summary"
+    | "linkUrl"
+    | "mediaAlt"
+    | "scheduledAt"
+    | "audience"
+    | "promotionNote",
+    string
+  >
+>;
 
-type FieldErrors = Partial<Record<"title" | "content" | "linkUrl" | "image" | "mediaAlt", string>>;
+const AUTOSAVE_DELAY_MS = 5_000;
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-export function PostComposer() {
+export type PostComposerProps = {
+  richTextEnabled?: boolean;
+  schedulingEnabled?: boolean;
+  /** The author's `User.timezone` — schedule times are entered in this zone, not the browser's. */
+  timezone?: string;
+  /** Absent (or flag off) hides the picker — posts keep the old
+   *  unconditional GLOBAL default. */
+  audienceOptions?: AudiencePickerOptions;
+  /** Empty hides the picker — nothing to choose from. */
+  topics?: TopicOption[];
+  /** How far this post may travel. Absent means LOCAL with nothing to decide. */
+  reachOptions?: ReachOptions;
+  /** An already-saved DRAFT being resumed; absent when starting fresh. */
+  postId?: string;
+  /** User.fullName — the preview pane's byline and its TopicPlate-initials fallback. */
+  authorDisplayName: string;
+  /** The publisher's own entity name, for the preview's byline. Absent degrades gracefully. */
+  authorEntityName?: string | null;
+  initialValues?: ComposerInitialValues;
+};
+
+export function PostComposer({
+  richTextEnabled = false,
+  schedulingEnabled = false,
+  timezone = "UTC",
+  audienceOptions,
+  topics = [],
+  reachOptions,
+  postId,
+  authorDisplayName,
+  authorEntityName = null,
+  initialValues,
+}: PostComposerProps) {
   const router = useRouter();
 
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
-  // Required whenever an image is attached; the Zod schema enforces it, since a
-  // prompt the author can ignore does not make the image accessible.
-  const [mediaAlt, setMediaAlt] = useState("");
-
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadedMediaUrl, setUploadedMediaUrl] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const previewUrlRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    title,
+    setTitle,
+    titleAccent,
+    setTitleAccent,
+    bodyJson,
+    setBodyJson,
+    summary,
+    setSummary,
+    linkUrl,
+    setLinkUrl,
+    mediaAlt,
+    setMediaAlt,
+    imagePreview,
+    uploadedMediaUrl,
+    isUploading,
+    imageError,
+    fileInputRef,
+    clearImage,
+    handleFileSelected,
+    bodyText,
+    hasContent,
+    linkDomain,
+    linkIsValid,
+    linkIsInvalid,
+  } = useComposerForm(initialValues);
 
   const [titleFocused, setTitleFocused] = useState(false);
-  const [contentFocused, setContentFocused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
-  const hasContent =
-    title.trim().length > 0 ||
-    content.trim().length > 0 ||
-    linkUrl.trim().length > 0 ||
-    imagePreview !== null;
+  // Wall-clock digits in `timezone`, no zone suffix. Submit-time only —
+  // autosave never persists it, so this starts blank even when resuming.
+  const [scheduledAt, setScheduledAt] = useState("");
+  const minScheduleValue = formatAsWallTime(new Date(), timezone);
 
-  function clearImage() {
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    previewUrlRef.current = null;
-    setImagePreview(null);
-    setUploadedMediaUrl(null);
-    setMediaAlt("");
-    setIsUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
+  // Submit-time only, like scheduledAt — not persisted by autosave.
+  // Meaningless (and unsent) when audienceOptions is "fixed".
+  const [audienceValue, setAudienceValue] = useState(DEFAULT_AUDIENCE_VALUE);
 
-  async function handleFileSelected(file: File) {
-    const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
-    if (!ALLOWED.includes(file.type)) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        image: "Only JPEG, PNG, and WEBP images are allowed.",
-      }));
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        image: "Image must be 5 MB or smaller.",
-      }));
-      return;
-    }
+  // Submit-time only, like scheduledAt/audienceValue — saveDraft never
+  // persisted topics, so resuming starts with nothing selected.
+  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
 
-    setFieldErrors((prev) => {
-      const next = { ...prev };
-      delete next.image;
-      return next;
-    });
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    const objectUrl = URL.createObjectURL(file);
-    previewUrlRef.current = objectUrl;
-    setImagePreview(objectUrl);
-    setUploadedMediaUrl(null);
-    setIsUploading(true);
+  // Defaults to local — spending an MC promotion is never the default.
+  // AI-level offices have no choice; the server decides regardless.
+  const [reachValue, setReachValue] = useState<ReachValue>("local");
+  const [promotionNote, setPromotionNote] = useState("");
 
+  // Seeded from postId when resuming a draft; otherwise undefined until
+  // the first save creates the row, and every save after updates it in place.
+  const [draftId, setDraftId] = useState<string | undefined>(postId);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const savingRef = useRef(false);
+
+  async function runSave() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaveStatus("saving");
     try {
-      const signRes = await fetch("/api/storage/sign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-        }),
-      });
-      if (!signRes.ok) {
-        const err = (await signRes.json()) as { error?: string };
-        throw new Error(err.error ?? "Could not start upload.");
+      const result = await saveDraft(
+        {
+          title,
+          titleAccent: titleAccent || undefined,
+          bodyJson,
+          summary: summary || undefined,
+          linkUrl: linkUrl || "",
+          mediaUrl: uploadedMediaUrl || "",
+          mediaAlt: mediaAlt || undefined,
+        },
+        draftId
+      );
+      if (result.ok) {
+        setDraftId(result.postId);
+        setSaveStatus("saved");
+      } else {
+        setSaveStatus("error");
       }
-      const { uploadUrl, publicUrl } = (await signRes.json()) as {
-        uploadUrl: string;
-        publicUrl: string;
-      };
-
-      const putRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!putRes.ok) throw new Error("Upload to storage failed. Please try again.");
-
-      setUploadedMediaUrl(publicUrl);
-    } catch (err) {
-      clearImage();
-      setFieldErrors((prev) => ({
-        ...prev,
-        image: err instanceof Error ? err.message : "Image upload failed.",
-      }));
+    } catch {
+      setSaveStatus("error");
     } finally {
-      setIsUploading(false);
+      savingRef.current = false;
     }
   }
 
-  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setContent(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = `${e.target.scrollHeight}px`;
-  }
+  useEffect(() => {
+    if (!hasContent || isUploading) return;
+    const timeout = setTimeout(() => void runSave(), AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, titleAccent, bodyJson, summary, linkUrl, mediaAlt, uploadedMediaUrl]);
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -142,7 +183,15 @@ export function PostComposer() {
   }
 
   function handleCancel() {
-    if (hasContent && !window.confirm("Discard your update?")) return;
+    // Once autosave has persisted something, there's nothing left to "discard".
+    if (draftId) {
+      router.push("/drafts");
+      return;
+    }
+    if (hasContent) {
+      setConfirmingDiscard(true);
+      return;
+    }
     router.back();
   }
 
@@ -150,12 +199,39 @@ export function PostComposer() {
     e.preventDefault();
     if (isSubmitting || isUploading) return;
 
+    // Converted client-side so times mean what the author intended
+    // regardless of the browser's zone; unparseable values still reach
+    // the schema so its "invalid date" message shows, not a throw here.
+    let scheduledAtIso: string | undefined;
+    if (scheduledAt) {
+      const utc = zonedWallTimeToUtc(scheduledAt, timezone);
+      scheduledAtIso = Number.isNaN(utc.getTime()) ? "invalid" : utc.toISOString();
+    }
+
+    // Only sent when there's a real picker — "fixed"/absent audienceOptions
+    // means the server forces the publisher's entity (or GLOBAL) regardless.
+    const audiencePayload =
+      audienceOptions?.kind === "open"
+        ? { scopeType: audienceValue.scopeType, entityId: audienceValue.entityId }
+        : undefined;
+
+    // Only sent when there's a real choice — the server settles the level
+    // from the position otherwise.
+    const promoteToNetwork = reachOptions?.kind === "choice" && reachValue === "network";
+
     const validationResult = createPostSchema.safeParse({
       title,
-      content,
+      titleAccent: titleAccent || undefined,
+      bodyJson,
+      summary: summary || undefined,
       linkUrl: linkUrl || "",
       mediaUrl: uploadedMediaUrl || "",
       mediaAlt: mediaAlt || undefined,
+      scheduledAt: scheduledAtIso,
+      audience: audiencePayload,
+      topicIds: selectedTopicIds,
+      promoteToNetwork,
+      promotionNote: promoteToNetwork ? promotionNote : undefined,
     });
     if (!validationResult.success) {
       const errors: FieldErrors = {};
@@ -163,9 +239,13 @@ export function PostComposer() {
         const field = issue.path[0];
         if (
           field === "title" ||
-          field === "content" ||
+          field === "bodyJson" ||
+          field === "summary" ||
           field === "linkUrl" ||
-          field === "mediaAlt"
+          field === "mediaAlt" ||
+          field === "scheduledAt" ||
+          field === "audience" ||
+          field === "promotionNote"
         ) {
           errors[field] = issue.message;
         }
@@ -178,17 +258,29 @@ export function PostComposer() {
     setIsSubmitting(true);
 
     try {
-      const result: CreatePostResult = await createPost({
+      const publishInput = {
         title,
-        content,
+        titleAccent: titleAccent || undefined,
+        bodyJson,
+        summary: summary || undefined,
         linkUrl: linkUrl || "",
         mediaUrl: uploadedMediaUrl || "",
         mediaAlt: mediaAlt || undefined,
-      });
+        scheduledAt: scheduledAtIso,
+        audience: audiencePayload,
+        topicIds: selectedTopicIds,
+        promoteToNetwork,
+        promotionNote: promoteToNetwork ? promotionNote : undefined,
+      };
+      const result = draftId
+        ? await publishDraft(draftId, publishInput)
+        : await createPost(publishInput);
 
       if (result.ok) {
         if (result.status === "PUBLISHED") {
           router.push(`/posts/${result.slug}`);
+        } else if (result.status === "SCHEDULED") {
+          router.push("/posts/scheduled");
         } else {
           router.push("/posts/queued");
         }
@@ -199,9 +291,13 @@ export function PostComposer() {
       let formError: string | null = null;
       for (const [key, msg] of Object.entries(result.errors)) {
         if (key === "title") newFieldErrors.title = msg;
-        else if (key === "content") newFieldErrors.content = msg;
+        else if (key === "bodyJson") newFieldErrors.bodyJson = msg;
+        else if (key === "summary") newFieldErrors.summary = msg;
         else if (key === "linkUrl") newFieldErrors.linkUrl = msg;
         else if (key === "mediaAlt") newFieldErrors.mediaAlt = msg;
+        else if (key === "scheduledAt") newFieldErrors.scheduledAt = msg;
+        else if (key === "audience") newFieldErrors.audience = msg;
+        else if (key === "promotionNote") newFieldErrors.promotionNote = msg;
         else formError = msg; // _form or unexpected key
       }
       setFieldErrors(newFieldErrors);
@@ -215,316 +311,512 @@ export function PostComposer() {
     }
   }
 
-  const linkDomain = extractDomain(linkUrl);
-  const linkIsValid = linkUrl.length > 0 && linkDomain.length > 0;
-  const linkIsInvalid = linkUrl.length > 0 && !linkIsValid;
   const submitBlocked = isSubmitting || isUploading;
 
+  // Derived, not duplicated — preview reads the Topics section's own state.
+  const previewTopic =
+    selectedTopicIds.length > 0 ? (topics.find((t) => t.id === selectedTopicIds[0]) ?? null) : null;
+
+  // Recomputing the excerpt/reading-time per keystroke is cheap, but not
+  // for the burst RichTextEditor emits from fast typing or a paste —
+  // debounced separately from the 5s autosave timer (network vs. render cost).
+  const [previewBodyText, setPreviewBodyText] = useState(bodyText);
+  useEffect(() => {
+    const timeout = setTimeout(() => setPreviewBodyText(bodyText), 200);
+    return () => clearTimeout(timeout);
+  }, [bodyText]);
+
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
-      {/* ── Title ── */}
-      <div>
-        <label
-          htmlFor="title"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
-        >
-          Title{" "}
-          <span aria-hidden className="text-[var(--destructive-text)]">
-            *
-          </span>
-        </label>
-        <input
-          id="title"
-          name="title"
-          type="text"
-          required
-          autoComplete="off"
-          maxLength={200}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onFocus={() => setTitleFocused(true)}
-          onBlur={() => setTitleFocused(false)}
-          placeholder="What's the update about?"
-          aria-describedby={fieldErrors.title ? "title-error" : undefined}
-          className={[
-            "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
-            fieldErrors.title ? "border-[var(--destructive)]" : "border-[var(--border)]",
-          ].join(" ")}
-        />
-        <div className="mt-1 flex items-start justify-between gap-2">
-          {fieldErrors.title ? (
-            <p id="title-error" role="alert" className="text-[13px] text-[var(--destructive-text)]">
-              {fieldErrors.title}
-            </p>
-          ) : (
-            <span />
-          )}
-          {titleFocused && (
-            <span className="shrink-0 text-[12px] text-[var(--muted-foreground)]">
-              {title.length}/200
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Content ── */}
-      <div>
-        <label
-          htmlFor="content"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
-        >
-          Content{" "}
-          <span aria-hidden className="text-[var(--destructive-text)]">
-            *
-          </span>
-        </label>
-        <textarea
-          id="content"
-          name="content"
-          required
-          rows={6}
-          maxLength={10000}
-          value={content}
-          onChange={handleContentChange}
-          onFocus={() => setContentFocused(true)}
-          onBlur={() => setContentFocused(false)}
-          placeholder="Share what's happening in your entity…"
-          aria-describedby={fieldErrors.content ? "content-error" : undefined}
-          style={{ resize: "none", overflow: "hidden" }}
-          className={[
-            "w-full min-h-[150px] rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 py-2.5 text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
-            fieldErrors.content ? "border-[var(--destructive)]" : "border-[var(--border)]",
-          ].join(" ")}
-        />
-        <div className="mt-1 flex items-start justify-between gap-2">
-          {fieldErrors.content ? (
-            <p
-              id="content-error"
-              role="alert"
-              className="text-[13px] text-[var(--destructive-text)]"
-            >
-              {fieldErrors.content}
-            </p>
-          ) : (
-            <span />
-          )}
-          {contentFocused && (
-            <span className="shrink-0 text-[12px] text-[var(--muted-foreground)]">
-              {content.length.toLocaleString()}/50,000
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Image ── */}
-      <div>
-        <p className="mb-1.5 text-[14px] font-medium text-[var(--foreground)]">
-          Image <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
-        </p>
-
-        {imagePreview ? (
-          <div className="relative w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)]">
-            {/* A local object URL, not a remote asset — next/image cannot optimise
-                it and would only add a proxy hop. The authored description lives in
-                the alt-text field below; until it is written the preview is
-                decorative rather than mislabelled. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreview} alt={mediaAlt || ""} className="max-h-64 w-full object-cover" />
-            {/* Uploading overlay */}
-            {isUploading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-[var(--card)]/60 backdrop-blur-[2px]">
-                <Loader2
-                  size={28}
-                  strokeWidth={2}
-                  className="animate-spin text-[var(--primary-text)]"
-                  aria-label="Uploading image…"
-                />
-              </div>
-            )}
-            {/* Remove button — only shown once upload is done */}
-            {!isUploading && (
-              <button
-                type="button"
-                onClick={clearImage}
-                aria-label="Remove image"
-                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--foreground)]/70 text-white transition-colors hover:bg-[var(--foreground)]"
-              >
-                <X size={14} strokeWidth={2.5} />
-              </button>
-            )}
-          </div>
-        ) : (
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label="Upload image"
-            onDragOver={handleDragOver}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
-            className={[
-              "flex cursor-pointer select-none flex-col items-center justify-center gap-2 rounded-[var(--radius-lg)] border-2 border-dashed px-4 py-10 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-              isDragging
-                ? "border-[var(--primary)] bg-[var(--primary)]/5"
-                : "border-[var(--border)] hover:border-[var(--primary)]/60",
-            ].join(" ")}
+    <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-16">
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
+        <div>
+          <label
+            htmlFor="title"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
-            <ImageIcon
-              size={32}
-              strokeWidth={1.5}
-              className="text-[var(--muted-foreground)]"
-              aria-hidden
-            />
-            <p className="text-[15px] text-[var(--muted-foreground)]">
-              Drop an image here or{" "}
-              <span className="font-medium text-[var(--primary-text)]">click to browse</span>
-            </p>
-            <p className="text-[13px] text-[var(--muted-foreground)]">PNG, JPG, WEBP up to 5 MB</p>
-          </div>
-        )}
+            Title{" "}
+            <span aria-hidden className="text-[color:var(--destructive-text)]">
+              *
+            </span>
+          </label>
+          <input
+            id="title"
+            name="title"
+            type="text"
+            required
+            autoComplete="off"
+            maxLength={200}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onFocus={() => setTitleFocused(true)}
+            onBlur={() => setTitleFocused(false)}
+            placeholder="What's the update about?"
+            aria-describedby={fieldErrors.title ? "title-error" : undefined}
+            className={[
+              "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+              fieldErrors.title ? "border-[var(--destructive)]" : "border-[var(--border)]",
+            ].join(" ")}
+          />
+          <TitleAccentPicker
+            title={title}
+            value={titleAccent}
+            onChange={setTitleAccent}
+            topicKind={previewTopic?.kind ?? null}
+          />
 
-        {imagePreview && (
-          <div className="mt-3">
-            <label
-              htmlFor="mediaAlt"
-              className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
-            >
-              Describe the image{" "}
-              <span aria-hidden className="text-[var(--destructive-text)]">
-                *
-              </span>
-            </label>
-            <input
-              id="mediaAlt"
-              name="mediaAlt"
-              type="text"
-              value={mediaAlt}
-              onChange={(e) => setMediaAlt(e.target.value)}
-              maxLength={300}
-              required
-              aria-describedby={fieldErrors.mediaAlt ? "mediaAlt-error" : "mediaAlt-hint"}
-              aria-invalid={fieldErrors.mediaAlt ? true : undefined}
-              placeholder="e.g. Delegates on stage at the closing plenary"
-              className={[
-                "w-full rounded-[var(--radius-md)] border bg-[var(--card)] px-4 py-2.5 text-[15px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none",
-                fieldErrors.mediaAlt ? "border-[var(--destructive)]" : "border-[var(--border)]",
-              ].join(" ")}
-            />
-            {fieldErrors.mediaAlt ? (
+          <div className="mt-1 flex items-start justify-between gap-2">
+            {fieldErrors.title ? (
               <p
-                id="mediaAlt-error"
+                id="title-error"
                 role="alert"
-                className="mt-1 text-[13px] text-[var(--destructive-text)]"
+                className="text-[13px] text-[color:var(--destructive-text)]"
               >
-                {fieldErrors.mediaAlt}
+                {fieldErrors.title}
               </p>
             ) : (
-              <p id="mediaAlt-hint" className="mt-1 text-[13px] text-[var(--muted-foreground)]">
-                Read aloud to members using a screen reader. Say what the image shows, not that it
-                is an image.
+              <span />
+            )}
+            {titleFocused && (
+              <span className="shrink-0 text-[12px] text-[color:var(--muted-foreground)]">
+                {title.length}/200
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="summary"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
+          >
+            Standfirst{" "}
+            <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
+          </label>
+          <textarea
+            id="summary"
+            name="summary"
+            rows={2}
+            maxLength={400}
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            placeholder="One or two sentences that set up the story."
+            aria-describedby={fieldErrors.summary ? "summary-error" : "summary-hint"}
+            aria-invalid={fieldErrors.summary ? true : undefined}
+            className={[
+              "w-full resize-none rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 py-2.5 text-[15px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+              fieldErrors.summary ? "border-[var(--destructive)]" : "border-[var(--border)]",
+            ].join(" ")}
+          />
+          <div className="mt-1 flex items-start justify-between gap-2">
+            {fieldErrors.summary ? (
+              <p
+                id="summary-error"
+                role="alert"
+                className="text-[13px] text-[color:var(--destructive-text)]"
+              >
+                {fieldErrors.summary}
+              </p>
+            ) : (
+              <p id="summary-hint" className="text-[13px] text-[color:var(--muted-foreground)]">
+                Shown under the headline wherever this post appears. Left blank, we&apos;ll use the
+                opening of your post instead.
+              </p>
+            )}
+            <span className="shrink-0 text-[12px] text-[color:var(--muted-foreground)]">
+              {summary.length}/400
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="content"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
+          >
+            Content{" "}
+            <span aria-hidden className="text-[color:var(--destructive-text)]">
+              *
+            </span>
+          </label>
+          <RichTextEditor
+            id="content"
+            content={bodyJson}
+            onChange={setBodyJson}
+            showToolbar={richTextEnabled}
+            disabled={isSubmitting || isUploading}
+            ariaDescribedBy={fieldErrors.bodyJson ? "content-error" : undefined}
+            ariaInvalid={Boolean(fieldErrors.bodyJson)}
+          />
+          <div className="mt-1 flex items-start justify-between gap-2">
+            {fieldErrors.bodyJson ? (
+              <p
+                id="content-error"
+                role="alert"
+                className="text-[13px] text-[color:var(--destructive-text)]"
+              >
+                {fieldErrors.bodyJson}
+              </p>
+            ) : (
+              <span />
+            )}
+            <span className="shrink-0 text-[12px] text-[color:var(--muted-foreground)]">
+              {bodyText.length.toLocaleString()}/50,000
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-[14px] font-medium text-[color:var(--foreground)]">
+            Image{" "}
+            <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
+          </p>
+
+          {imagePreview ? (
+            <div className="relative w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)]">
+              {/* Local object URL — next/image would only add a proxy hop. Alt
+                text is blank until authored below, so decorative, not mislabelled. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imagePreview}
+                alt={mediaAlt || ""}
+                className="max-h-64 w-full object-cover"
+              />
+              {isUploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-[var(--card)]/60 backdrop-blur-[2px]">
+                  <Loader2
+                    size={28}
+                    strokeWidth={2}
+                    className="animate-spin pulse-ambient text-[color:var(--primary-text)]"
+                    aria-label="Uploading image…"
+                  />
+                </div>
+              )}
+              {!isUploading && (
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  aria-label="Remove image"
+                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--foreground)]/70 text-white transition-colors hover:bg-[var(--foreground)]"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+          ) : (
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Upload image"
+              onDragOver={handleDragOver}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={[
+                "flex cursor-pointer select-none flex-col items-center justify-center gap-2 rounded-[var(--radius-lg)] border-2 border-dashed px-4 py-10 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+                isDragging
+                  ? "border-[var(--primary)] bg-[var(--primary)]/5"
+                  : "border-[var(--border)] hover:border-[var(--primary)]/60",
+              ].join(" ")}
+            >
+              <ImageIcon
+                size={32}
+                strokeWidth={1.5}
+                className="text-[color:var(--muted-foreground)]"
+                aria-hidden
+              />
+              <p className="text-[15px] text-[color:var(--muted-foreground)]">
+                Drop an image here or{" "}
+                <span className="font-medium text-[color:var(--primary-text)]">
+                  click to browse
+                </span>
+              </p>
+              <p className="text-[13px] text-[color:var(--muted-foreground)]">
+                PNG, JPG, WEBP up to 5 MB
+              </p>
+            </div>
+          )}
+
+          {imagePreview && (
+            <div className="mt-3">
+              <label
+                htmlFor="mediaAlt"
+                className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
+              >
+                Describe the image{" "}
+                <span aria-hidden className="text-[color:var(--destructive-text)]">
+                  *
+                </span>
+              </label>
+              <input
+                id="mediaAlt"
+                name="mediaAlt"
+                type="text"
+                value={mediaAlt}
+                onChange={(e) => setMediaAlt(e.target.value)}
+                maxLength={300}
+                required
+                aria-describedby={fieldErrors.mediaAlt ? "mediaAlt-error" : "mediaAlt-hint"}
+                aria-invalid={fieldErrors.mediaAlt ? true : undefined}
+                placeholder="e.g. Delegates on stage at the closing plenary"
+                className={[
+                  "w-full rounded-[var(--radius-md)] border bg-[var(--card)] px-4 py-2.5 text-[15px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+                  fieldErrors.mediaAlt ? "border-[var(--destructive)]" : "border-[var(--border)]",
+                ].join(" ")}
+              />
+              {fieldErrors.mediaAlt ? (
+                <p
+                  id="mediaAlt-error"
+                  role="alert"
+                  className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
+                >
+                  {fieldErrors.mediaAlt}
+                </p>
+              ) : (
+                <p
+                  id="mediaAlt-hint"
+                  className="mt-1 text-[13px] text-[color:var(--muted-foreground)]"
+                >
+                  Read aloud to members using a screen reader. Say what the image shows, not that it
+                  is an image.
+                </p>
+              )}
+            </div>
+          )}
+
+          {imageError && (
+            <p role="alert" className="mt-1 text-[13px] text-[color:var(--destructive-text)]">
+              {imageError}
+            </p>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            aria-hidden
+            tabIndex={-1}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleFileSelected(file);
+            }}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="linkUrl"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
+          >
+            External link{" "}
+            <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
+          </label>
+          <input
+            id="linkUrl"
+            name="linkUrl"
+            type="url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://…"
+            aria-describedby={linkIsInvalid ? "link-error" : undefined}
+            className={[
+              "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+              linkIsInvalid ? "border-[var(--destructive)]" : "border-[var(--border)]",
+            ].join(" ")}
+          />
+          {linkIsInvalid && (
+            <p
+              id="link-error"
+              role="alert"
+              className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
+            >
+              Please enter a valid URL including https://.
+            </p>
+          )}
+          {linkIsValid && (
+            <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-[color:var(--muted-foreground)]">
+              <ExternalLink size={12} strokeWidth={2} aria-hidden />
+              <span>{linkDomain}</span>
+            </div>
+          )}
+        </div>
+
+        {topics.length > 0 && (
+          <TopicPicker
+            topics={topics}
+            selectedIds={selectedTopicIds}
+            onChange={setSelectedTopicIds}
+            disabled={isSubmitting || isUploading}
+          />
+        )}
+
+        {schedulingEnabled && (
+          <div>
+            <label
+              htmlFor="scheduledAt"
+              className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
+            >
+              Schedule{" "}
+              <span className="font-normal text-[color:var(--muted-foreground)]">(optional)</span>
+            </label>
+            <input
+              id="scheduledAt"
+              name="scheduledAt"
+              type="datetime-local"
+              value={scheduledAt}
+              min={minScheduleValue}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              aria-describedby={fieldErrors.scheduledAt ? "scheduledAt-error" : "scheduledAt-hint"}
+              aria-invalid={fieldErrors.scheduledAt ? true : undefined}
+              className={[
+                "h-11 w-full max-w-[280px] rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
+                fieldErrors.scheduledAt ? "border-[var(--destructive)]" : "border-[var(--border)]",
+              ].join(" ")}
+            />
+            {fieldErrors.scheduledAt ? (
+              <p
+                id="scheduledAt-error"
+                role="alert"
+                className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
+              >
+                {fieldErrors.scheduledAt}
+              </p>
+            ) : (
+              <p
+                id="scheduledAt-hint"
+                className="mt-1 text-[13px] text-[color:var(--muted-foreground)]"
+              >
+                Leave blank to publish immediately. Times use your profile timezone ({timezone},{" "}
+                {timeZoneOffsetLabel(timezone)}).
               </p>
             )}
           </div>
         )}
 
-        {fieldErrors.image && (
-          <p role="alert" className="mt-1 text-[13px] text-[var(--destructive-text)]">
-            {fieldErrors.image}
-          </p>
+        {audienceOptions && (
+          <AudiencePicker
+            options={audienceOptions}
+            value={audienceValue}
+            onChange={setAudienceValue}
+            error={fieldErrors.audience}
+            disabled={isSubmitting || isUploading}
+          />
         )}
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="sr-only"
-          aria-hidden
-          tabIndex={-1}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFileSelected(file);
-          }}
-        />
-      </div>
+        {reachOptions && (
+          <ReachPicker
+            options={reachOptions}
+            narrowed={audienceValue.scopeType !== "GLOBAL"}
+            value={reachValue}
+            onChange={setReachValue}
+            note={promotionNote}
+            onNoteChange={setPromotionNote}
+            error={fieldErrors.promotionNote}
+            disabled={isSubmitting || isUploading}
+          />
+        )}
 
-      {/* ── External link ── */}
-      <div>
-        <label
-          htmlFor="linkUrl"
-          className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
-        >
-          External link{" "}
-          <span className="font-normal text-[var(--muted-foreground)]">(optional)</span>
-        </label>
-        <input
-          id="linkUrl"
-          name="linkUrl"
-          type="url"
-          value={linkUrl}
-          onChange={(e) => setLinkUrl(e.target.value)}
-          placeholder="https://…"
-          aria-describedby={linkIsInvalid ? "link-error" : undefined}
-          className={[
-            "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
-            linkIsInvalid ? "border-[var(--destructive)]" : "border-[var(--border)]",
-          ].join(" ")}
-        />
-        {linkIsInvalid && (
-          <p
-            id="link-error"
+        {serverError && (
+          <div
             role="alert"
-            className="mt-1 text-[13px] text-[var(--destructive-text)]"
+            className="rounded-[var(--radius-md)] bg-[var(--destructive)]/10 px-4 py-3 text-[14px] text-[color:var(--destructive-text)]"
           >
-            Please enter a valid URL including https://.
-          </p>
-        )}
-        {linkIsValid && (
-          <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-[var(--muted-foreground)]">
-            <ExternalLink size={12} strokeWidth={2} aria-hidden />
-            <span>{linkDomain}</span>
+            {serverError}
           </div>
         )}
-      </div>
 
-      {/* ── Server error ── */}
-      {serverError && (
-        <div
-          role="alert"
-          className="rounded-[var(--radius-md)] bg-[var(--destructive)]/10 px-4 py-3 text-[14px] text-[var(--destructive-text)]"
-        >
-          {serverError}
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={submitBlocked}
+            aria-disabled={submitBlocked}
+            className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-6 py-3 text-[16px] font-bold text-[color:var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {(isSubmitting || isUploading) && (
+              <Loader2
+                size={16}
+                strokeWidth={2}
+                className="animate-spin pulse-ambient"
+                aria-hidden
+              />
+            )}
+            {isUploading
+              ? "Uploading…"
+              : isSubmitting
+                ? scheduledAt
+                  ? "Scheduling…"
+                  : "Publishing…"
+                : scheduledAt
+                  ? "Schedule"
+                  : "Publish"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void runSave()}
+            disabled={submitBlocked || saveStatus === "saving"}
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[color:var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saveStatus === "saving" ? "Saving…" : "Save draft"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={submitBlocked}
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[color:var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+          <span
+            aria-live="polite"
+            role="status"
+            className="text-[13px] text-[color:var(--muted-foreground)]"
+          >
+            {saveStatus === "saving" && "Saving…"}
+            {saveStatus === "saved" && "Saved"}
+            {saveStatus === "error" && "Couldn't save draft"}
+          </span>
         </div>
-      )}
+      </form>
 
-      {/* ── Actions ── */}
-      <div className="flex items-center gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={submitBlocked}
-          aria-disabled={submitBlocked}
-          className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-6 py-3 text-[16px] font-bold text-[var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {(isSubmitting || isUploading) && (
-            <Loader2 size={16} strokeWidth={2} className="animate-spin" aria-hidden />
-          )}
-          {isUploading ? "Uploading…" : isSubmitting ? "Posting…" : "Post update"}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleCancel}
-          disabled={submitBlocked}
-          className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-6 py-3 text-[16px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Cancel
-        </button>
+      <div className="hidden lg:sticky lg:top-[calc(var(--rail-h)+32px)] lg:block lg:max-h-[calc(100vh-var(--rail-h)-64px)] lg:overflow-y-auto">
+        <ComposerPreview
+          title={title}
+          titleAccent={titleAccent}
+          bodyText={previewBodyText}
+          summary={summary}
+          imagePreview={imagePreview}
+          topic={previewTopic}
+          authorDisplayName={authorDisplayName}
+          authorEntityName={authorEntityName}
+          status={scheduledAt ? "Scheduled" : "Draft"}
+        />
       </div>
-    </form>
+
+      <ReasonModal
+        key={confirmingDiscard ? "open" : "closed"}
+        open={confirmingDiscard}
+        requireReason={false}
+        tone="destructive"
+        title="Discard your update?"
+        description="Nothing has been saved yet — closing now loses the title, content, and any image you've added."
+        targetLabel={title || "Untitled update"}
+        confirmLabel="Discard"
+        pendingLabel="Discarding…"
+        onClose={() => setConfirmingDiscard(false)}
+        onConfirm={async () => {
+          router.back();
+          return { ok: true } as const;
+        }}
+      />
+    </div>
   );
 }

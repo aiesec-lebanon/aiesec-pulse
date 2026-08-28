@@ -5,11 +5,11 @@ import { GrantSource, ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { resolveOfficeEntity, ROOT_ENTITY_ID } from "@/lib/org/entities";
-import { depthOf } from "@/lib/org/path";
 import { upsertRoleGrant } from "@/lib/rbac/grants";
 import {
-  choosePrimaryPosition,
-  derivePublishingGrants,
+  choosePrimaryOfficeId,
+  derivePositionGrants,
+  type PositionDenial,
   type PositionInput,
 } from "@/lib/rbac/position-mapping";
 import { invalidateUserAuthorisation } from "@/lib/redis";
@@ -17,15 +17,21 @@ import { currentTermLabel } from "@/lib/term";
 import type { GisPerson } from "@/server-utils/gis";
 import { warnIfPositionless } from "@/server-utils/gis";
 
-// Reconciliation is additive and expiring, never destructive: a grant that
-// disappears from GIS gets an `endsAt` rather than a DELETE, so past posts
-// keep their attribution through a handover.
+// Reconciliation never deletes grants: a vanished GIS grant gets `endsAt`,
+// so past posts keep their attribution through a handover.
 
 export type SyncResult = {
-  user: User;
+  /**
+   * `null` only if nothing resolved and no account exists — a failed
+   * sign-in leaves no row. Existing accounts are always reconciled, even
+   * to zero grants, since that's when stale grants must stop working.
+   */
+  user: User | null;
+  /** Zero means sign-in is refused. Nothing else in the result changes that. */
+  recognisedPositions: number;
   grantsAdded: number;
   grantsExpired: number;
-  unmatchedTitles: string[];
+  denied: PositionDenial[];
 };
 
 async function toPositionInputs(person: GisPerson): Promise<PositionInput[]> {
@@ -34,8 +40,9 @@ async function toPositionInputs(person: GisPerson): Promise<PositionInput[]> {
   for (const position of person.current_positions) {
     if (!position.office?.id) continue;
 
-    // Unknown offices become placeholders rather than failing the login.
-    const entity = await resolveOfficeEntity(position.office);
+    // Unknown offices become placeholders rather than failing login. Level
+    // checks use `office.tag`, never the placeholder's spot in the tree.
+    await resolveOfficeEntity(position.office);
 
     inputs.push({
       positionId: position.id ?? null,
@@ -43,7 +50,6 @@ async function toPositionInputs(person: GisPerson): Promise<PositionInput[]> {
       officeId: position.office.id,
       officeName: position.office.name,
       officeTag: position.office.tag ?? null,
-      officeDepth: depthOf(entity.path),
     });
   }
 
@@ -55,21 +61,73 @@ async function roleIdByKey(key: string): Promise<string | null> {
   return role?.id ?? null;
 }
 
-/** Manually granted roles are never touched here — see MANUAL_ONLY_ROLES. */
+/**
+ * Denied positions: an unrecognised title (routine — how the vocabulary
+ * grows) or a tag/title mismatch (our GIS model is wrong — page someone).
+ */
+function logDenials(userId: string, denied: readonly PositionDenial[]): void {
+  for (const denial of denied) {
+    const detail = {
+      userId,
+      positionId: denial.positionId,
+      roleName: denial.roleName,
+      officeId: denial.officeId,
+      officeName: denial.officeName,
+      officeTag: denial.officeTag,
+      reason: denial.reason,
+      expectedTag: denial.expectedTag,
+    };
+
+    if (denial.reason === "tag_mismatch" || denial.reason === "unknown_office_tag") {
+      logger.error("GIS position denied: office tag and position title disagree", {
+        ...detail,
+        severity: "HIGH",
+        action: "Confirm the office's tag in GIS, or correct the class table in position-mapping.",
+      });
+    } else {
+      logger.warn("GIS position denied", detail);
+    }
+  }
+}
+
+/**
+ * No implicit `member` grant — it must come back from GIS like any other
+ * position, or a renamed/expired position would fail silently instead of
+ * loudly.
+ */
 export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult> {
   warnIfPositionless(person);
 
   const positions = await toPositionInputs(person);
-  const primary = choosePrimaryPosition(positions);
+  const { grants: derived, denied } = derivePositionGrants(positions);
 
-  const primaryEntityId = primary?.officeId
+  const existing = await db.user.findUnique({ where: { aiesecPersonId: person.id } });
+
+  if (derived.length === 0 && !existing) {
+    logger.warn("Sign-in refused: no GIS position resolved to a Pulse role", {
+      aiesecPersonId: person.id,
+      positionCount: positions.length,
+      denied: denied.map((d) => ({
+        roleName: d.roleName,
+        officeName: d.officeName,
+        officeTag: d.officeTag,
+        reason: d.reason,
+      })),
+    });
+    return { user: null, recognisedPositions: 0, grantsAdded: 0, grantsExpired: 0, denied };
+  }
+
+  const primaryOfficeId = choosePrimaryOfficeId(derived);
+  const primaryEntityId = primaryOfficeId
     ? ((
         await db.entity.findUnique({
-          where: { gisOfficeId: primary.officeId },
+          where: { gisOfficeId: primaryOfficeId },
           select: { id: true },
         })
       )?.id ?? ROOT_ENTITY_ID)
-    : ROOT_ENTITY_ID;
+    : // Nothing resolved: keep the last known entity rather than relocate
+      // an offboarded member to the global root.
+      (existing?.primaryEntityId ?? ROOT_ENTITY_ID);
 
   const now = new Date();
   const profile = {
@@ -89,47 +147,29 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
   if (user.status === "ERASED") {
     logger.warn("Sign-in attempted for an erased account", { userId: user.id });
-    return { user, grantsAdded: 0, grantsExpired: 0, unmatchedTitles: [] };
+    return {
+      user,
+      recognisedPositions: derived.length,
+      grantsAdded: 0,
+      grantsExpired: 0,
+      denied,
+    };
   }
 
-  const { grants: derived, unmatched } = derivePublishingGrants(positions);
-  if (unmatched.length > 0) {
-    // Logged so the vocabulary can be extended from real titles. A silent miss
-    // looks like a bug.
-    logger.info("GIS position titles matched no publishing role", {
-      userId: user.id,
-      titles: unmatched.map((u) => u.roleName),
-    });
-  }
+  logDenials(user.id, denied);
 
   const termLabel = currentTermLabel(now);
   let grantsAdded = 0;
-
-  // Not term-bounded: being a member is not a position, and expiring it
-  // annually would sign the network out at handover.
-  const memberRoleId = await roleIdByKey("member");
-  if (memberRoleId) {
-    const outcome = await upsertRoleGrant({
-      userId: user.id,
-      roleId: memberRoleId,
-      scopeType: ScopeType.GLOBAL,
-      scopeEntityId: null,
-      termLabel: null,
-      source: GrantSource.GIS,
-    });
-    if (outcome.created) grantsAdded++;
-  }
-
   const keepIds = new Set<string>();
 
   for (const grant of derived) {
     const roleId = await roleIdByKey(grant.role);
     if (!roleId) continue;
 
-    const scopeEntityId = grant.officeId
+    const scopeEntityId = grant.scopeOfficeId
       ? ((
           await db.entity.findUnique({
-            where: { gisOfficeId: grant.officeId },
+            where: { gisOfficeId: grant.scopeOfficeId },
             select: { id: true },
           })
         )?.id ?? null)
@@ -137,13 +177,17 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
     const scopeType = scopeEntityId ? ScopeType.ENTITY : ScopeType.GLOBAL;
 
+    // `member` is not term-bounded: it is the one class that survives a
+    // handover, and expiring it annually would sign the network out.
+    const isMember = grant.role === "member";
+
     const outcome = await upsertRoleGrant({
       userId: user.id,
       roleId,
       scopeType,
       scopeEntityId,
-      termLabel,
-      gisPositionId: grant.positionId,
+      termLabel: isMember ? null : termLabel,
+      gisPositionId: isMember ? null : grant.positionId,
       source: GrantSource.GIS,
     });
 
@@ -160,7 +204,6 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
       revokedAt: null,
       endsAt: null,
       id: { notIn: keepIds.size > 0 ? [...keepIds] : ["__none__"] },
-      role: { key: { notIn: ["member"] } },
     },
     select: { id: true },
   });
@@ -174,17 +217,18 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
   await invalidateUserAuthorisation(user.id);
 
+  if (derived.length === 0) {
+    logger.warn("Every position for an existing account was denied; grants expired", {
+      userId: user.id,
+      grantsExpired: stale.length,
+    });
+  }
+
   return {
     user,
+    recognisedPositions: derived.length,
     grantsAdded,
     grantsExpired: stale.length,
-    unmatchedTitles: unmatched.map((u) => u.roleName),
+    denied,
   };
-}
-
-export const STALENESS_CEILING_MS = 72 * 60 * 60 * 1000;
-
-export function isWithinStalenessCeiling(lastSyncedAt: Date | null): boolean {
-  if (!lastSyncedAt) return false;
-  return Date.now() - lastSyncedAt.getTime() < STALENESS_CEILING_MS;
 }

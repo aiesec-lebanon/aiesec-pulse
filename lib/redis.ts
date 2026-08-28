@@ -2,8 +2,13 @@ import "server-only";
 
 import { Redis } from "@upstash/redis";
 
+import { cacheKeys } from "@/lib/cache-keys";
 import { has } from "@/lib/env";
 import { logger } from "@/lib/logger";
+
+// The key vocabulary lives in a non-`server-only` module so the e2e teardown can
+// invalidate the same keys this module writes — see lib/cache-keys.ts.
+export { cacheKeys };
 
 // Without Redis this degrades to a process-local Map — correct for one dev
 // server, wrong across serverless instances — so the fallback warns once.
@@ -94,15 +99,8 @@ export async function cached<T>(
   return value;
 }
 
-export const cacheKeys = {
-  permissions: (userId: string) => `perm:${userId}`,
-  scopeSet: (userId: string) => `scope:${userId}`,
-  session: (jti: string) => `sess:${jti}`,
-  entityTree: () => "org:tree",
-};
-
 export async function invalidateUserAuthorisation(userId: string): Promise<void> {
-  await cacheDelete(cacheKeys.permissions(userId), cacheKeys.scopeSet(userId));
+  await cacheDelete(cacheKeys.roleGrants(userId), cacheKeys.scopeSet(userId));
 }
 
 export function __clearLocalCache(): void {

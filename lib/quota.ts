@@ -1,9 +1,10 @@
 import "server-only";
 
 import type { Prisma } from "@/app/generated/prisma/client";
-import { PostStatus, QuotaPeriod, ScopeType } from "@/app/generated/prisma/enums";
+import { PostLevel, PostStatus, QuotaPeriod, ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { ancestorChain } from "@/lib/org/entities";
+import { ancestorPaths, depthOf } from "@/lib/org/path";
+import { type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { currentIsoWeek } from "@/lib/week";
 
 // The window is computed, never stored as a counter: the count is a query over
@@ -19,48 +20,106 @@ export function quotaPeriodFor(period: QuotaPeriod, at: Date = new Date()): stri
 export type ResolvedQuota = {
   policyId: string;
   roleKey: string;
+  postLevel: PostLevel;
   period: QuotaPeriod;
   maxPosts: number;
   periodLabel: string;
 };
 
-/** Nearest scope wins, so an entity can be given a bespoke allowance. */
+/**
+ * Nearest scope wins ("nearest" = deepest path). A GLOBAL policy has no
+ * entity, so it's depth 0 — the fallback behind any entity-scoped row.
+ */
+export function nearestByScope<T extends { entityId: string | null }>(
+  policies: T[],
+  depthByEntityId: ReadonlyMap<string, number>
+): T | null {
+  let nearest: T | null = null;
+  let nearestDepth = -1;
+
+  for (const policy of policies) {
+    // `> nearestDepth`, never `>=`, so the first row wins ties — matching the
+    // legacy per-scope `findFirst` behaviour.
+    const depth = policy.entityId ? (depthByEntityId.get(policy.entityId) ?? 0) : 0;
+    if (depth > nearestDepth) {
+      nearest = policy;
+      nearestDepth = depth;
+    }
+  }
+
+  return nearest;
+}
+
+/**
+ * `postLevel` selects LOCAL (own-MC) vs NETWORK (promotion) budget —
+ * separate rows at the same scope, so it must be passed explicitly, not inferred.
+ */
 export async function resolveQuotaPolicy(
   entityId: string | null,
   roleKey: string,
+  postLevel: PostLevel,
   at: Date = new Date()
 ): Promise<ResolvedQuota | null> {
-  const candidates: Array<{ scopeType: ScopeType; entityId: string | null }> = [];
+  // Precedence lives in nearestByScope, not in query order.
+  const entity = entityId
+    ? await db.entity.findUnique({ where: { id: entityId }, select: { path: true } })
+    : null;
 
-  if (entityId) {
-    const chain = await ancestorChain(entityId);
-    for (const entity of [...chain].reverse()) {
-      candidates.push({ scopeType: ScopeType.ENTITY, entityId: entity.id });
-    }
-  }
-  candidates.push({ scopeType: ScopeType.GLOBAL, entityId: null });
+  // Ancestors *and* the entity itself — ancestorPaths is strict, and a policy
+  // set on the author's own entity is the nearest scope there is.
+  const chainPaths = entity ? [...ancestorPaths(entity.path), entity.path] : [];
 
-  for (const candidate of candidates) {
-    const policy = await db.quotaPolicy.findFirst({
+  const [chain, policies] = await Promise.all([
+    chainPaths.length > 0
+      ? db.entity.findMany({
+          where: { path: { in: chainPaths } },
+          select: { id: true, path: true },
+        })
+      : [],
+    db.quotaPolicy.findMany({
       where: {
         isActive: true,
         roleKey,
-        scopeType: candidate.scopeType,
-        entityId: candidate.entityId,
+        postLevel,
+        OR: [
+          { scopeType: ScopeType.GLOBAL, entityId: null },
+          ...(chainPaths.length > 0
+            ? [{ scopeType: ScopeType.ENTITY, entity: { path: { in: chainPaths } } }]
+            : []),
+        ],
       },
-    });
-    if (policy) {
-      return {
-        policyId: policy.id,
-        roleKey: policy.roleKey,
-        period: policy.period,
-        maxPosts: policy.maxPosts,
-        periodLabel: quotaPeriodFor(policy.period, at),
-      };
-    }
-  }
+    }),
+  ]);
 
-  return null;
+  const depthByEntityId = new Map(chain.map((row) => [row.id, depthOf(row.path)]));
+
+  const policy = nearestByScope(policies, depthByEntityId);
+  if (!policy) return null;
+
+  return {
+    policyId: policy.id,
+    roleKey: policy.roleKey,
+    postLevel: policy.postLevel,
+    period: policy.period,
+    maxPosts: policy.maxPosts,
+    periodLabel: quotaPeriodFor(policy.period, at),
+  };
+}
+
+/**
+ * A class with the permission but no quota policy can't publish or promote
+ * at all — a missing policy reads as at-limit, never unlimited.
+ */
+export const SPENDING_PERMISSION: Record<PostLevel, PermissionKey> = {
+  [PostLevel.LOCAL]: "post.publish",
+  [PostLevel.NETWORK]: "post.promote",
+};
+
+export function rolesSpendingAt(
+  level: PostLevel,
+  matrix: Record<RoleKey, readonly PermissionKey[]>
+): RoleKey[] {
+  return ROLE_KEYS.filter((role) => matrix[role].includes(SPENDING_PERMISSION[level]));
 }
 
 export const QUOTA_CONSUMING_STATUSES = [
@@ -99,7 +158,7 @@ export async function quotaStateFor(
   roleKey: string,
   at: Date = new Date()
 ): Promise<QuotaState> {
-  const policy = await resolveQuotaPolicy(entityId, roleKey, at);
+  const policy = await resolveQuotaPolicy(entityId, roleKey, PostLevel.LOCAL, at);
   if (!policy) {
     return {
       used: 0,
@@ -118,4 +177,51 @@ export async function quotaStateFor(
     atLimit: used >= policy.maxPosts,
     policy,
   };
+}
+
+/**
+ * NETWORK budget is billed per MC, not per officer — spreading promotions
+ * across MCVPs doesn't buy extra reach. Above MC tier the promoter's pool
+ * is themselves (same rule, not a special case).
+ */
+export type PromotionPool = { mcPath: string } | { promoterId: string };
+
+export function promotionPoolFor(promoterId: string, mc: { path: string } | null): PromotionPool {
+  return mc ? { mcPath: mc.path } : { promoterId };
+}
+
+/**
+ * Counted on `promotionPeriod` alone, not `level = NETWORK` — otherwise
+ * demote/promote cycling would refund the spend and give an unbounded
+ * budget. `excludePostId` makes re-promoting the same post free; omit it
+ * to read the pool's actual spend.
+ */
+export function promotionCountWhere(
+  pool: PromotionPool,
+  periodLabel: string,
+  excludePostId?: string
+): Prisma.PostWhereInput {
+  return {
+    promotionPeriod: periodLabel,
+    ...(excludePostId ? { id: { not: excludePostId } } : {}),
+    ...("mcPath" in pool
+      ? {
+          promotedBy: {
+            primaryEntity: {
+              // Segment-boundary aware, so /ai/r/lb never matches /ai/r/lbx.
+              OR: [{ path: pool.mcPath }, { path: { startsWith: `${pool.mcPath}/` } }],
+            },
+          },
+        }
+      : { promotedById: pool.promoterId }),
+  };
+}
+
+export async function promotionsUsedInPeriod(
+  client: Prisma.TransactionClient | typeof db,
+  pool: PromotionPool,
+  periodLabel: string,
+  excludePostId?: string
+): Promise<number> {
+  return client.post.count({ where: promotionCountWhere(pool, periodLabel, excludePostId) });
 }

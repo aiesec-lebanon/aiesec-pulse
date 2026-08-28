@@ -21,7 +21,6 @@ const TAG_BYTES = 16;
 
 let cachedKey: Buffer | null = null;
 
-// Accepts base64 (32 raw bytes) or a passphrase, stretched with SHA-256.
 function key(): Buffer {
   if (cachedKey) return cachedKey;
   const raw = env.TOKEN_ENCRYPTION_KEY;

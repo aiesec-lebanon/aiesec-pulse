@@ -20,11 +20,13 @@ export function PageSizeSelect({ current }: { current: number }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[13px] text-[var(--muted-foreground)] whitespace-nowrap">Per page</span>
+      <span className="text-[13px] text-[color:var(--muted-foreground)] whitespace-nowrap">
+        Per page
+      </span>
       <select
         value={current}
         onChange={(e) => handleChange(Number(e.target.value))}
-        className="h-8 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] text-[14px] text-[var(--foreground)] px-2 pr-6 cursor-pointer focus:outline-none focus:border-[var(--primary)] transition-colors"
+        className="h-8 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] text-[14px] text-[color:var(--foreground)] px-2 pr-6 cursor-pointer focus:outline-none focus:border-[var(--primary)] transition-colors"
         aria-label="Rows per page"
       >
         {OPTIONS.map((n) => (

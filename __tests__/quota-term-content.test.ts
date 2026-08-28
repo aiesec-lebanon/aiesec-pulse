@@ -10,7 +10,7 @@ import {
   sanitiseDocument,
 } from "@/lib/content/document";
 import { slugifyTitle } from "@/lib/content/slug";
-import { quotaPeriodFor } from "@/lib/quota";
+import { nearestByScope, quotaPeriodFor } from "@/lib/quota";
 import { termEndsAt, termLabelFor } from "@/lib/term";
 import { currentIsoWeek, isoWeekShortLabel, lastNIsoWeeks } from "@/lib/week";
 
@@ -52,6 +52,50 @@ describe("quota periods", () => {
   });
 });
 
+describe("quota scope precedence", () => {
+  const depths = new Map([
+    ["ai", 1],
+    ["mc", 2],
+    ["lc", 3],
+  ]);
+
+  const global = { id: "global", entityId: null };
+  const ai = { id: "ai-policy", entityId: "ai" };
+  const mc = { id: "mc-policy", entityId: "mc" };
+  const lc = { id: "lc-policy", entityId: "lc" };
+
+  it("falls back to the network-wide default when nothing else applies", () => {
+    expect(nearestByScope([global], depths)).toBe(global);
+  });
+
+  it("prefers the author's own entity over every ancestor", () => {
+    expect(nearestByScope([global, ai, mc, lc], depths)).toBe(lc);
+  });
+
+  it("walks up to the nearest ancestor that has one", () => {
+    expect(nearestByScope([global, ai, mc], depths)).toBe(mc);
+  });
+
+  it("does not depend on the order the database returned the rows in", () => {
+    expect(nearestByScope([lc, global, mc, ai], depths)).toBe(lc);
+    expect(nearestByScope([ai, lc, global], depths)).toBe(lc);
+  });
+
+  it("ranks a GLOBAL row behind every entity-scoped one, however shallow", () => {
+    expect(nearestByScope([global, ai], depths)).toBe(ai);
+  });
+
+  it("keeps the first row on a tie, as the per-scope findFirst did", () => {
+    const weekly = { id: "weekly", entityId: "lc" };
+    const monthly = { id: "monthly", entityId: "lc" };
+    expect(nearestByScope([weekly, monthly], depths)).toBe(weekly);
+  });
+
+  it("has no answer when no policy is configured at all", () => {
+    expect(nearestByScope([], depths)).toBeNull();
+  });
+});
+
 describe("AIESEC terms", () => {
   it("rolls at the July boundary", () => {
     expect(termLabelFor(new Date("2026-06-30T23:59:59Z"))).toBe("25.26");
@@ -84,6 +128,17 @@ describe("post documents", () => {
   it("handles an empty body", () => {
     expect(documentFromPlainText("").content).toEqual([]);
     expect(plainTextFromDocument({ type: "doc", content: [] })).toBe("");
+  });
+
+  it("falls back to alt text for an image block, so it isn't invisible to excerpts and search", () => {
+    const text = plainTextFromDocument({
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "Before the photo." }] },
+        { type: "image", attrs: { mediaId: "m1", alt: "Delegates at OGX orientation" } },
+      ],
+    });
+    expect(text).toBe("Before the photo.\n\nDelegates at OGX orientation");
   });
 });
 
@@ -166,6 +221,34 @@ describe("document sanitisation", () => {
     expect(sanitiseDocument("<script>alert(1)</script>").content).toEqual([]);
     expect(sanitiseDocument({ type: "notdoc" }).content).toEqual([]);
   });
+
+  it("keeps an image block with a mediaId that doesn't resolve to anything", () => {
+    // Sanitisation only checks shape — whether the id names a real Media row
+    // is a render-time concern, not this function's.
+    const doc = sanitiseDocument({
+      type: "doc",
+      content: [{ type: "image", attrs: { mediaId: "no-such-media", alt: "A tree" } }],
+    });
+    expect(doc.content).toEqual([
+      { type: "image", attrs: { mediaId: "no-such-media", alt: "A tree" } },
+    ]);
+  });
+
+  it("drops an image block missing alt text", () => {
+    const doc = sanitiseDocument({
+      type: "doc",
+      content: [{ type: "image", attrs: { mediaId: "m1", alt: "" } }],
+    });
+    expect(doc.content).toEqual([]);
+  });
+
+  it("drops an image block missing a mediaId", () => {
+    const doc = sanitiseDocument({
+      type: "doc",
+      content: [{ type: "image", attrs: { alt: "A tree" } }],
+    });
+    expect(doc.content).toEqual([]);
+  });
 });
 
 describe("isSafeHref", () => {
@@ -220,9 +303,8 @@ describe("slugify", () => {
 });
 
 /**
- * `returnTo` is attacker-influenced input on an unauthenticated endpoint. An
- * open redirect off the sign-in flow is a credible phishing primitive:
- * "aiesec-pulse.org signed me in and then sent me here".
+ * `returnTo` is attacker-controlled on an unauthenticated endpoint — an
+ * open redirect here is a ready-made phishing vector.
  */
 describe("safeReturnTo", () => {
   it("allows internal paths", () => {

@@ -1,9 +1,14 @@
-import { FeedEmptyState } from "@/components/feed/FeedEmptyState";
-import { HeroPost } from "@/components/feed/HeroPost";
-import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
-import { SidebarPostItem } from "@/components/feed/SidebarPostItem";
+import { cookies } from "next/headers";
+
+import { ElsewhereSection } from "@/components/feed/ElsewhereSection";
+import { FeedLead } from "@/components/feed/FeedLead";
 import { TrendingAuthorCard } from "@/components/feed/TrendingAuthorCard";
-import { getFeedPage, getTrendingAuthors } from "@/lib/feed";
+import { Reveal } from "@/components/motion/Reveal";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
+import { getElsewhereDigest, getFeedPage, getForYouFeedPage, getTrendingAuthors } from "@/lib/feed";
+import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
+import { isEnabled } from "@/lib/flags";
 import { can } from "@/lib/rbac/can";
 import { requireSession } from "@/lib/rbac/guards";
 
@@ -16,99 +21,91 @@ export default async function FeedPage({
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
+  // Latest-only when the flag is off — a courtesy default, not a permission
+  // boundary.
+  const rankedAvailable = await isEnabled("feed.ranked");
+  const cookieStore = await cookies();
+  const mode = rankedAvailable ? parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value) : "latest";
+
   const [{ posts, hasNext }, trendingAuthors] = await Promise.all([
-    getFeedPage(page),
+    mode === "for-you" ? getForYouFeedPage(page) : getFeedPage(page),
     page === 1 ? getTrendingAuthors() : Promise.resolve([]),
   ]);
 
-  const [hero, ...rest] = posts;
-  const sidebar = rest.slice(0, 3);
-  const secondaryRow = rest.slice(3, 6);
+  // Shared pool for hero + "more top stories" rail so FeedLead can split
+  // them without ever leaving the rail empty on a quiet (<5 post) day.
+  const leadPool = posts.slice(0, 5);
 
-  if (!hero) {
-    return <FeedEmptyState canPublish={await can(user, "post.publish")} />;
+  const heading = mode === "for-you" ? "For you" : "Latest";
+
+  // sr-only, but still required: screen readers need a heading, and
+  // e2e/accessibility.spec.ts enforces one h1 per page.
+  const pageHeading = <h1 className="sr-only">{heading}</h1>;
+
+  if (leadPool.length === 0) {
+    return (
+      <main className="mx-auto w-full max-w-[1240px] flex-1 px-6">
+        {pageHeading}
+        <EmptyState
+          heading="The feed is quiet — for now."
+          body="When entities share updates, they'll appear here. Check back soon."
+          action={
+            (await can(user, "post.publish"))
+              ? { href: "/posts/new", label: "Be the first to post" }
+              : undefined
+          }
+        />
+      </main>
+    );
   }
 
+  // Its own query, not the next slice of this page — see `getElsewhereDigest`
+  // — so its headline count and rows describe the same time window.
+  const elsewhere = await getElsewhereDigest(leadPool.map((post) => post.id));
+
   return (
-    <main className="w-full max-w-[1200px] flex-1 mx-auto px-6 py-10">
-      <h1 className="sr-only">Latest across the AIESEC network</h1>
+    <main className="flex-1 pb-24">
+      {pageHeading}
 
-      <section aria-label="Featured story">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          <div className="lg:col-span-8">
-            <HeroPost post={hero} />
-          </div>
+      {/* FeedLead renders the hero and the overlapping rail together — they
+          share `active` state. */}
+      <FeedLead posts={leadPool} />
 
-          {/* Mobile: single column · Tablet: 2-up below the hero · Desktop: stacked beside it */}
-          {sidebar.length > 0 && (
+      <div className="mx-auto w-full max-w-[1240px] px-6">
+        <ElsewhereSection
+          posts={elsewhere.posts}
+          entityCount={elsewhere.entityCount}
+          window={elsewhere.window}
+        />
+
+        {trendingAuthors.length > 0 && (
+          <section aria-labelledby="feed-trending" className="mt-24">
+            <h2 id="feed-trending" className="pulse-label mb-6">
+              Publishing most this month
+            </h2>
             <div
-              className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:col-span-4 lg:grid-cols-1"
-              aria-label="More recent stories"
+              tabIndex={0}
+              role="group"
+              aria-label="Authors publishing most this month, scrollable"
+              className="flex snap-x snap-mandatory overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             >
-              {sidebar.map((post) => (
-                <SidebarPostItem key={post.id} post={post} />
+              {trendingAuthors.map((author, i) => (
+                <Reveal key={author.id} y={16} x={12} delay={i * 55} className="shrink-0">
+                  <TrendingAuthorCard author={author} isFirst={i === 0} />
+                </Reveal>
               ))}
             </div>
-          )}
-        </div>
-      </section>
-
-      {secondaryRow.length > 0 && (
-        <section aria-label="More stories" className="mt-8">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {secondaryRow.map((post) => (
-              <SecondaryPostCard key={post.id} post={post} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {trendingAuthors.length > 0 && (
-        <section aria-label="Trending authors this month" className="mt-12">
-          <h2 className="mb-4 text-[16px] font-bold text-[var(--foreground)]">
-            Trending this month
-          </h2>
-          {/* Focusable: a scrollable region that cannot be reached by keyboard is
-              a 2.1.1 failure, and axe flags it. `tabIndex` plus a name makes the
-              strip navigable with arrow keys and announced on entry. */}
-          <div
-            tabIndex={0}
-            role="group"
-            aria-label="Trending authors, scrollable"
-            className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]
-              [&::-webkit-scrollbar]:h-1.5
-              [&::-webkit-scrollbar-track]:bg-transparent
-              [&::-webkit-scrollbar-thumb]:rounded-full
-              [&::-webkit-scrollbar-thumb]:bg-[var(--border)]"
-          >
-            {trendingAuthors.map((author) => (
-              <TrendingAuthorCard key={author.id} author={author} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <nav aria-label="Feed pagination" className="mt-12 flex items-center justify-center gap-4">
-        {page > 1 && (
-          <a
-            href={page === 2 ? "/feed" : `/feed?page=${page - 1}`}
-            className="min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-          >
-            <span aria-hidden>←</span> Newer
-          </a>
+          </section>
         )}
-        <span className="select-none text-[14px] tabular-nums text-[var(--muted-foreground)]">
-          Page {page}
-        </span>
-        {hasNext && (
-          <a
-            href={`/feed?page=${page + 1}`}
-            className="min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-          >
-            Older <span aria-hidden>→</span>
-          </a>
-        )}
-      </nav>
+
+        <Pagination
+          label="Feed pagination"
+          page={page}
+          hasNext={hasNext}
+          previousHref={page > 1 ? (page === 2 ? "/feed" : `/feed?page=${page - 1}`) : null}
+          nextHref={`/feed?page=${page + 1}`}
+        />
+      </div>
     </main>
   );
 }

@@ -1,0 +1,93 @@
+import { describe, expect, it } from "vitest";
+
+import { ScopeType } from "@/app/generated/prisma/enums";
+import { decideAudienceForSubmission } from "@/lib/org/scope";
+
+// post.target_beyond gates targeting beyond one's own entity ("open" vs
+// "fixed" from availableAudiencesFor); these tests pin that boundary.
+
+const OWN_ENTITY = "ent_lc_beirut";
+const OTHER_ENTITY = "ent_lc_cairo";
+const REGION = "ent_region_mena";
+
+describe("decideAudienceForSubmission — fixed (no post.target_beyond)", () => {
+  const fixed = { kind: "fixed" as const, entityId: OWN_ENTITY, label: "AIESEC in Lebanon" };
+
+  it("accepts an absent submission, defaulting to the publisher's own entity", () => {
+    const result = decideAudienceForSubmission(fixed, undefined);
+    expect(result).toEqual({ ok: true, scopeType: ScopeType.ENTITY, entityId: OWN_ENTITY });
+  });
+
+  it("accepts a submission that already names the publisher's own entity", () => {
+    const result = decideAudienceForSubmission(fixed, {
+      scopeType: ScopeType.ENTITY,
+      entityId: OWN_ENTITY,
+    });
+    expect(result).toEqual({ ok: true, scopeType: ScopeType.ENTITY, entityId: OWN_ENTITY });
+  });
+
+  it("rejects a GLOBAL audience, even if the client sent it directly", () => {
+    const result = decideAudienceForSubmission(fixed, {
+      scopeType: ScopeType.GLOBAL,
+      entityId: null,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects a REGION audience", () => {
+    const result = decideAudienceForSubmission(fixed, {
+      scopeType: ScopeType.REGION,
+      entityId: REGION,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects an ENTITY audience naming a different entity — not silently narrowed to their own", () => {
+    const result = decideAudienceForSubmission(fixed, {
+      scopeType: ScopeType.ENTITY,
+      entityId: OTHER_ENTITY,
+    });
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("decideAudienceForSubmission — open (holds post.target_beyond)", () => {
+  const open = { kind: "open" as const, regions: [{ id: REGION, name: "MENA" }] };
+
+  it("defaults to GLOBAL when nothing was submitted", () => {
+    const result = decideAudienceForSubmission(open, undefined);
+    expect(result).toEqual({ ok: true, scopeType: ScopeType.GLOBAL, entityId: null });
+  });
+
+  it("succeeds targeting GLOBAL explicitly", () => {
+    const result = decideAudienceForSubmission(open, {
+      scopeType: ScopeType.GLOBAL,
+      entityId: null,
+    });
+    expect(result).toEqual({ ok: true, scopeType: ScopeType.GLOBAL, entityId: null });
+  });
+
+  it("succeeds targeting a region", () => {
+    const result = decideAudienceForSubmission(open, {
+      scopeType: ScopeType.REGION,
+      entityId: REGION,
+    });
+    expect(result).toEqual({ ok: true, scopeType: ScopeType.REGION, entityId: REGION });
+  });
+
+  it("succeeds targeting any named entity, not just their own", () => {
+    const result = decideAudienceForSubmission(open, {
+      scopeType: ScopeType.ENTITY,
+      entityId: OTHER_ENTITY,
+    });
+    expect(result).toEqual({ ok: true, scopeType: ScopeType.ENTITY, entityId: OTHER_ENTITY });
+  });
+
+  it("rejects a REGION/ENTITY submission with no entity chosen", () => {
+    const result = decideAudienceForSubmission(open, {
+      scopeType: ScopeType.ENTITY,
+      entityId: null,
+    });
+    expect(result.ok).toBe(false);
+  });
+});

@@ -1,17 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { recordAudit, systemActor, userActor } from "@/lib/audit";
-import { isWithinStalenessCeiling, syncIdentityFromGis } from "@/lib/auth/identity";
+import { syncIdentityFromGis } from "@/lib/auth/identity";
 import { completeHandshake } from "@/lib/auth/oauth";
 import {
   createSession,
   LEGACY_COOKIES,
   SESSION_COOKIE,
   sessionCookieAttributes,
-  verifySessionToken,
 } from "@/lib/auth/session";
 import { exchangeCode, storeTokens } from "@/lib/auth/token-store";
-import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { clientIp, userAgent } from "@/lib/request";
@@ -22,8 +20,7 @@ const REDIRECT_ERRORS = {
   state_mismatch: "That sign-in link could not be verified. Please start again.",
   exchange_failed: "AIESEC could not complete the sign-in. Please try again.",
   not_permitted: "Your AIESEC account is not permitted to use Pulse.",
-  gis_unavailable:
-    "AIESEC's member directory is unavailable and we have no recent record of your account.",
+  gis_unavailable: "AIESEC's member directory is unavailable. Please try again shortly.",
 } as const;
 
 type ErrorCode = keyof typeof REDIRECT_ERRORS;
@@ -34,30 +31,6 @@ function failure(baseUrl: string, code: ErrorCode): NextResponse {
   const url = new URL("/login", baseUrl);
   url.searchParams.set("error", code);
   return NextResponse.redirect(url);
-}
-
-type CachedIdentity = { id: string; fullName: string; lastSyncedAt: Date | null; status: string };
-
-async function resolveCachedIdentity(token: string | undefined): Promise<CachedIdentity | null> {
-  if (!token) return null;
-
-  const claims = await verifySessionToken(token);
-  if (!claims) return null;
-
-  const session = await db.session.findUnique({
-    where: { id: claims.jti },
-    select: {
-      userId: true,
-      revokedAt: true,
-      expiresAt: true,
-      user: { select: { id: true, fullName: true, lastSyncedAt: true, status: true } },
-    },
-  });
-
-  if (!session || session.revokedAt || session.expiresAt <= new Date()) return null;
-  if (session.userId !== claims.sub) return null;
-
-  return session.user;
 }
 
 export async function GET(request: NextRequest) {
@@ -102,7 +75,26 @@ export async function GET(request: NextRequest) {
       return failure(baseUrl, "not_permitted");
     }
 
-    const { user, grantsAdded, grantsExpired, unmatchedTitles } = await syncIdentityFromGis(person);
+    const { user, recognisedPositions, grantsAdded, grantsExpired, denied } =
+      await syncIdentityFromGis(person);
+
+    // Authority is exactly what GIS says — no recognised position means no
+    // authority at all, not even read access. No bare `member` fallback: that
+    // would let a renamed or expired position keep working.
+    if (!user || recognisedPositions === 0) {
+      await recordAudit(
+        systemActor("auth"),
+        "auth.sign_in_refused",
+        // No Pulse account exists for a first-time refusal, so the GIS person
+        // is the only identifier the record can carry.
+        user ? { type: "user", id: user.id } : { type: "gis_person", id: person.id },
+        {
+          reason: "No GIS position resolved to a Pulse role",
+          deniedReasons: denied.map((d) => d.reason),
+        }
+      );
+      return NextResponse.redirect(new URL("/unauthorized?reason=no_position", baseUrl));
+    }
 
     if (user.status === "ERASED" || user.status === "SUSPENDED") {
       return failure(baseUrl, "not_permitted");
@@ -116,7 +108,7 @@ export async function GET(request: NextRequest) {
       userId: user.id,
       grantsAdded,
       grantsExpired,
-      unmatchedTitleCount: unmatchedTitles.length,
+      deniedPositionCount: denied.length,
     });
   } catch (error) {
     if (!(error instanceof GisUnavailableError)) {
@@ -124,36 +116,15 @@ export async function GET(request: NextRequest) {
       return failure(baseUrl, "exchange_failed");
     }
 
-    // GIS outage: fall back to a cached identity within the staleness ceiling.
-    // The account is taken from the signed token and a live session row, never
-    // from the raw cookie — otherwise an outage becomes a way to sign in as
-    // whoever logged in most recently.
-    const fallback = await resolveCachedIdentity(request.cookies.get(SESSION_COOKIE)?.value);
-
-    if (
-      !fallback ||
-      fallback.status !== "ACTIVE" ||
-      !isWithinStalenessCeiling(fallback.lastSyncedAt)
-    ) {
-      logger.error("GIS unavailable and no identity within the staleness ceiling", { error });
-      return failure(baseUrl, "gis_unavailable");
-    }
-
-    userId = fallback.id;
-    userLabel = fallback.fullName;
-    await storeTokens(fallback.id, tokens);
-    logger.warn("Signed in on cached identity during a GIS outage", {
-      userId: fallback.id,
-      lastSyncedAt: fallback.lastSyncedAt?.toISOString(),
+    // Fail closed — an outage is exactly when Pulse can't tell if a position
+    // was revoked. No grace window on stale identity: authority is what GIS
+    // says right now, or nothing.
+    logger.error("GIS unavailable; sign-in refused rather than served from cache", {
+      error,
+      severity: "HIGH",
+      consequence: "Nobody can sign in until GIS recovers. Existing sessions are unaffected.",
     });
-    await recordAudit(
-      systemActor("auth"),
-      "auth.sign_in_degraded",
-      { type: "user", id: fallback.id },
-      {
-        reason: "GIS unavailable; served from cached identity within the 72h ceiling",
-      }
-    );
+    return failure(baseUrl, "gis_unavailable");
   }
 
   const session = await createSession(userId, {
@@ -169,9 +140,12 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL(handshake.returnTo, baseUrl));
   response.cookies.set(SESSION_COOKIE, session.token, sessionCookieAttributes(session.expiresAt));
 
+  // `delete`, not `set(..., { maxAge: 0 })` — ResponseCookies treats a zero
+  // maxAge as falsy, so that form omits the expiry and creates the cookie
+  // instead of clearing it.
   for (const name of LEGACY_COOKIES) {
     if (name === SESSION_COOKIE) continue;
-    response.cookies.set(name, "", { path: "/", maxAge: 0 });
+    response.cookies.delete({ name, path: "/" });
   }
 
   return response;

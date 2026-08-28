@@ -1,8 +1,8 @@
 // Kept dependency-free so proxy.ts can use it without pulling in the database
 // or Redis clients.
 
-// Spoofable behind an arbitrary proxy, which is why it is only ever used for
-// throttling and a keyed hash — never as an identity.
+// Spoofable behind an arbitrary proxy, so it's only ever used for throttling
+// and a keyed hash — never as an identity.
 export function clientIp(headers: Headers): string | null {
   const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {

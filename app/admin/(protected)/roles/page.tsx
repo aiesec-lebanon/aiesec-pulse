@@ -1,139 +1,60 @@
-import { GrantRoleForm } from "@/components/admin/GrantRoleForm";
-import { type GrantRow, GrantsTable } from "@/components/admin/GrantsTable";
-import { db } from "@/lib/db";
-import { MANUAL_ONLY_ROLES, ROLE_DESCRIPTIONS, ROLE_NAMES } from "@/lib/rbac/catalogue";
-import { requirePermission } from "@/lib/rbac/guards";
-import { currentTermLabel } from "@/lib/term";
+import { type MatrixCell, PermissionMatrix } from "@/components/admin/PermissionMatrix";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ROLE_DESCRIPTIONS, ROLE_KEYS, ROLE_NAMES } from "@/lib/rbac/catalogue";
+import { requireAdmin } from "@/lib/rbac/guards";
+import { permissionMatrix } from "@/lib/rbac/matrix";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminRolesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  await requirePermission("admin.grant_role");
-  const { q } = await searchParams;
-  const query = q?.trim() ?? "";
+export default async function AdminRolesPage() {
+  await requireAdmin();
 
-  const [grants, entities, members] = await Promise.all([
-    db.roleGrant.findMany({
-      where: {
-        source: "MANUAL",
-        revokedAt: null,
-        ...(query
-          ? {
-              user: {
-                OR: [
-                  { fullName: { contains: query, mode: "insensitive" as const } },
-                  { email: { contains: query, mode: "insensitive" as const } },
-                ],
-              },
-            }
-          : {}),
-      },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      select: {
-        id: true,
-        termLabel: true,
-        startsAt: true,
-        endsAt: true,
-        user: { select: { id: true, fullName: true, email: true } },
-        role: { select: { key: true, name: true } },
-        scope: { select: { name: true, path: true } },
-      },
-    }),
-    db.entity.findMany({
-      where: { isActive: true },
-      orderBy: { path: "asc" },
-      take: 500,
-      select: { id: true, name: true, path: true, kind: true },
-    }),
-    query
-      ? db.user.findMany({
-          where: {
-            status: { not: "ERASED" },
-            OR: [
-              { fullName: { contains: query, mode: "insensitive" as const } },
-              { email: { contains: query, mode: "insensitive" as const } },
-            ],
-          },
-          orderBy: { fullName: "asc" },
-          take: 25,
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            primaryEntity: { select: { name: true } },
-          },
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const rows: GrantRow[] = grants.map((g) => ({
-    id: g.id,
-    memberName: g.user.fullName,
-    memberEmail: g.user.email,
-    roleKey: g.role.key,
-    roleName: g.role.name,
-    scopeName: g.scope?.name ?? "Global",
-    termLabel: g.termLabel,
-    startsAt: g.startsAt.toISOString(),
-    endsAt: g.endsAt?.toISOString() ?? null,
-  }));
+  const matrix = await permissionMatrix();
+  const allowed = ROLE_KEYS.flatMap((role) =>
+    matrix[role].map((permission): MatrixCell => `${role}:${permission}`)
+  );
 
   return (
-    <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[var(--foreground)]">Roles &amp; grants</h1>
-      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[var(--muted-foreground)]">
-        Editors, moderators and platform admins are appointed here. Publishers are not — those
-        rights come from EXPA positions and are re-derived every time the member signs in. Grants
-        expire at the end of the current term ({currentTermLabel()}) unless renewed.
-      </p>
+    <main className="mx-auto w-full max-w-[1100px] px-4 pb-24 pt-8 sm:px-6">
+      <PageHeader
+        breadcrumb={[{ label: "Admin" }, { label: "Permissions" }]}
+        title="Permissions"
+        standfirst="Who holds which position is not decided here. Every position is read from the member's current EXPA positions and re-derived each time they sign in. What is decided here is what each position may do — a change takes effect for everyone within a minute, with no deploy."
+        bordered={false}
+      />
 
-      <section aria-labelledby="grant-heading" className="mt-8">
-        <h2 id="grant-heading" className="mb-3 text-[16px] font-bold text-[var(--foreground)]">
-          Grant a role
+      <section aria-labelledby="matrix-heading" className="mt-8">
+        <h2
+          id="matrix-heading"
+          className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
+        >
+          Position classes
         </h2>
-        <GrantRoleForm
-          roles={MANUAL_ONLY_ROLES.filter((r) => r !== "break_glass_admin").map((key) => ({
-            key,
-            name: ROLE_NAMES[key],
-            description: ROLE_DESCRIPTIONS[key],
-            requiresEntity: key !== "platform_admin" && key !== "global_moderator",
-          }))}
-          entities={entities.map((e) => ({
-            id: e.id,
-            label: `${e.name} (${e.path})`,
-            kind: e.kind,
-          }))}
-          members={members.map((m) => ({
-            id: m.id,
-            label: `${m.fullName}${m.email ? ` · ${m.email}` : ""}${
-              m.primaryEntity ? ` · ${m.primaryEntity.name}` : ""
-            }`,
-          }))}
-          searchQuery={query}
-        />
+        <PermissionMatrix allowed={allowed} />
       </section>
 
-      <section aria-labelledby="grants-heading" className="mt-10">
-        <h2 id="grants-heading" className="mb-3 text-[16px] font-bold text-[var(--foreground)]">
-          Active grants
-          <span className="ml-2 text-[14px] font-normal text-[var(--muted-foreground)]">
-            ({rows.length})
-          </span>
+      <section aria-labelledby="classes-heading" className="mt-10">
+        <h2
+          id="classes-heading"
+          className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
+        >
+          What each class is
         </h2>
-        {rows.length === 0 ? (
-          <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[var(--muted-foreground)]">
-              No manually granted roles yet.
-            </p>
-          </div>
-        ) : (
-          <GrantsTable rows={rows} />
-        )}
+        <dl className="flex flex-col gap-2">
+          {ROLE_KEYS.map((role) => (
+            <div
+              key={role}
+              className="aiesec-card flex flex-wrap items-baseline gap-x-3 gap-y-1 p-4"
+            >
+              <dt className="text-[15px] font-bold text-[color:var(--foreground)]">
+                {ROLE_NAMES[role]}
+              </dt>
+              <dd className="min-w-[240px] flex-1 text-[14px] leading-[1.6] text-[color:var(--muted-foreground)]">
+                {ROLE_DESCRIPTIONS[role]}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </section>
     </main>
   );

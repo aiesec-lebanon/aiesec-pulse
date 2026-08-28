@@ -1,6 +1,5 @@
-// The node allowlist is a security boundary: bodies are rendered from
-// structured JSON with no raw HTML ingestion, so a document arriving from a
-// client is untrusted input like any other.
+// The node allowlist is a security boundary — documents from the client
+// are untrusted input; there's no raw HTML ingestion, only structured JSON.
 
 export type TextNode = {
   type: "text";
@@ -14,7 +13,8 @@ export type BlockNode =
   | { type: "blockquote"; content?: BlockNode[] }
   | { type: "bulletList"; content?: BlockNode[] }
   | { type: "orderedList"; content?: BlockNode[] }
-  | { type: "listItem"; content?: BlockNode[] };
+  | { type: "listItem"; content?: BlockNode[] }
+  | { type: "image"; attrs: { mediaId: string; alt: string } };
 
 export type PulseDocument = { type: "doc"; content: BlockNode[] };
 
@@ -25,11 +25,41 @@ const ALLOWED_BLOCKS = new Set([
   "bulletList",
   "orderedList",
   "listItem",
+  "image",
 ]);
 
 const ALLOWED_MARKS = new Set(["bold", "italic", "strike", "code", "link"]);
 
+// Block types whose `content` is BlockNode[], unlike paragraph/heading's
+// inline TextNode[]. Shared by every walker (here, collectImageMediaIds,
+// materializeInlineImages) so none misreads a text run as a nested block.
+export const CONTAINER_BLOCK_TYPES = new Set([
+  "blockquote",
+  "bulletList",
+  "orderedList",
+  "listItem",
+]);
+
 export const EMPTY_DOCUMENT: PulseDocument = { type: "doc", content: [] };
+
+// mediaIds to resolve into URLs before DocumentRenderer — an image block
+// with an unresolved mediaId renders as nothing.
+export function collectImageMediaIds(doc: PulseDocument): string[] {
+  const ids: string[] = [];
+
+  function walk(node: BlockNode) {
+    if (node.type === "image") {
+      ids.push(node.attrs.mediaId);
+      return;
+    }
+    if (CONTAINER_BLOCK_TYPES.has(node.type) && "content" in node && Array.isArray(node.content)) {
+      (node.content as BlockNode[]).forEach(walk);
+    }
+  }
+
+  doc.content.forEach(walk);
+  return ids;
+}
 
 export function documentFromPlainText(text: string): PulseDocument {
   const paragraphs = text
@@ -44,14 +74,13 @@ export function documentFromPlainText(text: string): PulseDocument {
   return { type: "doc", content: paragraphs };
 }
 
-// Blocks separated by a blank line so search snippets and digest excerpts break
-// at sensible boundaries.
 export function plainTextFromDocument(doc: unknown): string {
   const parsed = sanitiseDocument(doc);
   return parsed.content.map(blockToText).filter(Boolean).join("\n\n");
 }
 
 function blockToText(node: BlockNode): string {
+  if (node.type === "image") return node.attrs.alt;
   if ("content" in node && Array.isArray(node.content)) {
     const children = node.content as Array<BlockNode | TextNode>;
     return children
@@ -79,8 +108,6 @@ function sanitiseMarks(marks: unknown): TextNode["marks"] {
       continue;
     }
 
-    // Anything that is not http(s) is dropped entirely rather than kept with a
-    // neutered href — a link that silently goes nowhere is more confusing.
     const href = typeof mark.attrs?.href === "string" ? mark.attrs.href : "";
     if (isSafeHref(href)) kept.push({ type: "link", attrs: { href } });
   }
@@ -125,6 +152,15 @@ function sanitiseBlock(node: unknown): BlockNode | null {
     }
     case "paragraph":
       return { type: "paragraph", content: sanitiseInline(candidate.content) };
+    case "image": {
+      // Alt text is mandatory (same rule as the cover-image field); a
+      // block missing it is dropped rather than kept without one.
+      const attrs = candidate.attrs as { mediaId?: unknown; alt?: unknown } | undefined;
+      const mediaId = typeof attrs?.mediaId === "string" ? attrs.mediaId.trim() : "";
+      const alt = typeof attrs?.alt === "string" ? attrs.alt.trim() : "";
+      if (!mediaId || !alt) return null;
+      return { type: "image", attrs: { mediaId, alt } };
+    }
     case "blockquote":
     case "bulletList":
     case "orderedList":
@@ -150,6 +186,29 @@ export function sanitiseDocument(input: unknown): PulseDocument {
   };
 }
 
+export type DocumentSection = { id: string; label: string };
+
+/**
+ * Flat "on this page" index from top-level H2s. Ids are positional
+ * (`section-0`, …), not slugified — DocumentRenderer stamps the identical
+ * rule independently, so the two stay in sync by construction.
+ */
+export function extractSections(doc: PulseDocument): DocumentSection[] {
+  const sections: DocumentSection[] = [];
+  let index = 0;
+  for (const node of doc.content) {
+    if (node.type !== "heading" || (node.attrs?.level ?? 2) !== 2) continue;
+    const label = (node.content ?? [])
+      .map((t) => t.text)
+      .join("")
+      .trim();
+    const id = `section-${index}`;
+    index += 1;
+    if (label) sections.push({ id, label });
+  }
+  return sections;
+}
+
 export function readingMinutes(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(words / 200));
@@ -161,4 +220,15 @@ export function excerptFrom(text: string, maxLength = 200): string {
   const cut = flat.slice(0, maxLength);
   const lastSpace = cut.lastIndexOf(" ");
   return `${(lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+
+// Shared by createPost/resubmitPost/saveDraft: the signed-upload flow
+// never learns a real content-type, so this guesses one from the URL's
+// extension.
+export function guessMimeType(url: string): string {
+  const lower = url.toLowerCase();
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".avif")) return "image/avif";
+  return "image/jpeg";
 }

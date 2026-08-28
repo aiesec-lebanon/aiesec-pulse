@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { buildExportBundle } from "@/lib/privacy/dsr";
 
-// A schedule that exists only in a document is a policy, not a control.
 // Published posts, comments and AuditEvent are never swept.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -76,7 +75,8 @@ export const retentionSweep = inngest.createFunction(
       return result;
     });
 
-    // Per post because "latest N per group" has no single-statement Prisma form.
+    // Per post: Prisma has no single-statement "latest N per group",
+    // so this loops manually.
     const versionsPruned = await step.run("prune-versions", async () => {
       const noisy = await db.post.findMany({
         where: { versions: { some: {} } },

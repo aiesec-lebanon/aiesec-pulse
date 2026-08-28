@@ -4,13 +4,14 @@ import type { Entity } from "@/app/generated/prisma/client";
 import { EntityKind } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { entityDisplayName } from "@/lib/org/display";
 import { depthOf, joinPath, pathSegment } from "@/lib/org/path";
 import { cacheDelete, cacheKeys } from "@/lib/redis";
 import type { GisOffice } from "@/server-utils/gis";
 
-// Pulse mirrors GIS and never masters it: every write is an upsert keyed on
-// gisOfficeId, and nothing is hard-deleted — an office vanishing from a page
-// is far more likely to be a paging artefact than a closed entity.
+// Pulse mirrors GIS, never masters it — upserts keyed on gisOfficeId, and
+// never hard-deletes (a missing office is more likely a paging artefact
+// than a real closure).
 
 export const ROOT_ENTITY_ID = "ent_root_ai";
 
@@ -204,6 +205,51 @@ export async function subtreeEntityIds(entityId: string): Promise<string[]> {
     select: { id: true },
   });
   return rows.map((r) => r.id);
+}
+
+export type EntitySearchResult = { id: string; name: string; tag: string | null; path: string };
+
+/**
+ * Audience typeahead lookahead. `contains`/`insensitive` compiles to a
+ * leading-wildcard ILIKE served by the `Entity_name_trgm_idx` GIN index.
+ * 2-char floor stops a single keystroke from scanning the whole table.
+ */
+export async function searchEntitiesByName(
+  query: string,
+  kinds: EntityKind[]
+): Promise<EntitySearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const rows = await db.entity.findMany({
+    where: {
+      isActive: true,
+      kind: { in: kinds },
+      // Matches the stored place name, not the brand lockup — "leb" must
+      // find "Lebanon" either way.
+      name: { contains: trimmed, mode: "insensitive" },
+    },
+    orderBy: { name: "asc" },
+    take: 20,
+    select: { id: true, name: true, tag: true, path: true, kind: true },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    tag: row.tag,
+    path: row.path,
+    name: entityDisplayName(row.name, row.kind) ?? row.name,
+  }));
+}
+
+/**
+ * Nearest MC on the chain, or self if already an MC. Null above the MC tier
+ * is a real answer, not a failure. Resolved by `kind`, not path depth, so
+ * it survives the tree gaining or losing a tier.
+ */
+export async function mcAncestorOf(entityId: string): Promise<Entity | null> {
+  const chain = await ancestorChain(entityId);
+  return chain.find((e) => e.kind === EntityKind.MC) ?? null;
 }
 
 export async function ancestorChain(entityId: string): Promise<Entity[]> {

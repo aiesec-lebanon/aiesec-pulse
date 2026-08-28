@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { cache } from "react";
 
 import type { User } from "@/app/generated/prisma/client";
+import type { EntityKind } from "@/app/generated/prisma/enums";
 import { getActiveSession, touchSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
@@ -26,14 +27,23 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
 
 export const getCurrentUserWithEntity = cache(
   async (): Promise<
-    (User & { primaryEntity: { name: string; tag: string | null; path: string } | null }) | null
+    | (User & {
+        primaryEntity: {
+          name: string;
+          tag: string | null;
+          path: string;
+          kind: EntityKind;
+        } | null;
+      })
+    | null
   > => {
     const session = await getActiveSession();
     if (!session) return null;
 
     const user = await db.user.findUnique({
       where: { id: session.userId },
-      include: { primaryEntity: { select: { name: true, tag: true, path: true } } },
+      // `kind` drives office display naming — see lib/org/display.ts.
+      include: { primaryEntity: { select: { name: true, tag: true, path: true, kind: true } } },
     });
     if (!user) return null;
     if (user.status === "ERASED" || user.status === "SUSPENDED") return null;

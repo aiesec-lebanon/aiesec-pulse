@@ -3,41 +3,32 @@
 /* ── Design-system semantic tokens: light defaults ────────────────────────── */
 :root {
   /* Backgrounds / surfaces */
-  --background: #f5f5f5;
-  --foreground: #1d2129;
+  --background: #eceef1;
+  --foreground: #11141a;
   --card: #ffffff;
-  --card-foreground: #1d2129;
+  --card-foreground: #11141a;
 
   /* Brand / primary */
   --primary: #037ef3;
   --primary-foreground: #ffffff;
 
-  /* ── Text-safe derivatives ─────────────────────────────────────────────
-     The brand accents are specified for surfaces, and none of them reaches
-     4.5:1 at body size (16px bold is not "large text" — that starts at
-     18.66px bold):
-
-       white on --primary   #037ef3  →  3.98:1
-       --destructive        #f48924  →  2.48:1 on white
-       --success            #0cb9c1  →  2.43:1 on white
-
-     The originals still drive fills, borders, focus rings, chart series and
-     tints. These derivatives are used only where the colour *is* the text, or
-     is a fill carrying body-size white text. */
+  /* ── Text-safe derivatives ──────────────────────────────────────────────
+     Brand accents fail 4.5:1 at body-bold size on their own surfaces (16px
+     bold isn't "large text" — that starts at 18.66px). Originals still
+     drive fills/borders/rings/charts; these derivatives are for text only. */
   --primary-fill: #0063c1; /* white on this: 5.83:1 */
-  --primary-text: #0063c1; /* on --card 5.83:1 · on --background 5.30:1 */
-  --destructive-text: #a85700; /* on --card 5.21:1 · on --background 4.74:1 */
-  --success-text: #007a80; /* on --card 5.13:1 · on --background 4.66:1 */
+  --primary-text: #0063c1; /* on --card 5.91:1 · on --background 5.08:1 */
+  --destructive-text: #a35400; /* on --card 5.49:1 · on --background 4.72:1 */
+  --success-text: #00767c; /* on --card 5.41:1 · on --background 4.65:1 */
 
   /* Neutral / muted */
   --muted: #f5f5f5;
-  /* #6b7586 measures 4.65:1 on --card but only 4.23:1 on --background, where
-     most secondary copy sits. #626b7a is the nearest value on the same hue
-     that clears 4.5:1 on both (4.90:1 and 5.39:1). */
-  --muted-foreground: #626b7a;
+  /* Must clear 4.5:1 on --card, --background/--muted and --stage — #5d6675
+     clears all three (5.83:1, 5.30:1, 4.76:1). */
+  --muted-foreground: #5d6675;
 
   /* Structural */
-  --border: #e3e5e9;
+  --border: #dfe3e7;
 
   /* Semantic accents */
   --destructive: #f48924;
@@ -50,6 +41,31 @@
   --chart-4: #52565e;
   --chart-5: #9ca7ae;
 
+  /* ── Topic colour ──────────────────────────────────────────────
+     One colour per TopicKind, not per topic — blue=programme, teal=function,
+     orange=general. Keyed on `kind` since Topic has no colour column. Only
+     blue carries white text; orange/teal fail contrast at label size. */
+  --topic-programme: var(--primary);
+  --topic-programme-fill: var(--primary-fill);
+  --topic-programme-on: #ffffff;
+  --topic-programme-text: var(--primary-text);
+
+  --topic-function: var(--success);
+  --topic-function-fill: var(--success);
+  --topic-function-on: #11141a;
+  --topic-function-text: var(--success-text);
+
+  --topic-general: var(--destructive);
+  --topic-general-fill: var(--destructive);
+  --topic-general-on: #11141a;
+  --topic-general-text: var(--destructive-text);
+
+  /* ── Editorial layout constants ──────────────────────────────────
+     The page margin is the one measurement that holds across every screen, and
+     the rail height is what anything pinned beneath it offsets from. */
+  --rail-h: 54px;
+  --page-x: clamp(20px, 4.6vw, 60px);
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -59,35 +75,87 @@
   --shadow-card: 0px 2px 0px 0px rgba(29, 33, 41, 0.02);
   --shadow-button: 0px 2px 0px 0px rgba(5, 145, 255, 0.1);
 
-  /* Transition */
-  --transition-standard: 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  /* ── Depth scale ────────────────────────────────────────────────
+     Each step has a real y-offset plus blur — a zero-offset halo isn't
+     depth. Dark re-states these rather than dropping them, trading the
+     light-mode black-alpha for a tighter shadow plus a lit top edge. */
+  --elev-1: 0 1px 2px -1px rgb(29 33 41 / 0.06), 0 2px 8px -2px rgb(29 33 41 / 0.06);
+  --elev-2: 0 2px 4px -2px rgb(29 33 41 / 0.08), 0 8px 20px -6px rgb(29 33 41 / 0.1);
+  --elev-3: 0 4px 8px -4px rgb(29 33 41 / 0.1), 0 18px 40px -12px rgb(29 33 41 / 0.14);
+  --elev-4: 0 8px 16px -8px rgb(29 33 41 / 0.12), 0 32px 72px -20px rgb(29 33 41 / 0.2);
 
-  /* Backward-compat aliases (used by existing component classes) */
-  --surface: var(--card);
-  --brand: var(--primary);
-  --brand-contrast: var(--primary-foreground);
-  --accent-orange: var(--destructive);
-  --accent-teal: var(--success);
+  /* ── Stage & field ─────────────────────────────────────────────────────
+     Derived from theme tokens, never a new hex. `--stage` sits a step away
+     from `--card` so elevation has something to read against. `--scrim` is
+     the sticky-header wash. */
+  /* --ink is NOT re-declared under .dark: it's the dark ground behind an
+     image scrim and must stay dark in both themes — keying it to
+     --foreground inverted it in dark mode, leaving white text on white. */
+  --ink: #11141a;
+  --stage: var(--background);
+  --stage-deep: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
+  --scrim: color-mix(in srgb, var(--card) 78%, transparent);
+  --hairline: var(--border);
+  /* Light thrown by the brand accent, at three intensities. Used as fields
+     and glows, never as text. */
+  --glow-primary: color-mix(in srgb, var(--primary) 26%, transparent);
+  --glow-primary-soft: color-mix(in srgb, var(--primary) 12%, transparent);
+  --glow-success: color-mix(in srgb, var(--success) 22%, transparent);
+  --glow-destructive: color-mix(in srgb, var(--destructive) 20%, transparent);
+
+  /* ── Motion grammar ───────────────────────────────────────────────
+     One easing curve at three durations. `--transition-standard` stays the
+     documented default for colour/border/opacity on interactive elements;
+     these govern movement, reveal, and scene changes. */
+  --transition-standard: 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+  --dur-micro: 140ms;
+  --dur-element: 420ms;
+  --dur-scene: 900ms;
+  /* Multiplied into every authored duration so Reduced motion collapses the
+     whole system from one place instead of per-component overrides. */
+  --motion-scale: 1;
+  /* Distance authored motion is allowed to travel. Reduced motion sets this
+     to 0 — elements still fade, they just stop moving. */
+  --motion-travel: 1;
 }
 
 /* ── Dark mode overrides ──────────────────────────────────────────────────── */
 .dark {
-  --background: #11141a;
+  --background: #0b0e13;
   --foreground: #f5f5f5;
-  --card: #1d2129;
+  --card: #151a21;
   --card-foreground: #f5f5f5;
-  --muted: #1d2129;
+  --muted: #151a21;
   --muted-foreground: #9ca7ae;
-  --border: #52565e;
+  --border: #2a3038;
 
-  /* On dark surfaces the specified accents already clear 4.5:1, while the
-     light-mode derivatives would not — so the text variants revert. The fill
-     stays dark, because the text sitting on it is white in both themes. */
+  /* Dark surfaces already clear 4.5:1 with the specified accents (the
+     light-mode derivatives would not), so text variants revert here. The
+     fill stays dark since the text on it is white in both themes. */
   --primary-text: #5aa9ff; /* on --card 6.3:1 */
   --destructive-text: #f48924; /* on --card 6.6:1 */
   --success-text: #0cb9c1; /* on --card 6.7:1 */
   --chart-4: #6b7586;
   --chart-5: #e3e5e9;
+
+  /* Plates are lifted by a deeper cast shadow plus a lit top edge, since
+     black-on-near-black reads as nothing — the z-order needs to survive
+     the theme switch, so dark re-states elevation rather than dropping it. */
+  --elev-1: 0 1px 0 0 rgb(255 255 255 / 0.04), 0 2px 8px -2px rgb(0 0 0 / 0.5);
+  --elev-2: 0 1px 0 0 rgb(255 255 255 / 0.05), 0 10px 24px -6px rgb(0 0 0 / 0.6);
+  --elev-3: 0 1px 0 0 rgb(255 255 255 / 0.06), 0 22px 48px -12px rgb(0 0 0 / 0.7);
+  --elev-4: 0 1px 0 0 rgb(255 255 255 / 0.07), 0 40px 88px -20px rgb(0 0 0 / 0.8);
+
+  --stage: var(--background);
+  --stage-deep: color-mix(in srgb, var(--background) 80%, #000 20%);
+  --scrim: color-mix(in srgb, var(--card) 72%, transparent);
+  --hairline: var(--border);
+  --glow-primary: color-mix(in srgb, var(--primary) 30%, transparent);
+  --glow-primary-soft: color-mix(in srgb, var(--primary) 14%, transparent);
+  --glow-success: color-mix(in srgb, var(--success) 24%, transparent);
+  --glow-destructive: color-mix(in srgb, var(--destructive) 22%, transparent);
 }
 
 /* ── Tailwind v4 theme mapping ────────────────────────────────────────────── */
@@ -114,7 +182,8 @@
 
   /* Typography */
   --font-sans: var(--font-lato), "Arial", sans-serif;
-  --font-mono: "Consolas", "Monaco", monospace;
+  --font-serif: var(--font-instrument), "Iowan Old Style", Georgia, serif;
+  --font-mono: var(--font-plex), "Consolas", "Monaco", monospace;
 }
 
 /* ── Global resets ────────────────────────────────────────────────────────── */
@@ -130,25 +199,33 @@ body {
 }
 
 body {
-  background-color: var(--background);
+  background-color: var(--stage);
   color: var(--foreground);
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-a {
-  color: inherit;
+/* Must stay in @layer base: unlayered rules always beat layered ones
+   regardless of specificity, so this would otherwise silently beat every
+   Tailwind text-colour utility on a link (broke "Sign in with AIESEC",
+   rendering it near-black on the blue CTA). */
+@layer base {
+  a {
+    color: inherit;
+  }
 }
 
 /* ── Component utility classes ────────────────────────────────────────────── */
 
 /* Card */
 .aiesec-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--card);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--elev-1);
 }
 
 /* Buttons */
@@ -191,6 +268,45 @@ a {
   border-color: var(--primary);
 }
 
+/* The editorial "way out" of a page (back to feed, search, read on) —
+   distinct from .aiesec-btn-primary's CTA styling: no shadow, no gradient,
+   a 3px corner, reading as a printed rule rather than a button. */
+.pulse-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px 22px;
+  border-radius: 3px;
+  background: var(--foreground);
+  color: var(--background);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: var(--transition-standard);
+  cursor: pointer;
+}
+
+.pulse-action:hover {
+  background: var(--primary-fill);
+  color: var(--primary-foreground);
+}
+
+.pulse-action:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pulse-action[disabled],
+.pulse-action[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Status indicators */
 .status-positive {
   color: var(--success);
@@ -221,7 +337,116 @@ a {
   border-color: rgba(3, 126, 243, 0.18);
 }
 
-/* Subtle float for feed illustration states (empty, error) */
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOTION SYSTEM
+
+   Motion preference is an explicit, persisted member choice, not inferred
+   from OS settings — data-motion lands on <html> before first paint via
+   MotionScript. Reduced zeroes --motion-scale/--motion-travel (movement
+   stops; colour/focus/state transitions don't, since those carry meaning).
+   Every duration below multiplies by --motion-scale, so these two
+   declarations collapse the whole system.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-motion="reduced"] {
+  --motion-scale: 0;
+  --motion-travel: 0;
+}
+
+/* Ambient loops have no reduced equivalent — a slower drift is still drift —
+   so they are the one thing Reduced stops outright. */
+[data-motion="reduced"] .pulse-ambient {
+  animation: none !important;
+}
+
+/* ── Reveal ────────────────────────────────────────────────────────────────
+   Visible by default; data-reveal is added by client JS only once an
+   observer is live, so no-JS/pre-hydration never hides content. No opacity:
+   an opacity:0 wrapper stays in the a11y tree and fails contrast checks
+   even though it's invisible — travel plus a short blur carry the arrival
+   instead, keeping real colour on real background. `.pulse-line-mask`
+   below is the harder-edged, clipped version for headlines. */
+[data-reveal] {
+  transform: translate3d(
+      calc(var(--reveal-x, 0px) * var(--motion-travel)),
+      calc(var(--reveal-y, 24px) * var(--motion-travel)),
+      0
+    )
+    scale(calc(1 - (1 - var(--reveal-scale, 1)) * var(--motion-travel)));
+  filter: blur(calc(var(--reveal-blur, 7px) * var(--motion-travel)));
+  transition:
+    transform calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo)
+      calc(var(--reveal-delay, 0ms) * var(--motion-scale)),
+    filter calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo)
+      calc(var(--reveal-delay, 0ms) * var(--motion-scale));
+  will-change: transform, filter;
+}
+
+[data-reveal="in"] {
+  transform: none;
+  filter: none;
+  will-change: auto;
+}
+
+/* Reduced motion collapses both channels to nothing via --motion-travel; the
+   transition is dropped too so there is no residual fade-of-blur. */
+[data-motion="reduced"] [data-reveal] {
+  transition: none;
+}
+
+/* ── Parallax ──────────────────────────────────────────────────────────────
+   `--parallax` is written by ParallaxLayer's rAF loop as a -1..1 progress
+   value; the depth factor is authored per layer. Reduced motion zeroes the
+   travel, so the layers stack flat without the component needing to know. */
+.pulse-parallax {
+  transform: translate3d(
+      0,
+      calc(var(--parallax, 0) * var(--parallax-depth, 40px) * var(--motion-travel)),
+      0
+    )
+    scale(var(--parallax-scale, 1));
+  will-change: transform;
+}
+
+/* ── 3-D tilt ──────────────────────────────────────────────────────────────
+   Real perspective, not a skew. The pointer writes --tilt-x/--tilt-y; losing
+   the pointer returns them to 0 and the eased transition carries the plate
+   back to rest. */
+.pulse-tilt-scene {
+  perspective: 1200px;
+}
+
+.pulse-tilt {
+  transform: rotateX(calc(var(--tilt-x, 0deg) * var(--motion-travel)))
+    rotateY(calc(var(--tilt-y, 0deg) * var(--motion-travel)))
+    translate3d(0, 0, calc(var(--tilt-z, 0px) * var(--motion-travel)));
+  transform-style: preserve-3d;
+  transition: transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+/* Children lifted off the plate's surface. The depth is the point: a title
+   that floats above its own card is the cheapest honest 3-D cue there is. */
+.pulse-tilt-layer {
+  transform: translate3d(0, 0, calc(var(--layer-z, 20px) * var(--motion-travel)));
+  transition: transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+/* Specular sheen that tracks the pointer across a tilted plate. */
+.pulse-tilt-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: calc(var(--sheen-opacity, 0) * var(--motion-travel));
+  background: radial-gradient(
+    36rem circle at var(--pointer-x, 50%) var(--pointer-y, 50%),
+    color-mix(in srgb, var(--primary) 26%, transparent),
+    transparent 55%
+  );
+  transition: opacity calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+  pointer-events: none;
+}
+
+/* ── Ambient drift ─────────────────────────────────────────────────────── */
 @keyframes float-drift {
   0%,
   100% {
@@ -234,17 +459,41 @@ a {
 .animate-float-drift {
   animation: float-drift 5s ease-in-out infinite;
 }
-@media (prefers-reduced-motion: reduce) {
-  .animate-float-drift {
-    animation: none;
+[data-motion="reduced"] .animate-float-drift {
+  animation: none;
+}
+
+/* Slow orbit for the aurora fields behind the sign-in and feed leads. */
+@keyframes aurora-orbit {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  33% {
+    transform: translate3d(6%, -4%, 0) rotate(120deg) scale(1.12);
+  }
+  66% {
+    transform: translate3d(-5%, 5%, 0) rotate(240deg) scale(0.94);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(360deg) scale(1);
   }
 }
 
-/* Staggered entrance animation */
+/* Sweep used by skeletons and the sign-in mark. */
+@keyframes sheen-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+/* Staggered entrance animation (legacy alias — Reveal is the general case) */
 @keyframes insight-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(calc(8px * var(--motion-travel)));
   }
   to {
     opacity: 1;
@@ -253,19 +502,438 @@ a {
 }
 
 .insight-enter {
-  animation: insight-enter 0.35s var(--transition-standard) both;
+  animation: insight-enter calc(350ms * var(--motion-scale)) var(--ease-out-expo) both;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CINEMATIC SURFACES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* The ground every page sits on — two soft brand-light fields anchored
+   off-canvas so plates read as lifted, not flat. Fixed, so scrolling moves
+   content through the light rather than dragging the light along. */
+.pulse-stage {
+  position: relative;
+  background-color: var(--stage);
+}
+
+.pulse-stage::before {
+  content: "";
+  position: fixed;
+  inset: -25% -15% auto -15%;
+  height: 78vh;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 46% at 16% 6%, var(--glow-primary), transparent 68%),
+    radial-gradient(38% 42% at 84% 0%, var(--glow-success), transparent 70%);
+  filter: blur(30px);
+  opacity: 0.55;
+}
+
+.dark .pulse-stage::before {
+  opacity: 0.85;
+}
+
+/* Header scrim: a specific effect (content passing beneath a fixed rail),
+   not decorative glass. Falls back to an opaque surface where backdrop-filter
+   is unsupported, so the header never becomes unreadable. */
+.pulse-rail {
+  background-color: var(--card);
+  border-bottom: 1px solid var(--hairline);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .pulse-rail {
+    background-color: var(--scrim);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    backdrop-filter: blur(16px) saturate(1.6);
+  }
+}
+
+/* Lifted plate — the card, re-specified with real depth. */
+.pulse-plate {
+  position: relative;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--elev-1);
+  transition:
+    box-shadow calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo),
+    border-color var(--transition-standard),
+    transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.pulse-plate-interactive:hover,
+.pulse-plate-interactive:focus-within {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  box-shadow: var(--elev-3);
+  transform: translate3d(0, calc(-4px * var(--motion-travel)), 0);
+}
+
+/* The nav rail's active indicator: one element that slides and resizes
+   between items rather than a per-item border. The FLIP measurement lives in
+   NavRail; this is only the paint. */
+.pulse-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+  transform: translate3d(var(--indicator-x, 0px), 0, 0);
+  width: var(--indicator-w, 0px);
+  opacity: var(--indicator-o, 0);
+  transition:
+    transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo),
+    width calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo),
+    opacity var(--transition-standard);
+  pointer-events: none;
+}
+
+/* Inline link inside running text. Underlined at rest — colour alone must
+   never be the only cue that a run of body copy is a link — with the
+   underline thickening and the offset closing on hover. */
+.pulse-link {
+  color: var(--primary-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--primary-text) 45%, transparent);
+  transition:
+    text-decoration-color var(--transition-standard),
+    text-underline-offset calc(var(--dur-micro) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.pulse-link:hover,
+.pulse-link:focus-visible {
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+/* Underline that grows from the cursor's side on hover. For standalone
+   controls (breadcrumbs, nav), never for a link inside a paragraph. */
+.pulse-underline {
+  background-image: linear-gradient(var(--primary-text), var(--primary-text));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.pulse-underline:hover,
+.pulse-underline:focus-visible {
+  background-size: 100% 1px;
+}
+
+/* Media that drifts within its frame as the frame scrolls past. */
+.pulse-media-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--stage-deep);
+}
+
+.pulse-media-frame > .pulse-media {
+  transition: transform calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.group:hover .pulse-media-frame > .pulse-media {
+  transform: scale(calc(1 + 0.04 * var(--motion-travel)));
+}
+
+/* Scrim beneath a headline sitting on an image — a real vertical ramp, not a
+   flat 50% black wash, so the image survives underneath it. */
+.pulse-image-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, #000 82%, transparent) 0%,
+    color-mix(in srgb, #000 58%, transparent) 28%,
+    color-mix(in srgb, #000 18%, transparent) 58%,
+    transparent 80%
+  );
+}
+
+/* The story hero's angled photo/type split. 46% at the top edge
+   to 26% at the bottom — the dark left three-fifths carries the headline and
+   spec strip, the photograph owns the right two-thirds. */
+.pulse-story-clip {
+  clip-path: polygon(100% 0, 100% 100%, 26% 100%, 46% 0);
+}
+
+/* Derived from --background, not a fixed dark scrim like .pulse-hero-scrim
+   below — the story hero sits on the page (var(--bg) section, var(--fg)
+   headline), so a fixed dark scrim would put white type over a near-white
+   photo in light mode. Final stop is a vignette at the frame's trailing edge. */
+.pulse-story-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    var(--background) 0%,
+    color-mix(in srgb, var(--background) 90%, transparent) 22%,
+    color-mix(in srgb, var(--background) 46%, transparent) 46%,
+    color-mix(in srgb, var(--background) 8%, transparent) 70%,
+    color-mix(in srgb, var(--background) 44%, transparent) 100%
+  );
+}
+
+/* The same ramp, vertical — for the narrow-viewport cover, where the type sits
+   under the photograph rather than beside it. */
+.pulse-story-scrim-v {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    var(--background) 0%,
+    color-mix(in srgb, var(--background) 62%, transparent) 26%,
+    color-mix(in srgb, var(--background) 12%, transparent) 62%,
+    transparent 88%
+  );
+}
+
+/* Asymmetric scrim for the full-bleed rotator hero: dark from the left edge
+   (where the index rail and headline sit), thinning across the frame so the
+   photograph still reads on its right two-thirds. */
+.pulse-hero-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    rgba(6, 9, 14, 0.94) 0%,
+    rgba(6, 9, 14, 0.82) 40%,
+    rgba(6, 9, 14, 0.2) 66%,
+    rgba(6, 9, 14, 0.55) 100%
+  );
+}
+
+/* Vertical dwell-time bar, restarted by remounting on a fresh `key` per
+   slide rather than resetting the animation shorthand — that also resets
+   play-state, silently un-pausing a paused bar on the next title. */
+@keyframes pulse-progress-v {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.pulse-rotator-bar {
+  transform-origin: top;
+  animation: pulse-progress-v linear forwards;
+  animation-duration: var(--rotator-duration, 8000ms);
+}
+
+/* Same device, horizontal — the "up next" rail's dwell-time bar. */
+@keyframes pulse-progress-h {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.pulse-rotator-bar-h {
+  transform-origin: left;
+  animation: pulse-progress-h linear forwards;
+  animation-duration: var(--rotator-duration, 8000ms);
+}
+
+/* Doubled track scrolling at a constant rate, edge-masked so entries don't
+   clip mid-word. Duplicated in markup, not via a pseudo-element, so it
+   works with any number of real items. */
+@keyframes pulse-ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.pulse-ticker-track {
+  animation: pulse-ticker-scroll 32s linear infinite;
+}
+
+/* ── Display type register ──────────────────────────────────────────
+   Lato 900 at cinematic scale. Tracking tightens as size grows, which is what
+   keeps a 900-weight face from reading as a wall at large sizes. Capped at
+   96px: past that the measure breaks before the drama pays off. */
+.pulse-display {
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.pulse-display-xl {
+  font-size: clamp(40px, 8.5vw, 96px);
+}
+.pulse-display-lg {
+  font-size: clamp(34px, 5.5vw, 64px);
+}
+.pulse-display-md {
+  font-size: clamp(28px, 3.6vw, 44px);
+  letter-spacing: -0.028em;
+  line-height: 1.05;
+}
+
+/* ── Editorial register ─────────────────────────────────────
+   Instrument Serif: headlines, numerals, drop caps, pull-quotes — never
+   body copy or UI labels (one weight, no small-size legibility). Sized a
+   step larger than the Lato scale it replaces; tracking stays near zero. */
+.pulse-serif {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+
+/* Kept off .pulse-serif deliberately: text-wrap is a shorthand that resets
+   text-wrap-mode, so an unlayered `balance` would silently beat a
+   `truncate` utility on the same element. */
+.pulse-balance {
+  text-wrap: balance;
+}
+
+.pulse-serif-xl {
+  font-size: clamp(44px, 7.4vw, 96px);
+  line-height: 0.94;
+}
+.pulse-serif-lg {
+  font-size: clamp(34px, 5vw, 68px);
+  line-height: 0.98;
+}
+.pulse-serif-md {
+  font-size: clamp(28px, 3.4vw, 44px);
+  line-height: 1.04;
+}
+.pulse-serif-sm {
+  font-size: clamp(22px, 2.2vw, 28px);
+  line-height: 1.16;
+}
+
+/* One headline word, italic in the topic colour — names the subject inside
+   the sentence rather than beside it. Colour is never the only cue: italic
+   carries it for anyone who can't see the hue. */
+.pulse-serif-accent {
+  font-style: italic;
+  color: var(--accent-color, var(--primary-text));
+}
+
+/* ── Instrument register ───────────────────────────────────
+   IBM Plex Mono for things that measure rather than say: eyebrows,
+   timestamps, counters, breadcrumbs. Tracked, uppercase, tabular.
+   11px, not 9.5–10.5: smaller reads marginal on a laptop at arm's length. */
+.pulse-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  /* Not 1: a label long enough to wrap — a breadcrumb on a narrow viewport, a
+     multi-part metadata rule — collided with its own next line. */
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Only colour lives in @layer components; everything else stays unlayered
+   so .pulse-label beats a size/weight utility without !important (see
+   TopicPill). Colour must be layered though — unlayered `color` also beat
+   every Tailwind text-colour utility, silently rendering `text-white/70`
+   as muted grey on a photo. */
+@layer components {
+  .pulse-label {
+    color: var(--muted-foreground);
+  }
+}
+
+/* Wider tracking for a standalone overline; tighter for a long metadata run
+   that has to fit on one line. */
+.pulse-label-wide {
+  letter-spacing: 0.2em;
+}
+.pulse-label-tight {
+  letter-spacing: 0.08em;
+}
+
+/* Per-line masked headline reveal. The mask is the effect — the line rises
+   out of its own bounding box rather than fading in place. */
+.pulse-line-mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+.pulse-line-mask > span {
+  display: block;
+  transform: translate3d(0, calc(110% * var(--motion-travel)), 0);
+  transition: transform calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo)
+    var(--reveal-delay, 0ms);
+}
+
+[data-reveal="in"] .pulse-line-mask > span,
+.pulse-line-mask[data-reveal="in"] > span {
+  transform: none;
+}
+
+/* ── Browser surfaces ──────────────────────────────────────────────────────
+   Selection, caret, scrollbar and focus ring all ship with defaults that
+   belong to no design system. Themed from the palette. */
+::selection {
+  background: color-mix(in srgb, var(--primary) 26%, transparent);
+  color: var(--foreground);
+}
+
+html {
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+}
+
+/* `data-motion` sits on <html> itself, so this element *is* the root. */
+html[data-motion="reduced"],
+html[data-motion="reduced"] * {
+  scroll-behavior: auto;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--border);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
+input,
+textarea,
+[contenteditable] {
+  caret-color: var(--primary);
+}
+
+/* Tabular figures wherever numbers are compared down a column. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Legal & policy prose ──────────────────────────────────────────────────
    Scoped to app/legal/**. Line length is bounded by the 720px container
    rather than here, so the measure stays in a comfortable reading range. */
-.legal-prose h1 {
-  font-size: 34px;
-  font-weight: 900;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-  color: var(--foreground);
-}
 .legal-prose h2 {
   margin-top: 32px;
   margin-bottom: 12px;
@@ -293,12 +961,6 @@ a {
   line-height: 1.6;
   color: var(--muted-foreground);
 }
-.legal-prose p.meta {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted-foreground);
-}
-
 .legal-prose p.open-question {
   border-inline-start: 2px solid var(--destructive);
   padding-inline-start: 16px;
@@ -321,10 +983,17 @@ a {
 .legal-prose li {
   margin-bottom: 8px;
 }
-.legal-prose a {
+.pulse-editor-prose a {
   color: var(--primary-text);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--primary-text) 45%, transparent);
+  transition: text-decoration-color var(--transition-standard);
+}
+
+.pulse-editor-prose a:hover {
+  text-decoration-color: currentColor;
 }
 .legal-prose code {
   border-radius: var(--radius-sm);
@@ -354,4 +1023,463 @@ a {
 .legal-prose th {
   font-weight: 500;
   color: var(--muted-foreground);
+}
+
+/* ── Rich-text editor prose ────────────────────────
+   ProseMirror renders bare tags directly into the DOM (not through React),
+   so Tailwind classes aren't reachable — these descendant selectors are
+   .legal-prose's technique, sized to match DocumentRenderer's read scale. */
+.pulse-editor-prose {
+  min-height: 150px;
+  padding: 12px 16px;
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+.pulse-editor-prose:focus {
+  outline: none;
+}
+.pulse-editor-prose p {
+  margin-bottom: 16px;
+}
+.pulse-editor-prose p:last-child {
+  margin-bottom: 0;
+}
+.pulse-editor-prose h2 {
+  margin-top: 32px;
+  margin-bottom: 12px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+.pulse-editor-prose h3 {
+  margin-top: 24px;
+  margin-bottom: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+.pulse-editor-prose h4 {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+.pulse-editor-prose blockquote {
+  margin: 24px 0;
+  border-inline-start: 2px solid var(--primary);
+  padding-inline-start: 20px;
+  font-size: 18px;
+  font-style: italic;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+.pulse-editor-prose ul,
+.pulse-editor-prose ol {
+  margin: 16px 0;
+  padding-inline-start: 24px;
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--foreground);
+}
+.pulse-editor-prose ul {
+  list-style: disc;
+}
+.pulse-editor-prose ol {
+  list-style: decimal;
+}
+.pulse-editor-prose li {
+  margin-bottom: 4px;
+}
+.pulse-editor-prose code {
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  padding: 2px 6px;
+  font-size: 0.9em;
+}
+.pulse-editor-prose img {
+  max-width: 100%;
+  border-radius: var(--radius-lg);
+}
+.pulse-editor-prose .pulse-editor-image {
+  display: block;
+  margin: 24px 0;
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+}
+/* An image block whose mediaId already names a saved Media row rather than a
+   fresh upload — resolving that to a preview URL is a render-time concern
+   this editing surface doesn't own (DocumentRenderer's MediaLookup does). */
+.pulse-editor-prose .pulse-editor-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 24px 0;
+  min-height: 96px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CINEMATIC CONTINUITY  (v2.1)
+
+   Rule: no hard cuts — every state change (route, rotator, list exit,
+   lightbox) has an authored in-between. Durations multiply by
+   --motion-scale, so Reduced collapses this whole layer from the motion
+   system's two declarations, not from anything here.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Descender-safe clamping ──────────────────────────────────────────
+   line-clamp clips to the padding edge; the tight editorial line-height
+   makes the last line box shorter than its glyphs, slicing descenders
+   ("g", "y", "Q"). Padding gives them room; negative margin gives the
+   space back so layout doesn't shift. Pair with any line-clamp-*. */
+.pulse-clamp-safe {
+  padding-bottom: 0.18em;
+  margin-bottom: -0.18em;
+}
+
+/* ── Route transition ─────────────────────────────────────────────────
+   Replayed on every pathname change so navigation reads as one continuous
+   move. Header, lit ground and scroll position stay outside it — a rail
+   that re-enters with its own page loses the reader's fixed reference.
+   No opacity channel (see [data-reveal]): travel plus blur carry the
+   arrival with real colours intact instead. */
+@keyframes pulse-route-in {
+  from {
+    transform: translate3d(0, calc(18px * var(--motion-travel)), 0)
+      scale(calc(1 - 0.008 * var(--motion-travel)));
+    filter: blur(calc(6px * var(--motion-travel)));
+  }
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+
+.pulse-route {
+  animation: pulse-route-in calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo) both;
+  transform-origin: top center;
+}
+
+/* ── Copy arrival ─────────────────────────────────────────────────────
+   "A line of type just got dealt" — used by rotators when content changes
+   under a static container. Staggered via --reveal-delay, the same
+   property Reveal uses, so staggers read identically wherever authored. */
+@keyframes pulse-copy-in {
+  from {
+    transform: translate3d(
+      calc(var(--copy-x, 0px) * var(--motion-travel)),
+      calc(var(--copy-y, 22px) * var(--motion-travel)),
+      0
+    );
+    filter: blur(calc(7px * var(--motion-travel)));
+  }
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+
+.pulse-copy-in {
+  animation: pulse-copy-in calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo)
+    var(--reveal-delay, 0ms) both;
+}
+
+/* A mask the copy rises out of, for the one place the effect has to be
+   harder-edged than a blur: the rotator headline. `overflow: hidden` plus the
+   descender padding, so the clip never eats a glyph. */
+.pulse-mask {
+  overflow: hidden;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+}
+
+/* ── Rotator slide ────────────────────────────────────────────────────
+   All slides stay mounted and stacked; only data-active moves — that's
+   what makes it a cross-dissolve, not a swap. Under Reduced, duration and
+   travel both zero out to an instant cut, not a slower dissolve. */
+.pulse-hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(calc(1 + 0.07 * var(--motion-travel)));
+  filter: blur(calc(12px * var(--motion-travel))) saturate(1.18);
+  transition:
+    opacity calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo),
+    transform calc(1700ms * var(--motion-scale)) var(--ease-out-expo),
+    filter calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo);
+  will-change: opacity, transform, filter;
+}
+
+.pulse-hero-slide[data-active="true"] {
+  opacity: 1;
+  transform: scale(1);
+  filter: none;
+  z-index: 1;
+}
+
+/* The sweep that crosses the frame as a new lead lands — a projector wipe.
+   One decorative element, keyed on the active index so it remounts and
+   replays per change instead of looping forever. */
+@keyframes pulse-wipe {
+  from {
+    transform: translateX(-120%) skewX(-14deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-14deg);
+  }
+}
+
+.pulse-wipe {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in srgb, #fff 10%, transparent) 45%,
+    color-mix(in srgb, #fff 20%, transparent) 50%,
+    transparent 100%
+  );
+  animation: pulse-wipe calc(1100ms * var(--motion-scale)) var(--ease-in-out-quint) both;
+}
+
+[data-motion="reduced"] .pulse-wipe {
+  display: none;
+}
+
+/* ── FLIP reflow ───────────────────────────────────────────────────────────
+   `FlipList` measures its children before a reorder, writes the inverse
+   offset here, and clears it on the next frame. The transition is what the
+   reader actually sees: a card that changes place slides to its new slot
+   instead of teleporting into it. */
+.pulse-flip {
+  transform: translate3d(
+    calc(var(--flip-x, 0px) * var(--motion-travel)),
+    calc(var(--flip-y, 0px) * var(--motion-travel)),
+    0
+  );
+}
+
+.pulse-flip-move {
+  transition: transform calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+/* An item dealt *into* the list rather than moved within it. Scale rather
+   than travel, so it reads as arriving from depth while its neighbours slide
+   sideways. */
+@keyframes pulse-flip-enter {
+  from {
+    transform: scale(calc(1 - 0.06 * var(--motion-travel)))
+      translate3d(0, calc(14px * var(--motion-travel)), 0);
+    filter: blur(calc(8px * var(--motion-travel)));
+  }
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+
+.pulse-flip-enter {
+  animation: pulse-flip-enter calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo) both;
+}
+
+/* An item leaving a list it owns — the bookmark a reader just removed. It
+   collapses its own height, so the rows below close the gap smoothly instead
+   of jumping up into it. */
+@keyframes pulse-row-out {
+  from {
+    opacity: 1;
+    transform: none;
+    max-height: var(--row-h, 240px);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(calc(-24px * var(--motion-travel)), 0, 0);
+    max-height: 0;
+  }
+}
+
+.pulse-row-out {
+  overflow: hidden;
+  pointer-events: none;
+  animation: pulse-row-out calc(var(--dur-element) * var(--motion-scale)) var(--ease-in-out-quint)
+    both;
+}
+
+/* ── Engagement micro-interactions ─────────────────────────────────────────
+   Small, single-property, and driven by a real state change rather than by
+   hover: a reaction that lands should feel like it landed. Each is a one-shot
+   animation on a keyed element, so it plays per press and never loops. */
+@keyframes pulse-pop {
+  0% {
+    transform: scale(1);
+  }
+  28% {
+    transform: scale(calc(1 + 0.42 * var(--motion-travel)));
+  }
+  58% {
+    transform: scale(calc(1 - 0.1 * var(--motion-travel)));
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pulse-pop {
+  animation: pulse-pop calc(520ms * var(--motion-scale)) var(--ease-out-expo);
+}
+
+/* The ring thrown off by a press. Coloured by the caller through
+   `--burst-color`, and unmounted the moment it finishes — a decorative
+   element that lingers is a hit-testing hazard. */
+@keyframes pulse-burst {
+  from {
+    opacity: 0.5;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.3);
+  }
+}
+
+.pulse-burst {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: var(--burst-color, var(--glow-primary));
+  animation: pulse-burst calc(620ms * var(--motion-scale)) var(--ease-out-expo) forwards;
+}
+
+[data-motion="reduced"] .pulse-burst {
+  display: none;
+}
+
+/* A counter that changes should not simply become a different number: the new
+   figure rolls up out of the old one's place. Keyed on the value. */
+@keyframes pulse-roll {
+  from {
+    transform: translate3d(0, calc(0.85em * var(--motion-travel)), 0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.pulse-roll {
+  display: inline-block;
+  animation: pulse-roll calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo) both;
+}
+
+.pulse-roll-window {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  /* Tabular figures plus a fixed line box, so the window does not resize as
+     the digit count changes and nudge everything beside it. */
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+/* ── Lightbox ──────────────────────────────────────────────────────────────
+   A cover image opened to its full size. A real dialog with a real close
+   control; the ground behind it dims and blurs rather than going flat black,
+   so the page is still visibly *there* underneath. */
+@keyframes pulse-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-figure-in {
+  from {
+    transform: scale(calc(1 - 0.06 * var(--motion-travel)))
+      translate3d(0, calc(16px * var(--motion-travel)), 0);
+    filter: blur(calc(10px * var(--motion-travel)));
+  }
+  to {
+    transform: none;
+    filter: none;
+  }
+}
+
+.pulse-lightbox {
+  animation: pulse-scrim-in calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo) both;
+  -webkit-backdrop-filter: blur(18px) saturate(0.9);
+  backdrop-filter: blur(18px) saturate(0.9);
+  background: color-mix(in srgb, #06080d 82%, transparent);
+}
+
+.pulse-lightbox-figure {
+  animation: pulse-figure-in calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo) both;
+}
+
+/* A frame the reader can open. The cue is a corner mark plus a slow push in —
+   never a cursor change alone, which is invisible on touch. */
+.pulse-zoomable {
+  cursor: zoom-in;
+}
+
+.pulse-zoom-hint {
+  opacity: 0;
+  transform: translate3d(0, calc(6px * var(--motion-travel)), 0);
+  transition:
+    opacity var(--transition-standard),
+    transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.pulse-zoomable:hover .pulse-zoom-hint,
+.pulse-zoomable:focus-visible .pulse-zoom-hint {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── The brand lockup ──────────────────────────────────────────────────
+   The *place* half of "AIESEC in <place>" takes the italic brand accent,
+   never the wordmark — the wordmark is constant, the place is the variable.
+   Title treatment only: once per screen, on the page's own h1. Applying
+   it everywhere an entity is named pulls the eye off the real headline. */
+.pulse-brand-place {
+  color: var(--accent-color, var(--primary-text));
+  font-style: italic;
+}
+
+/* ── Sticky reading rail ───────────────────────────────────────────────────
+   Anything pinned under the header offsets from `--rail-h`. One shared value
+   so the story index and the profile index sit at the same height on screen. */
+.pulse-sticky-rail {
+  position: sticky;
+  top: calc(var(--rail-h) + 32px);
+}
+
+/* ── Hover-menu bridge ─────────────────────────────────────────────────────
+   A menu that opens on hover needs a pointer-safe corridor between trigger
+   and panel, or it closes in the very gap the reader is crossing. This is the
+   corridor: invisible, spanning the trigger's width, live only while open. */
+.pulse-menu-bridge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 10px;
 }
