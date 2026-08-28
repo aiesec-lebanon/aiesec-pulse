@@ -161,8 +161,10 @@ test.describe("approval queue", () => {
 
     // Author's own profile (unranked), not the feed — avoids the race of
     // winning one of the feed's seven ranked slots against other workers.
+    // Only a published post's row is a link at all (PendingRow renders
+    // plain text) — that alone is the status signal now, not a label.
     await signInAs("lc_vp", "/profile", isolate);
-    const row = page.locator("#profile-published").getByRole("link", { name: title });
+    const row = page.getByRole("link", { name: title });
     await expect(row).toBeVisible();
     const postPath = new URL((await row.getAttribute("href"))!, "http://localhost").pathname;
 
@@ -251,9 +253,7 @@ test.describe("scheduling", () => {
     expect((await response.json()).published).toBeGreaterThanOrEqual(1);
 
     await page.goto("/profile");
-    await expect(
-      page.locator("#profile-published").getByRole("link", { name: title })
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: title })).toBeVisible();
   });
 
   test("scheduling for a past time is rejected", async ({
