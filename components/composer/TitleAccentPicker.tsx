@@ -6,18 +6,11 @@ import type { TopicKind } from "@/app/generated/prisma/enums";
 import { tokensForKind } from "@/lib/topics-shared";
 
 /**
- * Choosing the phrase in a headline that goes italic in the topic's colour.
- * The choice must be editorial, never inferred — an algorithm picking the
- * phrase would make every headline look accidental.
- *
- * **Not** a text input for retyping part of the headline: it can be
- * misspelled, go stale when the title changes, and forces a diff. Selection
- * is enforced contiguous by construction — no gesture produces
- * "volunteers … town", which the renderer couldn't express anyway.
- *
- * Storage is the substring, not an index pair — see `Post.titleAccent`.
- * That lets an accent survive an edit elsewhere in the headline, and fail
- * silently (no accent), not loudly (wrong words), when it doesn't.
+ * Word-click picker for the italic accent phrase — editorial, not
+ * algorithmic, and contiguous-only (the renderer can't express a gap).
+ * Stored as the substring itself (`Post.titleAccent`), not an index pair,
+ * so editing the headline elsewhere just drops the accent silently instead
+ * of pointing at the wrong words.
  */
 export function TitleAccentPicker({
   title,
@@ -123,9 +116,8 @@ function tokenise(title: string): string[] {
 }
 
 /**
- * Where the stored phrase sits in the current word list, or null when it no
- * longer appears — the honest answer after the author edits the headline
- * out from under it, and matches what the renderer does.
+ * Returns null when the stored phrase no longer appears — an honest answer
+ * after the headline is edited out from under it, matching the renderer.
  */
 function selectedRange(words: string[], value: string): { start: number; end: number } | null {
   const phrase = tokenise(value);

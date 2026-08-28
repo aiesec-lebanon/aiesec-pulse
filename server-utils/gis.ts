@@ -5,9 +5,8 @@ import { z } from "zod";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
-// Responses are validated with Zod rather than cast, so a schema change becomes
-// a typed failure at the boundary. Every call has a timeout, because an
-// unbounded third-party fetch makes our latency a function of theirs.
+// Zod-validated, not cast: a schema drift fails typed, not silently. Every
+// call is timeout-bounded so GIS latency can't become our latency.
 
 const GIS_TIMEOUT_MS = 8_000;
 
@@ -45,10 +44,8 @@ export type GisOffice = z.infer<typeof officeSchema>;
 export type GisPerson = z.infer<typeof currentPersonSchema>;
 
 /**
- * Exported for the contract test only. Every e2e sign-in fixture is parsed
- * through this exact schema (`__tests__/gis-contract.test.ts`), so a fixture
- * that's drifted from what production accepts fails CI rather than quietly
- * passing against a GIS that no longer exists.
+ * Exported for the contract test only: e2e fixtures are parsed through
+ * this schema so a drifted fixture fails CI instead of passing silently.
  */
 export const __testing = { currentPersonSchema };
 
@@ -150,8 +147,8 @@ const CURRENT_PERSON_QUERY = `
   }
 }`;
 
-// Throws GisUnavailableError on transport failure. The callback treats that as
-// a refusal, not a degradation: there is no cached-identity grace window.
+// Throws GisUnavailableError on transport failure — treated as a refusal,
+// not a degradation: no cached-identity grace window.
 export async function fetchCurrentPerson(accessToken: string): Promise<GisPerson> {
   return gisQuery(
     accessToken,
@@ -202,7 +199,7 @@ export function isPersonAllowed(person: GisPerson): boolean {
   });
 }
 
-/** Logged rather than thrown: a person with no positions is a real GIS state. */
+/** Logged, not thrown: no positions is a real GIS state, not an error. */
 export function warnIfPositionless(person: GisPerson): void {
   if (person.current_positions.length === 0) {
     logger.warn("GIS returned a person with no current positions", {

@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { extractSections, type PulseDocument } from "@/lib/content/document";
 
-// The reading-index rail (StoryHero + ReadingIndex) trusts this list for both
-// its ids and its labels, and DocumentRenderer stamps the identical id rule
-// on its own independent pass over the same document — so the id sequence
-// has to be exactly reproducible, not just "roughly right."
+// StoryHero/ReadingIndex and DocumentRenderer independently compute ids for
+// the same document, so this id sequence must match exactly.
 
 function heading(level: number, text: string): PulseDocument["content"][number] {
   return { type: "heading", attrs: { level }, content: [{ type: "text", text }] };
@@ -48,10 +46,8 @@ describe("extractSections", () => {
   });
 
   it("skips a heading with no text from the visible list, but its id slot is still spent", () => {
-    // DocumentRenderer assigns `section-${index}` to every h2 it renders,
-    // text or not, so a later real heading must land on the id the renderer
-    // will independently give it — not the id it would get if the blank one
-    // were simply omitted from the count.
+    // DocumentRenderer counts every h2 (even blank ones) toward the index,
+    // so a blank heading still consumes an id slot.
     const doc: PulseDocument = {
       type: "doc",
       content: [heading(2, ""), heading(2, "Real heading")],

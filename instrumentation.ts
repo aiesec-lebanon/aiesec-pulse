@@ -1,7 +1,7 @@
 import type { Instrumentation } from "next";
 
-// Lazy imports throughout: register() must finish before the first request, and
-// an unconfigured integration should cost nothing.
+// Lazy imports: register() must finish before the first request, and an
+// unconfigured integration should cost nothing.
 
 export async function register(): Promise<void> {
   const { assertProductionEnv } = await import("@/lib/env");

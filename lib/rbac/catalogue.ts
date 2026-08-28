@@ -1,13 +1,9 @@
-// Roles are AIESEC position classes, not Pulse inventions: AIESEC's identity
-// system has no way for an application to confer or revoke a role of its own,
-// so a Pulse-defined role would have no offboarding story at handover. The
-// list is closed and code-defined — new titles are added here deliberately,
-// never inferred from live data.
-//
-// Must stay in step with the migration and the seed; rbac-catalogue.test
-// asserts all three agree. Pure constants with no imports, so client
-// components can hide controls without pulling in the server runtime — hiding
-// a control is never the check.
+// Roles are AIESEC position classes, not Pulse inventions — a Pulse-only
+// role would have no offboarding story at handover, so the list is closed
+// and code-defined, never inferred from live data. Must stay in sync with
+// the migration and seed (rbac-catalogue.test asserts it). No imports, so
+// client components can hide controls without pulling in the server
+// runtime — hiding a control is never the check.
 
 export const ROLE_KEYS = [
   "pai",
@@ -90,10 +86,9 @@ export const PERMISSION_NAMES: Record<PermissionKey, string> = {
   "analytics.view_entity": "View entity analytics",
 };
 
-// Publishing tiers, most permissive first. A member holding several positions
-// is billed against the widest one, so the precedence has to be explicit rather
-// than "whichever grant the database returned first". `member` is absent
-// because a member does not publish.
+// Most permissive first — a member holding several positions is billed
+// against the widest one, so precedence must be explicit, not DB order.
+// `member` is absent because members don't publish.
 export const PUBLISHING_TIERS: readonly RoleKey[] = [
   "pai",
   "ai_vp",
@@ -108,16 +103,10 @@ export const PUBLISHING_TIERS: readonly RoleKey[] = [
 export const NARROWEST_PUBLISHING_TIER: RoleKey = "lc_vp";
 
 /**
- * The classes whose reach is the whole network by position rather than by
- * promotion. An AI-level office sits above the MC tier and has no MC to be
- * local to, so `LOCAL` would mean nothing — what they publish is born
- * `NETWORK`.
- *
- * Deliberately the class list, not "the publisher has no MC ancestor": a
- * leaf office whose parent hasn't synced yet is parked under the root by
- * `resolveOfficeEntity`, which would also read as having no MC — and that
- * mistake would hand a whole LC network reach. Keying on the class fails
- * closed instead: a mis-parked LC is still held by an LCP or LCVP.
+ * AI-level offices sit above the MC tier and have no MC, so `LOCAL` means
+ * nothing — their posts are born `NETWORK`. Keyed on this class list, not
+ * "no MC ancestor": an unsynced leaf office also has no MC temporarily,
+ * and class-keying avoids mistaking that gap for network-wide reach.
  */
 export const AI_LEVEL_ROLES = ["pai", "ai_vp", "ai_manager"] as const;
 
@@ -127,10 +116,8 @@ export function isAiLevelRole(role: RoleKey): role is AiLevelRole {
   return (AI_LEVEL_ROLES as readonly RoleKey[]).includes(role);
 }
 
-// Seed data, and only seed data. The live answer to "what may this class do"
-// is the `RolePermission` table, read by `lib/rbac/matrix.ts` and re-assignable
-// at runtime from the admin console. What follows is only the seed's starting
-// point and reset target — never consult it to authorise anything.
+// Seed data only — the live answer is the `RolePermission` table (see
+// lib/rbac/matrix.ts), re-assignable at runtime. Never consult this to authorise anything.
 const DEFAULT_ROLE_PERMISSIONS: Record<Exclude<RoleKey, AiLevelRole>, readonly PermissionKey[]> = {
   member: ["comment.create", "comment.delete_own"],
 
@@ -201,10 +188,9 @@ const DEFAULT_ROLE_PERMISSIONS: Record<Exclude<RoleKey, AiLevelRole>, readonly P
   ],
 };
 
-// The three AI classes are global in reach and start with the whole catalogue.
-// They are ordinary editable rows like every other class — nothing in the
-// matrix is locked, because administering the platform is no longer reachable
-// from any AIESEC position.
+// AI classes start with the whole catalogue but are ordinary editable rows
+// like any other — nothing is locked, since platform admin is no longer
+// reachable from any AIESEC position.
 export function seededPermissionsFor(role: RoleKey): readonly PermissionKey[] {
   if (isAiLevelRole(role)) return PERMISSION_KEYS;
   return DEFAULT_ROLE_PERMISSIONS[role];

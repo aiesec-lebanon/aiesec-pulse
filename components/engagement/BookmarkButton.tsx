@@ -14,8 +14,9 @@ type Props = {
 
 const DEBOUNCE_MS = 300;
 
-// Debounced so a double-tap can't fire two round-trips whose responses
-// arrive out of order. Optimistic with revert-on-failure, aria-live announced.
+// Debounced — a double-tap could otherwise send two requests whose
+// responses race and land out of order. Optimistic, reverts on failure,
+// aria-live announced.
 export function BookmarkButton({ postId, initialBookmarked, withLabel = false }: Props) {
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
   const [error, setError] = useState<string | null>(null);

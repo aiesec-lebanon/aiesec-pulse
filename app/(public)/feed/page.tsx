@@ -32,16 +32,14 @@ export default async function FeedPage({
     page === 1 ? getTrendingAuthors() : Promise.resolve([]),
   ]);
 
-  // One shared pool feeds both the hero and the "more top stories" rail —
-  // FeedLead decides which post is which, so a quiet day (fewer than five
-  // posts) never leaves the rail empty the way two disjoint slices used to.
+  // Shared pool for hero + "more top stories" rail so FeedLead can split
+  // them without ever leaving the rail empty on a quiet (<5 post) day.
   const leadPool = posts.slice(0, 5);
 
   const heading = mode === "for-you" ? "For you" : "Latest";
 
-  // Visually hidden, but a heading still has to exist for a screen-reader
-  // user landing on the route, and for the one-h1-per-page contract
-  // e2e/accessibility.spec.ts checks.
+  // sr-only, but still required: screen readers need a heading, and
+  // e2e/accessibility.spec.ts enforces one h1 per page.
   const pageHeading = <h1 className="sr-only">{heading}</h1>;
 
   if (leadPool.length === 0) {
@@ -89,11 +87,11 @@ export default async function FeedPage({
               tabIndex={0}
               role="group"
               aria-label="Authors publishing most this month, scrollable"
-              className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              className="flex snap-x snap-mandatory overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             >
               {trendingAuthors.map((author, i) => (
                 <Reveal key={author.id} y={16} x={12} delay={i * 55} className="shrink-0">
-                  <TrendingAuthorCard author={author} />
+                  <TrendingAuthorCard author={author} isFirst={i === 0} />
                 </Reveal>
               ))}
             </div>

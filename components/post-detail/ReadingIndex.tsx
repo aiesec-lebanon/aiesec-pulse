@@ -4,32 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import type { DocumentSection } from "@/lib/content/document";
 
-/**
- * The sticky reading rail — UI ref 2a.
- *
- * Two parts, now independent — the point of this revision:
- *
- *   - **The section index**, when the story has two or more `H2`s: real
- *     `<a href="#section-N">` anchors — addressable, keyboard-operable, and
- *     cleared of the sticky header via `scroll-mt-24` on each target heading.
- *   - **The read percentage, always.** It used to render *inside* the index
- *     and inherit its gate, so a story with one heading or none — most short
- *     updates — showed no progress at all.
- *
- * Getting there took two wrong versions, both worth recording:
- *
- *   1. `-top / height` reaches 1 only once the article's *bottom* edge has
- *      passed the *top* of the viewport — i.e. once the whole story has scrolled
- *      off screen. A reader looking straight at the last line was told 82%.
- *   2. `(viewportBottom - top) / height` fixed the end and broke the start: it
- *      counts what is *visible*, so an article whose opening third fits on the
- *      first screen reported 33% before the reader had scrolled at all.
- *
- * What "read" actually means is *how far through its own scroll range the
- * article has travelled* — 0 before the reader moves, 1 exactly as the last
- * line reaches the bottom edge. An article shorter than the viewport has no
- * scroll range, so it is read once its last line is on screen.
- */
+// Two independent parts: section index needs 2+ H2s; read % always shows.
+// % = how much of the article's height has crossed the viewport's middle,
+// not raw top/bottom-edge math (undercounts short posts / covers).
 export function ReadingIndex({
   sections,
   contentId,
@@ -71,18 +48,15 @@ export function ReadingIndex({
       if (!content) return;
 
       const { top, height } = content.getBoundingClientRect();
-      const viewport = window.innerHeight;
-      // How far the article can travel before its last line reaches the bottom
-      // edge. Negative when the whole article already fits on one screen.
-      const range = height - viewport;
-      const ratio = range > 0 ? -top / range : top + height <= viewport ? 1 : 0;
+      const midline = window.innerHeight / 2;
+      // Fraction of the article's height crossed past the viewport midline.
+      const ratio = (midline - top) / height;
       const clamped = Math.min(1, Math.max(0, ratio));
 
       const percent = Math.round(clamped * 100);
       if (percentRef.current) percentRef.current.textContent = String(percent);
-      // Written straight to the node rather than through state: this runs on
-      // every scroll frame, and re-rendering a React tree sixty times a
-      // second to move one rule is what makes a page feel heavy.
+      // Written straight to the node, not through state — this runs on every
+      // scroll frame, and re-rendering React 60x/sec to move one rule is heavy.
       if (barRef.current) barRef.current.style.transform = `scaleX(${clamped})`;
     }
 

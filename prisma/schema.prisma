@@ -7,9 +7,9 @@
 //   4. Notifications
 //   5. Trust & safety, governance
 //
-// Constructs Prisma cannot express — the generated `searchVector` column, the
-// trigram index, and the partial feed/scheduler indexes — ship as raw SQL in
-// `prisma/migrations/*_m16_search_and_partial_indexes`.
+// Constructs Prisma cannot express — the generated `searchVector`
+// column, trigram index, and partial feed/scheduler indexes — ship as
+// raw SQL in `prisma/migrations/*_m16_search_and_partial_indexes`.
 
 generator client {
   provider = "prisma-client"
@@ -57,8 +57,8 @@ model Entity {
   tag           String?
   kind          EntityKind
   parentId      String?
-  /// Materialised ancestor path, e.g. "/ai/mena/lb/aub" — powers subtree queries
-  /// and org-distance scoring without recursive CTEs on the hot path.
+  /// Materialised ancestor path (e.g. "/ai/mena/lb/aub") — powers subtree
+  /// queries and org-distance scoring without recursive CTEs.
   path          String     @default("")
   countryCode   String?    @db.Char(2)
   timezone      String     @default("UTC")
@@ -80,8 +80,8 @@ model Entity {
   @@index([kind, isActive])
   @@index([parentId])
   @@index([path])
-  /// Trigram index for entity-name lookahead in filter bars. Created by the M16
-  /// raw migration; declared here so the CI drift check passes.
+  /// Trigram index for entity-name lookahead. Created by the M16 raw
+  /// migration; declared here so the CI drift check passes.
   @@index([name(ops: raw("gin_trgm_ops"))], map: "Entity_name_trgm_idx", type: Gin)
 }
 
@@ -91,10 +91,9 @@ model User {
   fullName        String
   email           String?
   avatarUrl       String?
-  /// A member's own one-or-two sentences, shown as the standfirst on their
-  /// profile and their stories. Pulse-owned — GIS has no field for it and no
-  /// write-back path. Nullable: most members never set one, and the profile
-  /// must still render correctly.
+  /// Member's own one-or-two sentences, shown as the standfirst on their
+  /// profile and stories. Pulse-owned — GIS has no equivalent field.
+  /// Nullable: most members never set one.
   bio             String?
   primaryEntityId String?
   locale          String     @default("en")
@@ -167,8 +166,8 @@ model RolePermission {
   @@id([roleId, permissionId])
 }
 
-/// A role held by a user at a scope, for a term. Time-bounded by design:
-/// AIESEC leadership rotates annually and grants must expire without manual work.
+/// A role held by a user at a scope, for a term — time-bounded because
+/// AIESEC leadership rotates annually and grants must expire on their own.
 model RoleGrant {
   id            String      @id @default(cuid())
   userId        String
@@ -194,8 +193,8 @@ model RoleGrant {
   @@index([endsAt])
 }
 
-/// Server-side session record. Enables real revocation ("sign out everywhere")
-/// which a bare stateless JWT cannot provide.
+/// Server-side session record — enables real revocation ("sign out
+/// everywhere"), which a stateless JWT can't provide.
 model Session {
   id         String    @id @default(cuid())
   userId     String
@@ -246,11 +245,9 @@ enum PostStatus {
   HIDDEN
 }
 
-/// How far a published post reaches. LOCAL is the default for everything an LC or
-/// MC publishes: visible only inside the publisher's own MC subtree. NETWORK is
-/// visible to every MC, and is reached only by an MCP's promotion, which is
-/// quota-limited so the cross-MC feed cannot be flooded. Distinct from
-/// `PostStatus`: level is reach, status is lifecycle, and they move independently.
+/// Reach of a published post. LOCAL (default) stays in the publisher's
+/// own MC subtree; NETWORK reaches every MC via quota-limited MCP
+/// promotion. Distinct from PostStatus: reach vs. lifecycle.
 enum PostLevel {
   LOCAL
   NETWORK
@@ -277,10 +274,9 @@ model Post {
   termLabel         String?
 
   title          String
-  /// The phrase inside `title` the author set italic in the topic's colour —
-  /// the §0.3 editorial accent. Stored as the substring, not an offset pair,
-  /// so editing the headline elsewhere can't corrupt it; a phrase that no
-  /// longer appears is just ignored at render (see `splitOnWord`).
+  /// Phrase in `title` italicised in the topic's colour. Stored as the
+  /// substring (not an offset pair) so title edits can't corrupt it; a
+  /// vanished phrase is just ignored at render (see `splitOnWord`).
   titleAccent    String?
   summary        String?
   /// Portable rich-text document (TipTap/ProseMirror JSON).
@@ -301,11 +297,11 @@ model Post {
   level           PostLevel @default(LOCAL)
   promotedAt      DateTime? @db.Timestamptz(3)
   promotedById    String?
-  /// Why it was promoted. Required at the action, so the quota is always spent
-  /// against a stated reason.
+  /// Why it was promoted — required at the action, so quota spend always
+  /// has a stated reason.
   promotionNote   String?
-  /// Quota window the *promotion* consumed. Separate from `quotaPeriod`, because
-  /// promoting is a distinct budgeted act from publishing.
+  /// Quota window the *promotion* consumed — separate from `quotaPeriod`
+  /// since promoting is a distinct budgeted act from publishing.
   promotionPeriod String?
 
   scheduledAt     DateTime? @db.Timestamptz(3)
@@ -322,12 +318,11 @@ model Post {
   reactionCount Int @default(0)
   commentCount  Int @default(0)
   readCount     Int @default(0)
-  /// Size of the targeted audience at publish time — the denominator for read rate.
+  /// Targeted audience size at publish time — denominator for read rate.
   audienceSize  Int @default(0)
 
-  /// Generated tsvector over title + summary + bodyText.
-  /// Created in a raw migration; Prisma cannot express generated columns, so the
-  /// value is declared as database-generated and maintained by Postgres.
+  /// Generated tsvector over title + summary + bodyText — declared as
+  /// database-generated since Prisma can't express generated columns.
   searchVector Unsupported("tsvector")? @default(dbgenerated())
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
@@ -384,8 +379,8 @@ model PostVersion {
   @@index([postId, createdAt(sort: Desc)])
 }
 
-/// Audience targeting. GLOBAL rows have no entity; REGION/ENTITY rows name one.
-/// A viewer sees a post if any audience row matches their scope set.
+/// Audience targeting: GLOBAL rows have no entity; REGION/ENTITY rows
+/// name one. Viewer sees a post if any row matches their scope.
 model PostAudience {
   id        String    @id @default(cuid())
   postId    String
@@ -518,8 +513,8 @@ model Reaction {
   @@index([userId, createdAt(sort: Desc)])
 }
 
-/// One level of nesting only — `parentId` must reference a comment with depth 0.
-/// Enforced in the Server Action, not by the schema.
+/// One level of nesting only — parentId must reference a depth-0 comment.
+/// Enforced in the Server Action, not the schema.
 model Comment {
   id           String        @id @default(cuid())
   postId       String
@@ -583,7 +578,8 @@ model Follow {
   @@index([targetType, targetId])
 }
 
-/// One row per (post, reader). Updated in place; the source of read rate and dwell.
+/// One row per (post, reader), updated in place — the source of read
+/// rate and dwell.
 model PostRead {
   postId      String
   userId      String
@@ -613,8 +609,8 @@ model Acknowledgement {
   @@index([postId])
 }
 
-/// Push/email delivery receipts. In-app reach uses `Post.audienceSize` instead,
-/// because materialising a row per reader per post does not scale.
+/// Push/email delivery receipts only — in-app reach uses
+/// `Post.audienceSize` since a row per reader per post doesn't scale.
 model PostDelivery {
   id          String              @id @default(cuid())
   postId      String
@@ -830,9 +826,9 @@ model UserRestriction {
   @@index([userId, endsAt])
 }
 
-/// Publishing quotas as configuration, administered at runtime. `postLevel`
-/// discriminates two budgeted acts: LOCAL caps posts into the publisher's own
-/// MC, NETWORK caps promotions to the whole network.
+/// Publishing quotas as runtime config. `postLevel` splits two budgeted
+/// acts: LOCAL caps posts within the publisher's own MC; NETWORK caps
+/// promotions network-wide.
 model QuotaPolicy {
   id        String      @id @default(cuid())
   scopeType ScopeType
@@ -848,8 +844,8 @@ model QuotaPolicy {
   @@unique([scopeType, entityId, roleKey, postLevel, period])
 }
 
-/// Unified append-only audit — one ordered stream for every actor.
-/// `actorLabel` is denormalised so the record survives GDPR erasure of the actor.
+/// Unified append-only audit stream for every actor. `actorLabel` is
+/// denormalised so records survive the actor's GDPR erasure.
 model AuditEvent {
   id         String    @id @default(cuid())
   actorType  ActorType

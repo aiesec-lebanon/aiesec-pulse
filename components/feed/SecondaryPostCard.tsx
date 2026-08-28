@@ -12,33 +12,17 @@ import { tokensForKind } from "@/lib/topics-shared";
 import type { FeedPost } from "@/types/feed";
 
 /**
- * 1b's tilt plate — the one sanctioned exception to §0.5's "no card grid"
- * rule.
- *
- * **The card is the link.** It used to be a `<Link>` on the headline with an
- * `::after` overlay meant to cover the whole plate — which it never did: the
- * text panel carries `.pulse-tilt-layer`, and `transform` makes an element
- * the containing block for absolutely-positioned descendants, so the overlay
- * stopped at the panel's edges and the cover image was dead to the click.
- * Wrapping the plate in one anchor removes the bug class entirely, giving the
- * whole 260×360 plate a single hit area.
- *
- * The topic is a label here, not a second link, as in 1b — a nested anchor is
- * invalid, and layering one above a full-plate link would need exactly the
- * z-index-across-stacking-contexts fight that produced the bug above. The
- * topic stays one click away, via the story itself.
- *
- * **Width comes from the caller.** The plate was hard-coded to 260px — right
- * in the feed's horizontal rail, wrong in every `grid-cols-3` that also uses
- * it: a 260px card in a 380px cell, remove button pinned to the cell's far
- * edge, is what the bookmarks page looked like. Its own skeleton is fixed
- * instead (image height, a reserved label row, a two-line title), so a row of
- * these is the same height whatever the copy does.
+ * Tilt plate, the one exception to "no card grid". Whole plate is one
+ * Link, not an overlay — `.pulse-tilt-layer`'s transform makes it a
+ * containing block, so an ::after overlay would stop at the panel edge.
+ * Topic is a label, not a nested link (invalid HTML, fights the link's
+ * z-index). Width comes from the caller; only the internal skeleton is
+ * fixed, so rows stay even at any width.
  */
 export function SecondaryPostCard({ post }: { post: FeedPost }) {
   const primaryTopic = post.topics[0];
-  // No topic means no topic colour: the bar falls back to the hairline and the
-  // plate to its neutral field, rather than claiming a GENERAL filing.
+  // No topic → no topic colour; bar/plate fall back to neutral rather than
+  // claiming a GENERAL filing.
   const barColor = primaryTopic ? tokensForKind(primaryTopic.kind).accent : "var(--hairline)";
   const publisher = post.author.entityName ?? post.author.fullName;
 
@@ -71,25 +55,18 @@ export function SecondaryPostCard({ post }: { post: FeedPost }) {
           className="pulse-tilt-layer flex flex-1 flex-col p-4 pb-[18px]"
           style={{ "--layer-z": "20px" } as React.CSSProperties}
         >
-          {/* The row is reserved whether or not there is a topic to put in it,
-              so a post with no topic does not sit 22px shorter than its
-              neighbours in the same rail. */}
+          {/* Row height is reserved even with no topic, so topicless posts don't sit shorter than their neighbours. */}
           <span className="mb-2.5 flex min-h-[16px] items-center gap-2">
-            {primaryTopic ? (
-              <TopicLabel name={primaryTopic.name} kind={primaryTopic.kind} />
-            ) : (
-              <LevelBadge level={post.level} />
-            )}
+            {primaryTopic && <TopicLabel name={primaryTopic.name} kind={primaryTopic.kind} />}
+            <LevelBadge level={post.level} />
           </span>
 
           <span className="pulse-serif pulse-clamp-safe line-clamp-2 block min-h-[2.32em] break-words text-[22px] leading-[1.16] text-[color:var(--card-foreground)] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] group-hover/card:text-[color:var(--primary-text)]">
             {post.title}
           </span>
 
-          {/* Two lines, not one: an office's name and timestamp on the same
-              11px mono line ran out of room in a 260px card and truncated the
-              publisher — the one fact on the card that says whose story this
-              is. */}
+          {/* Two lines, not one — entity name + timestamp on a single line
+              truncated the publisher, the one fact that says whose story this is. */}
           <span className="mt-auto block pt-3.5">
             <span className="pulse-label pulse-label-tight block truncate">
               <EntityName name={publisher} className="normal-case tracking-[0.06em]" />
@@ -101,7 +78,6 @@ export function SecondaryPostCard({ post }: { post: FeedPost }) {
               >
                 {relativeTime(post.publishedAt)}
               </time>
-              {primaryTopic && <LevelBadge level={post.level} className="shrink-0" />}
               <span className="tabular ml-auto flex shrink-0 items-center gap-2.5 text-[12px] text-[color:var(--muted-foreground)]">
                 <span className="flex items-center gap-1">
                   <Heart size={12} strokeWidth={2} aria-hidden />

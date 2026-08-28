@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { derivePositionGrants, type PositionInput } from "@/lib/rbac/position-mapping";
 
-// The cross-check is the whole security boundary: everything downstream
-// trusts that a grant only exists because a tag and a title agreed. These are
-// the cases that must NOT produce one.
+// The tag/title cross-check is the whole security boundary; everything
+// downstream trusts a grant only exists because both agreed. These cases
+// must NOT produce one.
 
 const position = (over: Partial<PositionInput> = {}): PositionInput => ({
   positionId: "p1",
@@ -40,9 +40,8 @@ describe("the two axes must agree", () => {
   });
 
   it("denies a recognised title at an office whose tag we cannot read", () => {
-    // Q10 is closed on AI offices carrying tag "AI", but an office tagged with
-    // a country code is real data (`officeTag: "LB"`). Failing closed is the
-    // only outcome that cannot over-grant when our model is wrong.
+    // An office tagged with a country code is real data, not a bug — failing
+    // closed here is the only outcome that can't over-grant if the model is wrong.
     for (const officeTag of ["LB", "", null]) {
       const { grants, denied } = derivePositionGrants([position({ officeTag })]);
       expect(grants, `tag ${String(officeTag)}`).toHaveLength(0);
@@ -71,9 +70,8 @@ describe("the two axes must agree", () => {
 
 describe("titles outside the closed list", () => {
   it("matches nothing for a decorated or renamed position", () => {
-    // The prefix table this replaced granted `MCVP Marketing` a publisher role,
-    // and the reference integration's `includes('MC')` would grant `MCPartner`
-    // one too. Both are now denied, and that is the point of the closed list.
+    // A prefix/substring match would have granted `MCVP Marketing` and
+    // `MCPartner`; the closed list denies both on purpose.
     for (const roleName of [
       "MCVP Marketing",
       "MCVP elect",

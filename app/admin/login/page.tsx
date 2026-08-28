@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AdminLoginForm } from "@/app/admin/login/AdminLoginForm";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { getAdminSession } from "@/lib/auth/admin-session";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,12 @@ export default async function AdminLoginPage() {
     <main className="pulse-stage flex min-h-screen items-center justify-center px-4 py-12 sm:px-6">
       <div className="aiesec-card w-full max-w-[420px] p-8">
         <p className="pulse-label flex items-center justify-center">AIESEC Pulse</p>
-        <h1 className="mt-3  flex items-center justify-center text-[24px] font-black leading-tight text-[color:var(--foreground)]">
-          Platform Administration
-        </h1>
+        <DisplayTitle
+          as="h1"
+          size="sm"
+          title="Platform Administration"
+          className="mt-3 flex items-center justify-center text-center text-[color:var(--foreground)]"
+        />
 
         <AdminLoginForm />
 

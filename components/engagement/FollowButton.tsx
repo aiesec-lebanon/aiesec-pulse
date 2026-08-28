@@ -20,8 +20,9 @@ type Props = {
 
 const DEBOUNCE_MS = 300;
 
-// Debounced so a double-tap can't fire two round-trips whose responses
-// arrive out of order. Optimistic with revert-on-failure, aria-live announced.
+// Debounced — a double-tap could otherwise send two requests whose
+// responses race and land out of order. Optimistic, reverts on failure,
+// aria-live announced.
 export function FollowButton({
   targetType,
   targetId,
@@ -50,9 +51,8 @@ export function FollowButton({
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
 
     const revert = state;
-    // A muted target that gets "followed" here lands on "following" too —
-    // this button only expresses the follow/unfollow half of the
-    // toggle: mute has no inline control here.
+    // Muting a target and then hitting Follow here always lands on
+    // "following" — mute has no inline control in this button.
     setState(state === "following" ? "none" : "following");
     setPressKey((k) => k + 1);
 

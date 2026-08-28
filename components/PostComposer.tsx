@@ -17,6 +17,7 @@ import { TitleAccentPicker } from "@/components/composer/TitleAccentPicker";
 import { TopicPicker } from "@/components/composer/TopicPicker";
 import { type ComposerInitialValues, useComposerForm } from "@/components/composer/useComposerForm";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import { ReasonModal } from "@/components/ui/ReasonModal";
 import type { ReachOptions } from "@/lib/content/level";
 import type { TopicOption } from "@/lib/content/topics";
 import { formatAsWallTime, timeZoneOffsetLabel, zonedWallTimeToUtc } from "@/lib/timezone";
@@ -44,7 +45,8 @@ export type PostComposerProps = {
   schedulingEnabled?: boolean;
   /** The author's `User.timezone` — schedule times are entered in this zone, not the browser's. */
   timezone?: string;
-  /** Absent (or the flag off) hides the picker entirely — every post keeps the old unconditional GLOBAL default. */
+  /** Absent (or flag off) hides the picker — posts keep the old
+   *  unconditional GLOBAL default. */
   audienceOptions?: AudiencePickerOptions;
   /** Empty hides the picker — nothing to choose from. */
   topics?: TopicOption[];
@@ -105,32 +107,28 @@ export function PostComposer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
-  // Wall-clock digits in `timezone`, no zone suffix — never persisted by
-  // autosave, which treats scheduling as a submit-time input rather than
-  // draft state, so this always starts blank even when resuming a draft.
+  // Wall-clock digits in `timezone`, no zone suffix. Submit-time only —
+  // autosave never persists it, so this starts blank even when resuming.
   const [scheduledAt, setScheduledAt] = useState("");
   const minScheduleValue = formatAsWallTime(new Date(), timezone);
 
-  // Same submit-time-only treatment as scheduledAt — not persisted by
-  // autosave. Meaningless when audienceOptions is "fixed" (nothing to
-  // choose), so the default is only ever actually sent for an "open" picker.
+  // Submit-time only, like scheduledAt — not persisted by autosave.
+  // Meaningless (and unsent) when audienceOptions is "fixed".
   const [audienceValue, setAudienceValue] = useState(DEFAULT_AUDIENCE_VALUE);
 
-  // Also submit-time-only, like scheduledAt/audienceValue — resuming a draft
-  // starts with nothing selected rather than re-fetching what was chosen
-  // last time, since topics were never part of what saveDraft persisted.
+  // Submit-time only, like scheduledAt/audienceValue — saveDraft never
+  // persisted topics, so resuming starts with nothing selected.
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
 
-  // Reach starts local for everyone who has a choice: spending one of the MC's
-  // promotions is never the default. An AI-level office has
-  // no choice to make, and the server decides its level regardless of this.
+  // Defaults to local — spending an MC promotion is never the default.
+  // AI-level offices have no choice; the server decides regardless.
   const [reachValue, setReachValue] = useState<ReachValue>("local");
   const [promotionNote, setPromotionNote] = useState("");
 
-  // Seeded from the postId prop when resuming an already-saved draft;
-  // undefined otherwise until the first save (autosave or explicit) creates
-  // the row. Every save after that updates one row in place.
+  // Seeded from postId when resuming a draft; otherwise undefined until
+  // the first save creates the row, and every save after updates it in place.
   const [draftId, setDraftId] = useState<string | undefined>(postId);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const savingRef = useRef(false);
@@ -185,13 +183,15 @@ export function PostComposer({
   }
 
   function handleCancel() {
-    // Once autosave has actually persisted something, there is nothing left
-    // to "discard" — warning otherwise would just be wrong.
+    // Once autosave has persisted something, there's nothing left to "discard".
     if (draftId) {
       router.push("/drafts");
       return;
     }
-    if (hasContent && !window.confirm("Discard your update?")) return;
+    if (hasContent) {
+      setConfirmingDiscard(true);
+      return;
+    }
     router.back();
   }
 
@@ -199,26 +199,24 @@ export function PostComposer({
     e.preventDefault();
     if (isSubmitting || isUploading) return;
 
-    // Converted client-side so "Monday 9am Beirut" means what the author
-    // intended regardless of the browser's own zone;
-    // an unparseable value still reaches the schema so its "invalid date"
-    // message is the one shown, rather than throwing here.
+    // Converted client-side so times mean what the author intended
+    // regardless of the browser's zone; unparseable values still reach
+    // the schema so its "invalid date" message shows, not a throw here.
     let scheduledAtIso: string | undefined;
     if (scheduledAt) {
       const utc = zonedWallTimeToUtc(scheduledAt, timezone);
       scheduledAtIso = Number.isNaN(utc.getTime()) ? "invalid" : utc.toISOString();
     }
 
-    // Only sent when there's an actual picker to have chosen from — a
-    // "fixed" or absent audienceOptions means the server forces the
-    // publisher's own entity (or the old GLOBAL default) regardless.
+    // Only sent when there's a real picker — "fixed"/absent audienceOptions
+    // means the server forces the publisher's entity (or GLOBAL) regardless.
     const audiencePayload =
       audienceOptions?.kind === "open"
         ? { scopeType: audienceValue.scopeType, entityId: audienceValue.entityId }
         : undefined;
 
-    // Only sent when there is a choice to have made — the "network" shape is
-    // information, and the server settles that level from the position.
+    // Only sent when there's a real choice — the server settles the level
+    // from the position otherwise.
     const promoteToNetwork = reachOptions?.kind === "choice" && reachValue === "network";
 
     const validationResult = createPostSchema.safeParse({
@@ -315,16 +313,13 @@ export function PostComposer({
 
   const submitBlocked = isSubmitting || isUploading;
 
-  // Derived, not duplicated: the preview reads the same selection state the
-  // Topics section already owns, rather than tracking its own copy.
+  // Derived, not duplicated — preview reads the Topics section's own state.
   const previewTopic =
     selectedTopicIds.length > 0 ? (topics.find((t) => t.id === selectedTopicIds[0]) ?? null) : null;
 
-  // The preview recomputes an excerpt and a word/reading-time count from
-  // `bodyText` on every render, which is cheap for one keystroke but not for
-  // the burst RichTextEditor emits while a fast typist (or a paste) is still
-  // going — debounced independently of the 5s autosave timer above, which
-  // exists for a different reason (network cost, not render cost).
+  // Recomputing the excerpt/reading-time per keystroke is cheap, but not
+  // for the burst RichTextEditor emits from fast typing or a paste —
+  // debounced separately from the 5s autosave timer (network vs. render cost).
   const [previewBodyText, setPreviewBodyText] = useState(bodyText);
   useEffect(() => {
     const timeout = setTimeout(() => setPreviewBodyText(bodyText), 200);
@@ -358,7 +353,7 @@ export function PostComposer({
             placeholder="What's the update about?"
             aria-describedby={fieldErrors.title ? "title-error" : undefined}
             className={[
-              "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+              "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
               fieldErrors.title ? "border-[var(--destructive)]" : "border-[var(--border)]",
             ].join(" ")}
           />
@@ -408,7 +403,7 @@ export function PostComposer({
             aria-describedby={fieldErrors.summary ? "summary-error" : "summary-hint"}
             aria-invalid={fieldErrors.summary ? true : undefined}
             className={[
-              "w-full resize-none rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 py-2.5 text-[15px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+              "w-full resize-none rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 py-2.5 text-[15px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
               fieldErrors.summary ? "border-[var(--destructive)]" : "border-[var(--border)]",
             ].join(" ")}
           />
@@ -478,10 +473,8 @@ export function PostComposer({
 
           {imagePreview ? (
             <div className="relative w-full overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)]">
-              {/* A local object URL, not a remote asset — next/image cannot optimise
-                it and would only add a proxy hop. The authored description lives in
-                the alt-text field below; until it is written the preview is
-                decorative rather than mislabelled. */}
+              {/* Local object URL — next/image would only add a proxy hop. Alt
+                text is blank until authored below, so decorative, not mislabelled. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imagePreview}
@@ -572,7 +565,7 @@ export function PostComposer({
                 aria-invalid={fieldErrors.mediaAlt ? true : undefined}
                 placeholder="e.g. Delegates on stage at the closing plenary"
                 className={[
-                  "w-full rounded-[var(--radius-md)] border bg-[var(--card)] px-4 py-2.5 text-[15px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none",
+                  "w-full rounded-[var(--radius-md)] border bg-[var(--card)] px-4 py-2.5 text-[15px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
                   fieldErrors.mediaAlt ? "border-[var(--destructive)]" : "border-[var(--border)]",
                 ].join(" ")}
               />
@@ -633,7 +626,7 @@ export function PostComposer({
             placeholder="https://…"
             aria-describedby={linkIsInvalid ? "link-error" : undefined}
             className={[
-              "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+              "h-11 w-full rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
               linkIsInvalid ? "border-[var(--destructive)]" : "border-[var(--border)]",
             ].join(" ")}
           />
@@ -682,7 +675,7 @@ export function PostComposer({
               aria-describedby={fieldErrors.scheduledAt ? "scheduledAt-error" : "scheduledAt-hint"}
               aria-invalid={fieldErrors.scheduledAt ? true : undefined}
               className={[
-                "h-11 w-full max-w-[280px] rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+                "h-11 w-full max-w-[280px] rounded-[var(--radius-sm)] border bg-[var(--card)] px-3 text-[16px] text-[color:var(--foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
                 fieldErrors.scheduledAt ? "border-[var(--destructive)]" : "border-[var(--border)]",
               ].join(" ")}
             />
@@ -807,6 +800,23 @@ export function PostComposer({
           status={scheduledAt ? "Scheduled" : "Draft"}
         />
       </div>
+
+      <ReasonModal
+        key={confirmingDiscard ? "open" : "closed"}
+        open={confirmingDiscard}
+        requireReason={false}
+        tone="destructive"
+        title="Discard your update?"
+        description="Nothing has been saved yet — closing now loses the title, content, and any image you've added."
+        targetLabel={title || "Untitled update"}
+        confirmLabel="Discard"
+        pendingLabel="Discarding…"
+        onClose={() => setConfirmingDiscard(false)}
+        onConfirm={async () => {
+          router.back();
+          return { ok: true } as const;
+        }}
+      />
     </div>
   );
 }

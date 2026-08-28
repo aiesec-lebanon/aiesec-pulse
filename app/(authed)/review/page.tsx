@@ -14,9 +14,6 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Review queue · AIESEC Pulse" };
 
-/**
- * The approval queue, at `/review`.
- */
 export default async function ReviewQueuePage() {
   const user = await requirePermission("post.approve");
   const scope = await resolveScopeFilter(user, "post.approve");

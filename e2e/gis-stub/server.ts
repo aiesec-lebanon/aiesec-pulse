@@ -3,25 +3,15 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { isPersona, type PersonaKey, personFor } from "./fixtures";
 
 /**
- * Stands in for `auth.aiesec.org` and `gis-api.aiesec.org` while the e2e suite
- * runs. Started by `playwright.config.ts`; the app under test is pointed at it
- * with AIESEC_OAUTH_AUTH_URL and GIS_GRAPHQL_URL and cannot tell the difference.
+ * Stands in for auth.aiesec.org and gis-api.aiesec.org during e2e. The app
+ * under test is pointed here via AIESEC_OAUTH_AUTH_URL/GIS_GRAPHQL_URL and
+ * can't tell the difference — everything except this server (state, code
+ * exchange, GIS query, Zod parse, grant reconciliation) runs for real.
  *
- * This exists **outside** the application on purpose. The previous suite signed
- * in through a mock provider that lived in `app/`, which meant the sign-in path
- * the tests exercised was not the sign-in path production runs: `state`, the
- * code exchange, the GIS query, the Zod parse and the grant reconciliation were
- * all skipped. Everything above now runs for real; only the far end of the
- * socket is ours.
- *
- * Playwright's own `page.route` cannot do this job. Both the token exchange and
- * the GIS query are server-to-server fetches made by the Next.js process, and
- * browser-level interception never sees them.
- *
- * Which persona a browser context signs in as is carried by a cookie on this
- * server's own origin, set by the test before it navigates. That keeps personas
- * isolated per context — parallel workers share this one process — without the
- * application ever learning that personas exist.
+ * Lives outside the app on purpose: `page.route` can't intercept the
+ * server-to-server token/GIS fetches Next.js makes. Persona selection
+ * travels via a cookie on this server's own origin, keeping contexts
+ * isolated even though parallel workers share this one process.
  */
 
 const PORT = Number(process.env.PULSE_GIS_STUB_PORT ?? 3099);
@@ -48,9 +38,8 @@ function readCookie(req: IncomingMessage, name: string): string | undefined {
   return undefined;
 }
 
-// The authorization code is opaque to the app, so it is the natural carrier for
-// the selection: /token turns it into an access token and /graphql reads it back
-// off that token. No shared mutable state, so parallel workers cannot collide.
+// The auth code is opaque to the app, so it carries the selection: /token
+// turns it into an access token, /graphql reads it back off — no shared state.
 function encodeSelection(selection: Selection): string {
   return Buffer.from(JSON.stringify(selection)).toString("base64url");
 }
@@ -88,9 +77,8 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-// The browser lands here after /api/auth/start redirects it. `state` is echoed
-// back untouched: verifying it is the application's job, and a stub that
-// "helpfully" regenerated it would hide a login-CSRF regression.
+// `state` is echoed back untouched — verifying it is the app's job; a stub
+// that regenerated it would hide a login-CSRF regression.
 function authorize(req: IncomingMessage, res: ServerResponse, url: URL) {
   const selection = parseSelection(readCookie(req, PERSONA_COOKIE));
   if (!selection) {

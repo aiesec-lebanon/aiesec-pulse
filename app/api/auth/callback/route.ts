@@ -78,10 +78,9 @@ export async function GET(request: NextRequest) {
     const { user, recognisedPositions, grantsAdded, grantsExpired, denied } =
       await syncIdentityFromGis(person);
 
-    // Authority is exactly what GIS says it is, so a person GIS gives us no
-    // recognised position for has no authority at all - not even to read. There
-    // is deliberately no bare `member` fallback: it would turn a renamed or
-    // expired position into a working account.
+    // Authority is exactly what GIS says — no recognised position means no
+    // authority at all, not even read access. No bare `member` fallback: that
+    // would let a renamed or expired position keep working.
     if (!user || recognisedPositions === 0) {
       await recordAudit(
         systemActor("auth"),
@@ -117,12 +116,9 @@ export async function GET(request: NextRequest) {
       return failure(baseUrl, "exchange_failed");
     }
 
-    // Fail closed. A grace window here used to sign a caller in on their
-    // last-known identity when GIS was unreachable — wrong in the case it
-    // existed for: an outage is precisely when Pulse can't tell whether a
-    // position was revoked an hour ago, so the window let stale authority
-    // keep working for up to three days. Authority is what GIS says right
-    // now, or nothing.
+    // Fail closed — an outage is exactly when Pulse can't tell if a position
+    // was revoked. No grace window on stale identity: authority is what GIS
+    // says right now, or nothing.
     logger.error("GIS unavailable; sign-in refused rather than served from cache", {
       error,
       severity: "HIGH",
@@ -144,10 +140,9 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL(handshake.returnTo, baseUrl));
   response.cookies.set(SESSION_COOKIE, session.token, sessionCookieAttributes(session.expiresAt));
 
-  // `delete`, not `set(name, "", { maxAge: 0 })`. ResponseCookies drops a
-  // zero `maxAge` as falsy, so that form emitted `aiesec_token=; Path=/` with no
-  // expiry at all — creating each MVP cookie in every browser that had never
-  // held one, rather than clearing it. `delete` writes an expiry in the past.
+  // `delete`, not `set(..., { maxAge: 0 })` — ResponseCookies treats a zero
+  // maxAge as falsy, so that form omits the expiry and creates the cookie
+  // instead of clearing it.
   for (const name of LEGACY_COOKIES) {
     if (name === SESSION_COOKIE) continue;
     response.cookies.delete({ name, path: "/" });

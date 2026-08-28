@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { type FollowState } from "@/app/actions/follows";
 import { FollowTarget } from "@/app/generated/prisma/enums";
 import { FollowButton } from "@/components/engagement/FollowButton";
-import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
+import { SidebarPostItem } from "@/components/feed/SidebarPostItem";
 import { Parallax } from "@/components/motion/Parallax";
 import { Reveal } from "@/components/motion/Reveal";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,7 +12,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { SpecStrip } from "@/components/ui/SpecStrip";
 import { TextTabs } from "@/components/ui/TextTabs";
 import { db } from "@/lib/db";
-import { getTopicFeed, getTopicStats, type TopicSort } from "@/lib/feed";
+import { getTopicFeed, getTopicStats, TOPIC_PAGE_SIZE, type TopicSort } from "@/lib/feed";
 import { requireSession } from "@/lib/rbac/guards";
 import { initialsOf, tokensForKind } from "@/lib/topics-shared";
 
@@ -142,10 +142,10 @@ export default async function TopicArchivePage({
         />
       ) : (
         <section aria-label={`Posts about ${topic.name}`} className="mt-10">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col">
             {posts.map((post, i) => (
-              <Reveal key={post.id} y={28} delay={(i % 3) * 80} className="h-full">
-                <SecondaryPostCard post={post} />
+              <Reveal key={post.id} as="div" y={20} delay={Math.min(i, 8) * 55}>
+                <SidebarPostItem post={post} index={(page - 1) * TOPIC_PAGE_SIZE + i + 1} />
               </Reveal>
             ))}
           </div>

@@ -8,9 +8,8 @@ import { PERMISSION_KEYS, type PermissionKey, ROLE_KEYS, type RoleKey } from "@/
 import { checkAdmin } from "@/lib/rbac/guards";
 import { invalidatePermissionMatrix } from "@/lib/rbac/matrix";
 
-// The one thing an administrator configures: what a position class may do.
-// Who holds which class, and where, is never editable here — that comes from
-// GIS at every sign-in.
+// The only thing an admin configures here: what a position class may do.
+// Who holds which class is never editable — that comes from GIS at sign-in.
 
 export type MatrixResult = { ok: true } | { ok: false; error: string };
 

@@ -26,12 +26,12 @@ export function PostsTable({ rows }: { rows: PostRow[] }) {
 
   return (
     <>
-      <div className="flex flex-col gap-2" role="list" aria-label="Posts">
+      <div className="flex flex-col" role="list" aria-label="Posts">
         {rows.map((row) => (
           <article
             key={row.id}
             role="listitem"
-            className="aiesec-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-3 border-b border-[var(--hairline)] py-5 first:pt-0 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">

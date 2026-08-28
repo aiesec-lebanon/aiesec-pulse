@@ -30,8 +30,8 @@ const notAsked = { promoteToNetwork: false, note: undefined };
 
 describe("an AI-level office", () => {
   it("publishes at network level without spending a promotion", () => {
-    // The answer to "AI defaults to global level": the level is settled by
-    // position, so there is no promoter, no note and no window on the row.
+    // AI-level posts default to NETWORK by position — no promoter, note,
+    // or window stamp on the row.
     return expect(
       decideReach(txSpending(0), AI_OFFICE, "user_pai", PostStatus.PUBLISHED, notAsked)
     ).resolves.toEqual({ ok: true, level: PostLevel.NETWORK, stamp: null });
@@ -53,8 +53,8 @@ describe("an AI-level office", () => {
 
 describe("an MC publisher", () => {
   it("publishes locally when the network is not asked for", async () => {
-    // Q12, closed: an MC's own posts start LOCAL like everyone else's, which is
-    // what makes the promotion quota a cap on network-feed volume at all.
+    // An MC's own posts start LOCAL like everyone else's — that's what makes
+    // the promotion quota a real cap on network-feed volume.
     const decision = await decideReach(
       txSpending(0),
       MC_PROMOTER,

@@ -51,16 +51,6 @@ export default async function LoginPage({
           animation: "aurora-orbit 30s ease-in-out infinite",
         }}
       />
-      <div
-        aria-hidden
-        className="pulse-ambient pointer-events-none absolute -right-[8%] top-[18%] z-0 h-[58%] w-[46%] rounded-full opacity-90"
-        style={{
-          background:
-            "radial-gradient(circle at 50% 50%, var(--glow-destructive), transparent 65%)",
-          filter: "blur(55px)",
-          animation: "aurora-orbit 36s ease-in-out infinite reverse",
-        }}
-      />
 
       <div className="relative z-20 flex items-center justify-between px-6 py-6 sm:px-10 sm:py-8">
         <span className="flex select-none items-center gap-2">

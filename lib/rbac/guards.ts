@@ -9,9 +9,9 @@ import { logger } from "@/lib/logger";
 import { can, GLOBAL_SCOPE, type ScopeRef } from "@/lib/rbac/can";
 import type { PermissionKey } from "@/lib/rbac/catalogue";
 
-// The authoritative check, and the mandatory first statement of every Server
-// Action and protected Route Handler — the no-unguarded-server-action ESLint
-// rule fails the build without one. Guards redirect rather than throw.
+// Mandatory first statement of every Server Action / protected Route
+// Handler — the no-unguarded-server-action ESLint rule fails the build
+// without one. Guards redirect rather than throw.
 
 export async function requireSession(): Promise<User> {
   const user = await getCurrentUser();

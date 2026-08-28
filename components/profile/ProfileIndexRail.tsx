@@ -4,16 +4,12 @@ import { useEffect, useState } from "react";
 
 export type ProfileSection = { id: string; label: string };
 
-/**
- * The sticky "on this profile" rail — 4a's left column.
- *
- * Real `<a href="#id">` anchors, not buttons, so each section is addressable
- * and keyboard-operable; `scroll-mt-*` on each target clears the sticky
- * header, or the anchor scroll lands underneath it.
- */
+// Real <a href="#id"> anchors, not buttons, so sections are addressable and
+// keyboard-operable; scroll-mt-* on targets clears the sticky header. Default
+// label is shared across /profile, /authors/[id], /entities/[id].
 export function ProfileIndexRail({
   sections,
-  label = "On this profile",
+  label = "On this page",
 }: {
   sections: ProfileSection[];
   label?: string;

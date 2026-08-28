@@ -11,13 +11,10 @@ const SEARCH_DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 
 /**
- * Name lookahead over the office tree, once — used by both the composer's
- * audience picker and the quota administration form against different
- * search functions, so `search` is a prop rather than an import.
- *
- * `search` must be a stable reference (a module-level server action, not an
- * inline closure): the debounce effect below only watches `query`, so an
- * unstable `search` can be called with a stale closure.
+ * Shared by the composer's audience picker and the quota admin form
+ * against different search functions — `search` is a prop, not an import.
+ * Must be a stable reference (module-level action, not an inline closure):
+ * the debounce effect only watches `query`, so an unstable fn goes stale.
  */
 export function EntityTypeahead({
   id,

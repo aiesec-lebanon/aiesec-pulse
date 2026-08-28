@@ -1,13 +1,13 @@
 import type { CommentStatus, EntityKind } from "@/app/generated/prisma/enums";
 import { entityDisplayName } from "@/lib/org/display";
 
-// A removed comment becomes a tombstone rather than disappearing, so the thread
-// does not reshuffle under a reader and replies never orphan.
+// Removed comments become tombstones, not deletions — replies stay
+// anchored and the thread doesn't reshuffle under a reader.
 export type CommentDto = {
   id: string;
   body: string | null;
   tombstone: boolean;
-  /** Why it was hidden, when a moderator recorded one. Null for self-deletion. */
+  /** Why hidden, if a moderator set one; null for self-deletion. */
   hiddenReason: string | null;
   createdAt: string;
   author: { fullName: string; entityName: string | null } | null;

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Pill } from "@/components/ui/Pill";
+
 export type AuditRow = {
   id: string;
   actorLabel: string;
@@ -13,35 +15,48 @@ export type AuditRow = {
   timestampIso: string;
 };
 
-const ACTOR_BADGE: Record<AuditRow["actorType"], { label: string; className: string }> = {
+const ACTOR_BADGE: Record<AuditRow["actorType"], { label: string; tint: string; text: string }> = {
   USER: {
     label: "Member",
-    className:
-      "bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] text-[color:var(--primary-text)]",
+    tint: "color-mix(in srgb, var(--primary) 8%, transparent)",
+    text: "var(--primary-text)",
   },
   SYSTEM: {
     label: "System",
-    className: "bg-[var(--muted)] text-[color:var(--muted-foreground)]",
+    tint: "var(--muted)",
+    text: "var(--muted-foreground)",
   },
   ADMIN: {
     label: "Admin",
-    className:
-      "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[color:var(--destructive-text)]",
+    tint: "color-mix(in srgb, var(--destructive) 10%, transparent)",
+    text: "var(--destructive-text)",
   },
 };
 
-function actionClass(action: string): string {
+function actionTint(action: string): { tint: string; text: string } {
   if (action.includes("approve") || action.includes("restore")) {
-    return "bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[color:var(--success-text)]";
+    return {
+      tint: "color-mix(in srgb, var(--success) 10%, transparent)",
+      text: "var(--success-text)",
+    };
   }
   if (action.includes("reject") || action.includes("hidden") || action.includes("restrict")) {
-    return "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[color:var(--destructive-text)]";
+    return {
+      tint: "color-mix(in srgb, var(--destructive) 10%, transparent)",
+      text: "var(--destructive-text)",
+    };
   }
   // `break_glass.*` can no longer be written, but old rows using it remain.
   if (action.includes("erase") || action.includes("break_glass")) {
-    return "bg-[color-mix(in_srgb,var(--destructive)_18%,transparent)] text-[color:var(--destructive-text)]";
+    return {
+      tint: "color-mix(in srgb, var(--destructive) 18%, transparent)",
+      text: "var(--destructive-text)",
+    };
   }
-  return "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[color:var(--primary-text)]";
+  return {
+    tint: "color-mix(in srgb, var(--primary) 10%, transparent)",
+    text: "var(--primary-text)",
+  };
 }
 
 function humanise(action: string): string {
@@ -61,16 +76,12 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
             className="aiesec-card flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:gap-4"
           >
             <div className="flex shrink-0 items-center gap-2">
-              <span
-                className={`rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium ${actor.className}`}
-              >
-                {actor.label}
-              </span>
-              <span
-                className={`rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium ${actionClass(row.action)}`}
-              >
-                {humanise(row.action)}
-              </span>
+              <Pill label={actor.label} tint={actor.tint} text={actor.text} />
+              <Pill
+                label={humanise(row.action)}
+                tint={actionTint(row.action).tint}
+                text={actionTint(row.action).text}
+              />
             </div>
 
             <div className="min-w-0 flex-1">

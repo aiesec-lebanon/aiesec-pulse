@@ -15,15 +15,11 @@ type Props = {
 };
 
 /**
- * One element repositioned per breakpoint — rendering it twice would give
- * ReactionButton two instances whose optimistic state could diverge.
- *
- * **`sticky`, not `fixed`, on narrow viewports.** A `transform` or `filter` on
- * an ancestor makes that ancestor the containing block for fixed descendants,
- * and the shell now animates the whole content column on every route change
- * (`RouteTransition`) — a fixed bar inside it would resolve against the column
- * and vanish off the bottom of the page for the transition's duration. Sticky
- * is unaffected.
+ * One element repositioned per breakpoint, not rendered twice — two
+ * ReactionButton instances could diverge in optimistic state.
+ * `sticky`, not `fixed`: RouteTransition animates the content column via
+ * transform, which becomes the containing block for `fixed` descendants and
+ * would send a fixed bar off-screen during the transition.
  */
 export function EngagementBar({
   postId,

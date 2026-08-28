@@ -27,11 +27,8 @@ export type ResolvedQuota = {
 };
 
 /**
- * Nearest scope wins, so an entity can be given a bespoke allowance.
- *
- * An ancestor's path prefixes its descendant's, so "nearest" means "deepest".
- * A GLOBAL policy has no entity, hence depth 0 — behind every entity-scoped
- * row, as the fallback.
+ * Nearest scope wins ("nearest" = deepest path). A GLOBAL policy has no
+ * entity, so it's depth 0 — the fallback behind any entity-scoped row.
  */
 export function nearestByScope<T extends { entityId: string | null }>(
   policies: T[],
@@ -54,10 +51,8 @@ export function nearestByScope<T extends { entityId: string | null }>(
 }
 
 /**
- * `postLevel` picks between a role's two budgets: LOCAL for posts published
- * into its own MC, NETWORK for promotions to the whole network — separate
- * policy rows at the same scope, so level must be passed explicitly, never
- * inferred.
+ * `postLevel` selects LOCAL (own-MC) vs NETWORK (promotion) budget —
+ * separate rows at the same scope, so it must be passed explicitly, not inferred.
  */
 export async function resolveQuotaPolicy(
   entityId: string | null,
@@ -112,9 +107,8 @@ export async function resolveQuotaPolicy(
 }
 
 /**
- * Which classes need a budget at each level: those holding the permission that
- * spends it. A class with the permission but no policy can't publish or
- * promote at all — a missing policy reads as at-limit, not unlimited.
+ * A class with the permission but no quota policy can't publish or promote
+ * at all — a missing policy reads as at-limit, never unlimited.
  */
 export const SPENDING_PERMISSION: Record<PostLevel, PermissionKey> = {
   [PostLevel.LOCAL]: "post.publish",
@@ -186,10 +180,9 @@ export async function quotaStateFor(
 }
 
 /**
- * The pool a promotion is billed against. The NETWORK budget counts per MC,
- * not per officer, so an MC can't buy extra network reach by spreading
- * promotions across several MCVPs. A promoter above the MC tier shares an MC
- * with nobody, so their pool is themselves — the same rule, not an exception.
+ * NETWORK budget is billed per MC, not per officer — spreading promotions
+ * across MCVPs doesn't buy extra reach. Above MC tier the promoter's pool
+ * is themselves (same rule, not a special case).
  */
 export type PromotionPool = { mcPath: string } | { promoterId: string };
 
@@ -198,16 +191,10 @@ export function promotionPoolFor(promoterId: string, mc: { path: string } | null
 }
 
 /**
- * Counted on `promotionPeriod` alone — deliberately **not** also on
- * `level = NETWORK`. Including it would let demotion refund the promotion: the
- * window's spend stands whether or not it's later withdrawn, or promote/demote
- * cycling becomes an unbounded reach budget.
- *
- * `excludePostId` excludes the promoted post from its own count, so
- * re-promoting something this window already paid for is free, but a second
- * post is not. Omit it to ask what the pool has actually spent — the number a
- * budget label should show, since two posts in one MC must report the same
- * remaining budget.
+ * Counted on `promotionPeriod` alone, not `level = NETWORK` — otherwise
+ * demote/promote cycling would refund the spend and give an unbounded
+ * budget. `excludePostId` makes re-promoting the same post free; omit it
+ * to read the pool's actual spend.
  */
 export function promotionCountWhere(
   pool: PromotionPool,

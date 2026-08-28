@@ -1,4 +1,5 @@
 import { type FlagRow, FlagsTable } from "@/components/admin/FlagsTable";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { db } from "@/lib/db";
 import { FLAG_KEYS } from "@/lib/flags";
 import { requireAdmin } from "@/lib/rbac/guards";
@@ -14,9 +15,8 @@ export default async function AdminFlagsPage() {
   });
   const byKey = new Map(stored.map((row) => [row.key, row]));
 
-  // Every seeded key is shown even if the row is somehow missing, so a
-  // deploy that added a flag key but hasn't reseeded yet still shows the
-  // toggle instead of hiding it.
+  // Show every seeded key even without a row, so a flag added before a
+  // reseed still appears (off) instead of vanishing.
   const rows: FlagRow[] = FLAG_KEYS.map((key) => {
     const row = byKey.get(key);
     return {
@@ -27,23 +27,21 @@ export default async function AdminFlagsPage() {
   });
 
   return (
-    <main className="mx-auto w-full max-w-[900px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Feature flags</h1>
-      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
-        Every feature ships behind a flag, off by default. Toggling one here takes effect for all
-        users within about 15 seconds — no deploy required.
-      </p>
+    <main className="mx-auto w-full max-w-[900px] px-4 pb-24 pt-8 sm:px-6">
+      <PageHeader
+        breadcrumb={[{ label: "Admin" }, { label: "Flags" }]}
+        title="Feature flags"
+        standfirst="Every feature ships behind a flag, off by default. Toggling one here takes effect for all users within about 15 seconds — no deploy required."
+        bordered={false}
+      />
 
       <section aria-labelledby="flags-heading" className="mt-8">
-        <h2
-          id="flags-heading"
-          className="mb-3 text-[16px] font-bold text-[color:var(--foreground)]"
-        >
-          Flags
-          <span className="ml-2 text-[14px] font-normal text-[color:var(--muted-foreground)]">
-            ({rows.length})
-          </span>
-        </h2>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 id="flags-heading" className="text-[16px] font-bold text-[color:var(--foreground)]">
+            Flags
+          </h2>
+          <p className="pulse-label">{rows.length} flags</p>
+        </div>
         <FlagsTable rows={rows} />
       </section>
     </main>

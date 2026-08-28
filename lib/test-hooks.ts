@@ -4,16 +4,10 @@ import { isProductionDeployment } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 // One switch for the whole test-only surface, so "are the backdoors open?"
-// has one answer, not one per endpoint.
-//
-// This is deliberately not an authentication hook — sign-in has no test path
-// at all any more: the e2e suite authenticates by pointing the app's AIESEC
-// endpoints at a stub and running the real OAuth and GIS flow against it, so
-// nothing under `app/` or `lib/` knows the suite exists.
-//
-// Requires both PULSE_E2E_TEST_HOOKS=1 and a non-production deployment. NODE_ENV
-// is deliberately not one of them: `next start` sets it to "production" for
-// every built app, including the one under test.
+// has one answer. Not an auth hook — the e2e suite authenticates via a real
+// OAuth/GIS flow against a stub, so nothing under app/ or lib/ knows it
+// exists. Requires PULSE_E2E_TEST_HOOKS=1 AND non-production; NODE_ENV
+// doesn't count since `next start` sets it to "production" for any build.
 
 export function testHooksEnabled(): boolean {
   if (process.env.PULSE_E2E_TEST_HOOKS !== "1") return false;

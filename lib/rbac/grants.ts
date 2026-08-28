@@ -4,11 +4,9 @@ import type { Prisma } from "@/app/generated/prisma/client";
 import { GrantSource, ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 
-// RoleGrant is uniquely keyed on [userId, roleId, scopeType, scopeEntityId,
-// termLabel], and the last two are nullable. Postgres treats NULLs as distinct
-// inside a unique index, so an upsert keyed on it would insert a duplicate
-// grant on every login. Use the constraint when both are present, find-then-
-// write when either is NULL.
+// Postgres treats NULLs as distinct within a unique index, so upserting by
+// RoleGrant's key (two nullable columns) would duplicate the grant on
+// every login when either is null — hence find-then-write for that case.
 
 export type GrantSpec = {
   userId: string;

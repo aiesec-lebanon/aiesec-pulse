@@ -1,15 +1,10 @@
 import type { RoleKey } from "@/lib/rbac/catalogue";
 
-// Authority is the product of two axes, and both must agree: `office.tag`
-// says what level a position sits at, `role.name` says what the position is.
-// Each class declares the tag it requires; a disagreement denies the position
-// rather than guessing which axis to trust, since guessing is the only path
-// to a silent over-grant.
-//
-// Deliberately not `auth-template/`'s approach, which derives level via
-// `roleName.toUpperCase().includes('MC')` and ignores `office.tag` entirely —
-// matching `AI` inside `AIESEC` and `MC` inside `MCPartner`, and letting a
-// renamed EXPA position silently change someone's reach.
+// Authority requires both axes to agree: `office.tag` says the level,
+// `role.name` says the position. A mismatch denies rather than guesses —
+// guessing risks a silent over-grant. (Matching role-name substrings
+// alone, e.g. "MC" inside "MCPartner", let a renamed position silently
+// widen someone's reach.)
 
 export type OfficeTag = "AI" | "MC" | "LC";
 
@@ -76,11 +71,9 @@ export type MappingOutcome = {
 };
 
 /**
- * Trim, case-fold, collapse internal whitespace — and nothing more. Stripping
- * punctuation or folding diacritics would widen the match surface of an
- * authorisation boundary for no title AIESEC actually issues, so it is
- * deliberately not done: `MCVP-Marketing` matching `mcvp` would be a bug, not a
- * convenience.
+ * Trim, case-fold, collapse whitespace — nothing more. Stripping
+ * punctuation or diacritics would widen an authorisation match for no
+ * real title: `MCVP-Marketing` matching `mcvp` would be a bug, not help.
  */
 export function normaliseTitle(raw: string): string {
   return raw.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
@@ -112,10 +105,9 @@ function denial(
 }
 
 /**
- * Denial is per-position, never per-user — someone holding one recognised
- * and one unrecognised position keeps the recognised one. Whether zero
- * grants means they can't sign in is `lib/auth/identity.ts`'s call, not this
- * module's: staying pure keeps the cross-check testable without a database.
+ * Denial is per-position, never per-user — one unrecognised position
+ * doesn't cost a recognised one. Whether zero grants blocks sign-in is
+ * `lib/auth/identity.ts`'s call; staying pure keeps this testable DB-free.
  */
 export function derivePositionGrants(positions: readonly PositionInput[]): MappingOutcome {
   const grants: DerivedGrant[] = [];
@@ -158,11 +150,9 @@ export function derivePositionGrants(positions: readonly PositionInput[]): Mappi
     });
   }
 
-  // Two positions of the same class and scope collapse into one grant. Which
-  // survives isn't cosmetic — a global class like `member` collapses every
-  // office into one row, and the survivor's office is what the member gets
-  // attributed to — so the representative is the lowest office id, not
-  // whichever GIS listed first.
+  // Same class+scope collapses to one grant. Which survives isn't cosmetic
+  // — for a global class like `member` it decides the office the person is
+  // attributed to — so it's the lowest office id, not GIS's listing order.
   const byKey = new Map<string, DerivedGrant>();
   for (const grant of grants) {
     const key = `${grant.role}:${grant.scopeOfficeId ?? "GLOBAL"}`;
@@ -178,10 +168,9 @@ export function derivePositionGrants(positions: readonly PositionInput[]): Mappi
 const CLASS_PRECEDENCE = new Map(POSITION_CLASSES.map((c, index) => [c.role, index]));
 
 /**
- * The office a member is attributed to. Taking `current_positions[0]` made a
- * person's home entity depend on GIS response ordering; this instead reads
- * the closed list's own order — most senior class first, then lowest office
- * id — so the answer is the same on every login.
+ * The office a member is attributed to. `current_positions[0]` made this
+ * depend on GIS response ordering; this instead ranks by class seniority
+ * then lowest office id, so the answer is stable across logins.
  */
 export function choosePrimaryOfficeId(grants: readonly DerivedGrant[]): string | null {
   if (grants.length === 0) return null;

@@ -6,11 +6,9 @@ import { db } from "@/lib/db";
 import { PERMISSION_KEYS, type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { cached, cacheDelete, cacheKeys } from "@/lib/redis";
 
-// What a position class may do is the one thing administrators configure: the
-// live answer is the `RolePermission` table, and `catalogue.ts` holds only the defaults the seed
-// writes there. Reading it here rather than in `can.ts` keeps it one shared
-// cache entry — a matrix edit busts a single key and reaches every user at
-// once, which a per-user cache could never do without enumerating them.
+// Live answer is the `RolePermission` table; catalogue.ts holds only the
+// seed defaults. Read here, not in can.ts, so it's one shared cache entry
+// — a matrix edit busts a single key and reaches every user at once.
 
 export type PermissionMatrix = Record<RoleKey, PermissionKey[]>;
 
@@ -31,9 +29,8 @@ function emptyMatrix(): PermissionMatrix {
   return matrix;
 }
 
-// Memoised per request as well as cached across them: the matrix is one row
-// set shared by every viewer, and a request that runs several permission
-// checks should not pay for it more than once.
+// Memoised per request and cached across them — one row set shared by every
+// viewer, so several permission checks in one request pay for it once.
 export const permissionMatrix = cache(async (): Promise<PermissionMatrix> => {
   return cached<PermissionMatrix>(cacheKeys.permissionMatrix(), TTL_SECONDS, async () => {
     const roles = await db.role.findMany({

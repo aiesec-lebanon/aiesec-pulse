@@ -15,14 +15,8 @@ import { __testing } from "@/server-utils/gis";
 const { currentPersonSchema } = __testing;
 
 /**
- * The e2e suite signs in by answering as GIS, which only helps while the
- * fixtures still match GIS's real response shape — a drifted stub produces a
- * green suite against a service that no longer exists, worse than no suite
- * at all.
- *
- * Every fixture here is parsed through the callback's schema and run through
- * its cross-check, so a change to AIESEC's `currentPerson` shape fails in CI,
- * not production.
+ * Pins fixtures against the production schema/cross-check so a GIS
+ * response-shape drift fails in CI, not silently in production.
  */
 
 const PEOPLE = PERSONA_KEYS.filter((key) => key !== "gis_down");

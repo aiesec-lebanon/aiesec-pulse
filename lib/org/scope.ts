@@ -12,10 +12,7 @@ import { cached, cacheKeys } from "@/lib/redis";
 // as much to members.
 
 export type ScopeSet = {
-  /**
-   * The entities a LOCAL post may be aimed at for this viewer to see it: the
-   * viewer's MC subtree, plus their region. Empty when `unrestricted`.
-   */
+  /** LOCAL posts visible to this viewer: MC subtree + region. Empty when `unrestricted`. */
   entityIds: string[];
   /** The viewer sits at the global root, so every entity is already beneath them. */
   unrestricted: boolean;
@@ -37,13 +34,9 @@ const NO_SCOPE: ScopeSet = {
 type EntityRef = { id: string; kind: EntityKind; path: string };
 
 /**
- * Where a viewer's local reach starts.
- *
- * The local root is the viewer's **MC**, not their ancestor chain — the chain
- * never contained sibling LCs, so an LC member couldn't see the LC next door
- * under the same MC. Above the MC tier there's no MC to anchor to, so it
- * roots at the viewer's own entity instead — at the global root, that's the
- * whole tree.
+ * Local reach roots at the viewer's MC, not their ancestor chain — the
+ * chain missed sibling LCs under the same MC. Above MC tier, roots at the
+ * viewer's own entity instead (the whole tree, at the global root).
  */
 export function localRootOf(
   chain: readonly EntityRef[],
@@ -86,20 +79,9 @@ export async function scopeSetFor(user: {
 }
 
 /**
- * A post is visible on two independent grounds and what
- * a viewer sees is the **union** of them: the post is NETWORK, whoever
- * published it, or it is aimed at somewhere in the viewer's local scope.
- *
- * `PostAudience` narrows *within* a level — it is how a publisher aims a LOCAL
- * post inside their own MC — so audience targeting and promotion cannot be
- * played off against each other to smuggle a post network-wide. The one
- * exception is a GLOBAL audience row, matched regardless of level; only
- * `post.target_beyond` can write one, and no MC or LC class holds
- * it, so it stays an AI-level announcement rather than a route around the quota.
- *
- * Filtering in the query, not in application code, so a missing guard cannot
- * leak rows through a list endpoint. Returns a top-level `OR`: a caller that
- * has an `OR` of its own must nest both under `AND` rather than spreading this.
+ * Visible = NETWORK OR audience within viewer's scope, filtered in the
+ * query so no code path can leak rows. Returns a top-level `OR` — a
+ * caller with its own `OR` must nest both under `AND`.
  */
 export function visibilityFilter(scope: ScopeSet): Prisma.PostWhereInput {
   if (scope.unrestricted) return {};
@@ -125,10 +107,9 @@ export function defaultAudience(): Array<{ scopeType: ScopeType; entityId: strin
   return [{ scopeType: ScopeType.GLOBAL, entityId: null }];
 }
 
-// Shared by every page needing to show a publisher their effective quota tier
-// before submitting (most permissive grant wins) — currently /posts/new and
-// /posts/[slug]/edit. Server Actions resolve their own entity-scoped version
-// at write time; this is the display-only read.
+// Display-only preview of a publisher's quota tier (most permissive grant
+// wins). Server Actions resolve their own entity-scoped version at write
+// time — this isn't what's actually enforced.
 export async function publishingRoleKeyFor(userId: string): Promise<RoleKey> {
   const grants = await db.roleGrant.findMany({
     where: {
@@ -171,11 +152,9 @@ export async function resolveAudienceSize(
 }
 
 /**
- * What a publisher may choose as their post's audience. `fixed` means there's
- * no real choice — no MC or LC class may target beyond its own scope — so the
- * composer shows their entity as information, not a control. `open`
- * (post.target_beyond) gets the full picker: GLOBAL, any region, or any
- * entity via typeahead.
+ * `fixed`: no real choice — MC/LC can't target beyond their own scope, so
+ * the composer shows it as information, not a control. `open`
+ * (post.target_beyond): full picker — GLOBAL, any region, any entity.
  */
 export type AudienceOptions =
   | { kind: "fixed"; entityId: string; label: string }
@@ -204,14 +183,9 @@ export type AudienceDecision =
   | { ok: false; error: string };
 
 /**
- * The RBAC boundary itself, isolated from any DB lookup so it's unit-testable
- * under a fake clock-free, DB-free harness: given what a publisher is allowed
- * to target and what they submitted, decide accept/reject. A `fixed` result
- * only ever accepts an absent submission or one that already names their own
- * entity — anything else (a REGION/GLOBAL audience from a client that skipped
- * or tampered with the picker) is rejected outright, not silently narrowed to
- * their entity, so a bypassed client fails loudly rather than appearing to
- * succeed while quietly doing something different from what it asked for.
+ * Pure RBAC decision, DB-free for unit testing. `fixed` only accepts an
+ * absent submission or one naming the publisher's own entity — anything
+ * else (a tampered client) is rejected outright, never silently narrowed.
  */
 export function decideAudienceForSubmission(
   options: AudienceOptions,
@@ -237,10 +211,9 @@ export function decideAudienceForSubmission(
 }
 
 /**
- * The DB-touching wrapper `createPost`/`publishDraft` actually call: runs the
- * pure decision above, then — only for a REGION/ENTITY result — confirms the
- * named entity is real, active, and (for REGION) actually a region. The scope
- * boundary is never trusted from the client, only re-derived server-side.
+ * DB-touching wrapper used by createPost/publishDraft: runs the pure
+ * decision above, then verifies a REGION/ENTITY result is real, active,
+ * and the right kind. Never trusts the client's scope boundary.
  */
 export async function resolveSubmittedAudience(
   options: AudienceOptions,

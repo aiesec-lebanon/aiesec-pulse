@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { advanceRequest, executeErasureRequest } from "@/app/actions/privacy";
+import { Pill } from "@/components/ui/Pill";
 import type { ErasureChoice } from "@/lib/privacy/dsr";
 
 export type DsrRow = {
@@ -20,14 +21,20 @@ export type DsrRow = {
   notes: string | null;
 };
 
-const STATUS_PILL: Record<string, string> = {
-  RECEIVED:
-    "bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[color:var(--primary-text)]",
-  IN_PROGRESS:
-    "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[color:var(--destructive-text)]",
-  COMPLETED:
-    "bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[color:var(--success-text)]",
-  REFUSED: "bg-[var(--muted)] text-[color:var(--muted-foreground)]",
+const STATUS_TINT: Record<string, { tint: string; text: string }> = {
+  RECEIVED: {
+    tint: "color-mix(in srgb, var(--primary) 10%, transparent)",
+    text: "var(--primary-text)",
+  },
+  IN_PROGRESS: {
+    tint: "color-mix(in srgb, var(--destructive) 10%, transparent)",
+    text: "var(--destructive-text)",
+  },
+  COMPLETED: {
+    tint: "color-mix(in srgb, var(--success) 10%, transparent)",
+    text: "var(--success-text)",
+  },
+  REFUSED: { tint: "var(--muted)", text: "var(--muted-foreground)" },
 };
 
 function formatDate(iso: string): string {
@@ -48,6 +55,47 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
   const [confirmText, setConfirmText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+
+  function closeErasure() {
+    setErasureTarget(null);
+    setConfirmText("");
+    setError(null);
+  }
+
+  useEffect(() => {
+    if (!erasureTarget) return;
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    dialogRef.current?.querySelector<HTMLInputElement>("#erasure-choice-reattribute")?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        closeErasure();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), input:not([disabled]), a[href]"
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previousFocus.current?.focus();
+    };
+  }, [erasureTarget]);
 
   function advance(row: DsrRow, status: "IN_PROGRESS" | "COMPLETED" | "REFUSED") {
     setBusyId(row.id);
@@ -91,16 +139,18 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
         {rows.map((row) => (
           <article key={row.id} role="listitem" className="aiesec-card p-4">
             <div className="flex flex-wrap items-start gap-3">
-              <span
-                className={`shrink-0 rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium ${
-                  STATUS_PILL[row.status] ?? STATUS_PILL.REFUSED
-                }`}
-              >
-                {row.status.replace("_", " ").toLowerCase()}
-              </span>
-              <span className="shrink-0 rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--muted-foreground)]">
-                {row.kind.toLowerCase()}
-              </span>
+              <Pill
+                className="shrink-0"
+                label={row.status.replace("_", " ").toLowerCase()}
+                tint={(STATUS_TINT[row.status] ?? STATUS_TINT.REFUSED).tint}
+                text={(STATUS_TINT[row.status] ?? STATUS_TINT.REFUSED).text}
+              />
+              <Pill
+                className="shrink-0"
+                label={row.kind.toLowerCase()}
+                tint="var(--muted)"
+                text="var(--muted-foreground)"
+              />
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-bold text-[color:var(--foreground)]">
@@ -163,7 +213,7 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
                       setConfirmText("");
                       setError(null);
                     }}
-                    className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--destructive-text)] px-4 py-2 text-[14px] font-bold text-white"
+                    className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--destructive-text)] px-4 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
                   >
                     Execute erasure…
                   </button>
@@ -192,12 +242,17 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
       </div>
 
       {erasureTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="erasure-title"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        >
+          <div className="absolute inset-0 bg-black/50" onClick={closeErasure} aria-hidden="true" />
+
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="erasure-title"
-            className="w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--destructive)]/40 bg-[var(--card)] p-6"
+            ref={dialogRef}
+            className="relative w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--destructive)]/40 bg-[var(--card)] p-6"
           >
             <h2
               id="erasure-title"
@@ -281,7 +336,7 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               autoComplete="off"
-              className="w-full min-h-[36px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--destructive)] focus:outline-none"
+              className="w-full min-h-[36px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--destructive)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             />
 
             {error && (
@@ -293,9 +348,9 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setErasureTarget(null)}
+                onClick={closeErasure}
                 disabled={pending}
-                className="aiesec-btn-secondary min-h-[36px]"
+                className="aiesec-btn-secondary min-h-[36px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
               >
                 Cancel
               </button>
@@ -303,7 +358,7 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
                 type="button"
                 onClick={runErasure}
                 disabled={pending || confirmText !== "ERASE"}
-                className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--destructive-text)] px-4 py-2 text-[14px] font-bold text-white disabled:opacity-40"
+                className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--destructive-text)] px-4 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-40"
               >
                 {pending ? "Erasing…" : "Execute erasure"}
               </button>

@@ -10,8 +10,8 @@ const AUB = { id: "ent_aub", kind: EntityKind.LC, path: "/ai/mena/lb/aub" };
 
 describe("localRootOf", () => {
   it("roots an LC member at their MC, not at their own LC", () => {
-    // The whole point of the change: the ancestor chain never contained
-    // sibling LCs, so an LC member could not see the LC next door.
+    // The ancestor chain never contains sibling LCs, so an LC member could
+    // not see the LC next door before post level.
     expect(localRootOf([AI, MENA, LEBANON, AUB], AUB.id)).toBe(LEBANON);
   });
 
@@ -59,9 +59,8 @@ describe("visibilityFilter", () => {
   });
 
   it("drops the entity arm rather than matching an empty list", () => {
-    // `entityId: { in: [] }` matches nothing, which is the same answer — but
-    // only by accident. A viewer with no entity should fall through to the
-    // GLOBAL arm on purpose.
+    // `entityId: { in: [] }` matches nothing only by accident; falling
+    // through to the GLOBAL arm here is on purpose.
     const filter = visibilityFilter({ ...LOCAL_SCOPE, entityIds: [] });
     expect(filter.OR?.[1]).toEqual({
       audiences: { some: { OR: [{ scopeType: ScopeType.GLOBAL }] } },
@@ -75,9 +74,8 @@ describe("visibilityFilter", () => {
   });
 
   it("never narrows a NETWORK post by audience", () => {
-    // Promotion raises the ceiling. If the two arms were
-    // ANDed rather than ORed, a promoted post targeted at its own LC would stay
-    // invisible to the network it was just promoted to.
+    // Promotion raises the ceiling; ANDing the two arms instead of ORing
+    // would hide a promoted LC post from the network it was just promoted to.
     const filter = visibilityFilter(LOCAL_SCOPE);
     expect(filter.AND).toBeUndefined();
     expect(filter.OR?.[0]).not.toHaveProperty("audiences");

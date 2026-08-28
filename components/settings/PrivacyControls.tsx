@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { exportOwnData, raiseOwnRequest } from "@/app/actions/privacy";
+import { Pill } from "@/components/ui/Pill";
 
 type OpenRequest = {
   id: string;
@@ -20,8 +21,7 @@ const REQUEST_KINDS = [
   { value: "ACCESS", label: "Ask what you hold about me" },
 ] as const;
 
-// Downloads via a Blob rather than a server route, so the bundle never exists
-// as a fetchable URL.
+// Blob download, not a server route — the bundle never exists as a fetchable URL.
 export function PrivacyControls({
   openRequests,
   slaDays,
@@ -108,12 +108,17 @@ export function PrivacyControls({
         </p>
 
         {openRequests.length > 0 && (
-          <ul className="mt-4 flex flex-col gap-2">
+          <ul className="mt-4 flex flex-col">
             {openRequests.map((request) => (
-              <li key={request.id} className="aiesec-card flex flex-wrap items-center gap-3 p-3">
-                <span className="rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--muted-foreground)]">
-                  {request.kind.toLowerCase()}
-                </span>
+              <li
+                key={request.id}
+                className="flex flex-wrap items-center gap-3 border-b border-[var(--hairline)] py-3 first:pt-0"
+              >
+                <Pill
+                  label={request.kind.toLowerCase()}
+                  tint="var(--muted)"
+                  text="var(--muted-foreground)"
+                />
                 <span className="text-[14px] text-[color:var(--foreground)]">
                   {request.status.replace("_", " ").toLowerCase()}
                 </span>

@@ -7,6 +7,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { ProfileHero } from "@/components/profile/ProfileHero";
 import { ProfileIndexRail, type ProfileSection } from "@/components/profile/ProfileIndexRail";
 import { PublishedIndexRow } from "@/components/profile/PublishedIndexRow";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { getEntityPostCount, getEntityPosts, PROFILE_PAGE_SIZE } from "@/lib/feed";
@@ -27,15 +28,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: `${entity.name} · AIESEC Pulse` };
 }
 
-/**
- * An office's page.
- *
- * `entity.name` already arrives as the brand lockup (`lib/profile.ts` via
- * `entityDisplayName`) — do not prepend "AIESEC in" again here.
- *
- * `Entity` has no field for an overview paragraph or MC-president pull-quote,
- * so both are dropped rather than faked.
- */
+// entity.name already includes the brand lockup (entityDisplayName in
+// lib/profile.ts) — don't prepend "AIESEC in" again. No overview/pull-quote
+// field on Entity either, so both are omitted rather than faked.
 export default async function EntityProfilePage({
   params,
   searchParams,
@@ -106,16 +101,19 @@ export default async function EntityProfilePage({
       >
         {hasRail && (
           <aside className="pulse-sticky-rail hidden lg:block">
-            <ProfileIndexRail sections={sections} label="On this page" />
+            <ProfileIndexRail sections={sections} />
           </aside>
         )}
 
         <div className="min-w-0 max-w-[860px]">
           <Reveal as="section" y={20}>
             <div id="entity-published" className="scroll-mt-[calc(var(--rail-h)+40px)]">
-              <h2 className="mb-1 text-[24px] font-bold leading-[1.2] tracking-[-0.01em] text-[color:var(--foreground)]">
-                Published
-              </h2>
+              <DisplayTitle
+                as="h2"
+                size="sm"
+                title="Published"
+                className="mb-1 text-[color:var(--foreground)]"
+              />
             </div>
 
             {posts.length === 0 ? (
@@ -143,9 +141,12 @@ export default async function EntityProfilePage({
           {entity.children.length > 0 && (
             <Reveal as="section" y={20} className="mt-16 border-t border-[var(--hairline)] pt-10">
               <div id="entity-children" className="scroll-mt-[calc(var(--rail-h)+40px)]">
-                <h2 className="mb-4 text-[24px] font-bold leading-[1.2] tracking-[-0.01em] text-[color:var(--foreground)]">
-                  Local committees
-                </h2>
+                <DisplayTitle
+                  as="h2"
+                  size="sm"
+                  title="Local committees"
+                  className="mb-4 text-[color:var(--foreground)]"
+                />
               </div>
               <ul className="flex flex-col border-t border-[var(--hairline)]">
                 {entity.children.map((child) => (

@@ -6,13 +6,9 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Publishing activity · AIESEC Pulse" };
 
-/**
- * An officer's own publishing numbers, at `/insights`.
- *
- * The same view an admin sees at `/admin/activity`, scoped by position not
- * credential: `resolveScopeFilter` narrows it to entities where this member
- * holds `analytics.view_entity` — an MCVP sees only their MC's subtree.
- */
+// Same view as /admin/activity, scoped by position not credential:
+// resolveScopeFilter narrows it to entities where the user holds
+// analytics.view_entity (an MCVP sees only their MC's subtree).
 export default async function InsightsPage() {
   const user = await requirePermission("analytics.view_entity");
   const scope = await resolveScopeFilter(user, "analytics.view_entity");
@@ -21,6 +17,7 @@ export default async function InsightsPage() {
     <PublishingActivity
       scope={scope}
       breadcrumb={[{ href: "/feed", label: "Feed" }, { label: "Insights" }]}
+      variant="hairline"
     />
   );
 }

@@ -15,32 +15,12 @@ const SLIDE_DURATION_MS = 8000;
 const CARD_STRIDE_PX = 280;
 
 /**
- * The feed's lead complex: one shared pool of up to five posts, one in the
- * full-bleed hero at a time, the rest in the rail below. The two halves share
- * `active`, lifted here rather than owned by `HeroRotator`, because the rail
- * needs to know which post the hero is showing, to leave it out of its own
- * list.
- *
- * The rail is titled **"More top stories"**, not "Also today" — a claim the
- * data doesn't make. This is the top of the feed regardless of dates, and on
- * a quiet week those five posts can span a fortnight. A section saying
- * "today" over a card dated four days ago is the same error class as a stat
- * headline over a number nothing derives (§0.8).
- *
- * The rail overlaps the hero from `sm:` upward, as 1b does — the hero reserves
- * the room through `overlapping`, so a single-post feed does not end up with a
- * 196px gap under its headline waiting for a rail that never renders.
- *
- * Rotation used to remount the whole row (`key={active}`), re-revealing four
- * cards to change one. Now the row stays stable and `FlipList` animates the
- * reflow: the card the hero just took over leaves, a new one is dealt in, and
- * the ones between slide to their new slots.
- *
- * The pause timer preserves remaining time rather than resetting to a full
- * dwell on every hover: `remainingRef` is reduced only by elapsed time in the
- * running effect's cleanup, and reset to full duration only when `active`
- * itself changes (a fresh slide always gets a fresh dwell, however it was
- * reached).
+ * Up to 5 posts: one full-bleed hero, rest in the rail. `active` lives
+ * here (not HeroRotator) so the rail can exclude the hero's own post.
+ * "More top stories", not "Also today" — order isn't chronological.
+ * `overlapping` reserves the rail's space so a one-post feed has no gap.
+ * FlipList animates reflow instead of remounting (was re-revealing all
+ * cards). Pause timer keeps remaining dwell time across hovers.
  */
 export function FeedLead({ posts }: { posts: FeedPost[] }) {
   const { motion } = useMotion();
@@ -130,9 +110,8 @@ function SecondaryRail({ posts, revision }: { posts: FeedPost[]; revision: numbe
   function nudge(direction: -1 | 1) {
     scrollerRef.current?.scrollBy({
       left: direction * CARD_STRIDE_PX,
-      // `smooth` is the browser's own scroll animation; Reduced motion turns
-      // it off globally through `scroll-behavior: auto` on the root, so it
-      // needs no branch here.
+      // `smooth` needs no reduced-motion branch — `scroll-behavior: auto`
+      // on the root already turns it off globally.
       behavior: "smooth",
     });
   }
@@ -152,9 +131,8 @@ function SecondaryRail({ posts, revision }: { posts: FeedPost[]; revision: numbe
         )}
       </div>
 
-      {/* Focusable: a keyboard-unreachable scrollable region is a 2.1.1
-          failure that axe flags. `tabIndex` plus a name makes the strip
-          navigable and announced on entry. */}
+      {/* tabIndex + label make this scrollable strip keyboard-reachable —
+          otherwise it's a WCAG 2.1.1 failure axe flags. */}
       <div
         ref={scrollerRef}
         tabIndex={0}

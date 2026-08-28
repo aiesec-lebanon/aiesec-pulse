@@ -5,10 +5,9 @@ import { Zap, ZapOff } from "lucide-react";
 import { useMotion } from "@/components/motion/motion-context";
 
 /**
- * Icon-button toggle: `aria-pressed` reflects state, `aria-label`
- * names the action the click performs, 44px hit area, and a visually-hidden
- * `aria-live` region announcing the result — the state change is not conveyed
- * by the icon alone.
+ * `aria-pressed` reflects state, `aria-label` names the action (not the
+ * icon), and a visually-hidden `aria-live` region announces the result —
+ * the icon alone doesn't convey the change.
  */
 export function MotionToggle() {
   const { motion, setMotion } = useMotion();
@@ -53,12 +52,9 @@ export function MotionToggle() {
 }
 
 /**
- * The same preference as a menu row rather than an icon button.
- *
- * `role="menuitemcheckbox"` states what it is and what it currently is, the
- * label names the setting rather than the action, and the trailing word names
- * the value — so the control reads correctly whether it is announced or
- * looked at.
+ * Same preference, as a menu row: `role="menuitemcheckbox"` states what it
+ * is and its value, the label names the setting (not the action), and the
+ * trailing word repeats the value — correct whether announced or read.
  */
 export function MotionMenuItem({
   className,

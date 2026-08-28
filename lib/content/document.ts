@@ -1,6 +1,5 @@
-// The node allowlist is a security boundary: bodies are rendered from
-// structured JSON with no raw HTML ingestion, so a document arriving from a
-// client is untrusted input like any other.
+// The node allowlist is a security boundary — documents from the client
+// are untrusted input; there's no raw HTML ingestion, only structured JSON.
 
 export type TextNode = {
   type: "text";
@@ -31,11 +30,9 @@ const ALLOWED_BLOCKS = new Set([
 
 const ALLOWED_MARKS = new Set(["bold", "italic", "strike", "code", "link"]);
 
-// Block types whose `content` is itself BlockNode[] — as opposed to
-// paragraph/heading, whose `content` is inline TextNode[]. Shared by every
-// caller that walks the document's block structure (sanitiseBlock here,
-// collectImageMediaIds below, materializeInlineImages in app/actions/posts.ts)
-// so a text run is never misread as a nested block.
+// Block types whose `content` is BlockNode[], unlike paragraph/heading's
+// inline TextNode[]. Shared by every walker (here, collectImageMediaIds,
+// materializeInlineImages) so none misreads a text run as a nested block.
 export const CONTAINER_BLOCK_TYPES = new Set([
   "blockquote",
   "bulletList",
@@ -45,9 +42,8 @@ export const CONTAINER_BLOCK_TYPES = new Set([
 
 export const EMPTY_DOCUMENT: PulseDocument = { type: "doc", content: [] };
 
-// The mediaIds a post-detail (or any other read surface) needs to resolve
-// into URLs before handing the document to DocumentRenderer — an image block
-// with an unresolved mediaId renders as nothing (see DocumentRenderer.tsx).
+// mediaIds to resolve into URLs before DocumentRenderer — an image block
+// with an unresolved mediaId renders as nothing.
 export function collectImageMediaIds(doc: PulseDocument): string[] {
   const ids: string[] = [];
 
@@ -157,9 +153,8 @@ function sanitiseBlock(node: unknown): BlockNode | null {
     case "paragraph":
       return { type: "paragraph", content: sanitiseInline(candidate.content) };
     case "image": {
-      // Alt text is mandatory, same rule the cover-image field already
-      // enforces, so a block that omits it is dropped rather than kept
-      // without one.
+      // Alt text is mandatory (same rule as the cover-image field); a
+      // block missing it is dropped rather than kept without one.
       const attrs = candidate.attrs as { mediaId?: unknown; alt?: unknown } | undefined;
       const mediaId = typeof attrs?.mediaId === "string" ? attrs.mediaId.trim() : "";
       const alt = typeof attrs?.alt === "string" ? attrs.alt.trim() : "";
@@ -194,12 +189,9 @@ export function sanitiseDocument(input: unknown): PulseDocument {
 export type DocumentSection = { id: string; label: string };
 
 /**
- * Top-level level-2 headings, in document order, as a flat "on this page"
- * index. Ids are positional (`section-0`, `section-1`, …) rather than
- * slugified from the heading text — no collision handling, no unicode edge
- * cases needed — and DocumentRenderer stamps the identical rule
- * independently on its own render pass, so the two stay in sync by
- * construction rather than by cross-checking against each other.
+ * Flat "on this page" index from top-level H2s. Ids are positional
+ * (`section-0`, …), not slugified — DocumentRenderer stamps the identical
+ * rule independently, so the two stay in sync by construction.
  */
 export function extractSections(doc: PulseDocument): DocumentSection[] {
   const sections: DocumentSection[] = [];
@@ -230,10 +222,9 @@ export function excerptFrom(text: string, maxLength = 200): string {
   return `${(lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
 
-// Shared by every path that materialises an uploaded image into a Media row
-// (createPost, resubmitPost, saveDraft) — the signed-upload flow never learns
-// a real content-type, so this is the one place that guesses one back from
-// the storage URL's extension.
+// Shared by createPost/resubmitPost/saveDraft: the signed-upload flow
+// never learns a real content-type, so this guesses one from the URL's
+// extension.
 export function guessMimeType(url: string): string {
   const lower = url.toLowerCase();
   if (lower.endsWith(".png")) return "image/png";

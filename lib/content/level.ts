@@ -15,29 +15,11 @@ import { can } from "@/lib/rbac/can";
 import { isAiLevelRole, type RoleKey } from "@/lib/rbac/catalogue";
 
 /**
- * How far a post reaches the moment it is published. Two rules.
- *
- * 1. **An AI-level office publishes at `NETWORK` by default.** It sits above
- *    the MC tier, so there is no MC for `LOCAL` to mean anything relative to.
- *    Nothing is spent: no promoter, no note, no window — the same shape the
- *    backfill gave posts that were network-wide before promotion existed.
- *    Promotion is an editorial act on an MC's own output, and an AI office is
- *    not doing that when it simply publishes.
- *
- *    The default holds only while the audience is `GLOBAL`. `NETWORK` reaches
- *    every member whatever a post is targeted at — the visibility query tests
- *    the level first — so an AI office narrowing to a region or an entity would
- *    otherwise have its targeting silently ignored — and `post.target_beyond`
- *    belongs to exactly these three classes. Narrowing keeps the post `LOCAL`,
- *    where `PostAudience` decides who sees it: audience narrows reach and
- *    never widens it.
- *
- * 2. **Everything else starts `LOCAL`, including an MC's own posts**, and
- *    reaches the network only by promotion — which is what makes the quota an
- *    actual cap on network-feed volume. The publisher may spend that promotion
- *    at the moment of publication rather than in a second visit to the post,
- *    but it is the same promotion: same permission, same per-MC budget, same
- *    mandatory note, same audit event.
+ * Reach at publish. AI-level offices default to `NETWORK` (no MC for
+ * `LOCAL` to mean anything) — but only while audience is `GLOBAL`;
+ * narrowing keeps it `LOCAL`, no promotion spent. Everyone else starts
+ * `LOCAL` and only reaches the network via promotion (same permission,
+ * per-MC budget, note, and audit event as any other promotion).
  */
 
 /** What the composer needs to render, resolved server-side. */
@@ -48,10 +30,9 @@ export type ReachOptions =
   | { kind: "choice"; used: number; max: number; periodLabel: string };
 
 /**
- * The parts of the decision that need no transaction: which level this
- * publisher's posts are born at, and — when that is `LOCAL` — whether they may
- * raise it and against which budget. Resolved before the publish transaction
- * opens, so the only thing left inside it is the count that must not race.
+ * The transaction-free part of the decision: default level and, if `LOCAL`,
+ * whether/against which budget it may be promoted. Resolved before the
+ * publish transaction opens — only the racy count is left inside it.
  */
 export type ReachContext = {
   defaultLevel: PostLevel;
@@ -119,13 +100,10 @@ export type ReachDecision =
   | { ok: false; error: string; field: "promotionNote" | "_form" };
 
 /**
- * The half that must run inside the publish transaction: whether the requested
- * promotion can be paid for, decided against a count taken under the same
- * Serializable snapshot as the publish itself — so two officers of one MC
- * publishing at once can't both read the same "one left" and both spend it.
- *
- * Returns a refusal rather than throwing, so the caller can leave the
- * transaction without having written anything.
+ * Runs inside the publish transaction: whether the promotion can be paid
+ * for, counted under the same Serializable snapshot as the publish so two
+ * officers can't both spend the last slot. Returns a refusal rather than
+ * throwing, so the caller can exit the transaction cleanly.
  */
 export async function decideReach(
   tx: Prisma.TransactionClient,
@@ -146,10 +124,8 @@ export async function decideReach(
     };
   }
 
-  // A queued post reaches nobody, so there is nothing to promote and no reason
-  // to spend a window on it. Nothing unpublished can be promoted; a scheduled
-  // post is on its way there and keeps the choice, the same call the publishing
-  // quota already makes.
+  // A queued post reaches nobody, so nothing to promote yet. Scheduled
+  // posts still keep the choice — same call the publishing quota makes.
   if (status === PostStatus.IN_REVIEW) {
     return {
       ok: false,

@@ -23,12 +23,12 @@ export function CommentsTable({ rows }: { rows: CommentRow[] }) {
 
   return (
     <>
-      <div className="flex flex-col gap-2" role="list" aria-label="Comments">
+      <div className="flex flex-col" role="list" aria-label="Comments">
         {rows.map((row) => (
           <article
             key={row.id}
             role="listitem"
-            className="aiesec-card flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between"
+            className="flex flex-col gap-3 border-b border-[var(--hairline)] py-5 first:pt-0 sm:flex-row sm:items-start sm:justify-between"
           >
             <div className="min-w-0 flex-1">
               <p className="text-[13px] text-[color:var(--muted-foreground)]">

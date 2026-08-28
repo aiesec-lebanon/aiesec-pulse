@@ -13,19 +13,10 @@ type Props = {
 
 const DEBOUNCE_MS = 300;
 
-/**
- * Debounced because a double-tap would fire two round-trips whose responses
- * can arrive out of order.
- *
- * Press animations are one-shot on keyed elements and collapse to nothing
- * under Reduced via `--motion-scale`/`--motion-travel`; a reaction stays
- * confirmed by colour, fill, and the live region regardless, since those are
- * what carry the meaning.
- *
- * `pressKey`, not a boolean "animating" flag: remounting the animated
- * elements restarts a CSS animation, while a flag would need a timer to
- * clear it — one more thing to get wrong on unmount.
- */
+// Debounced against double-tap response races. Animations collapse under
+// reduced motion, but colour/fill/live-region still confirm the reaction.
+// pressKey remounts elements to restart the CSS animation instead of a
+// boolean flag needing a timer cleared on unmount.
 export function ReactionButton({ postId, initialReacted, initialCount }: Props) {
   const [reacted, setReacted] = useState(initialReacted);
   const [count, setCount] = useState(initialCount);
@@ -48,8 +39,7 @@ export function ReactionButton({ postId, initialReacted, initialCount }: Props) 
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
 
     const next = !reacted;
-    // The surviving closure holds the last server-consistent state — the
-    // correct revert target.
+    // Closure holds the last server-confirmed state — the correct revert target.
     const revertReacted = reacted;
     const revertCount = count;
 
@@ -125,10 +115,9 @@ export function ReactionButton({ postId, initialReacted, initialCount }: Props) 
       </span>
 
       {error && (
-        // The translate that centres the tooltip and the translate that
-        // animates it in are two different jobs, on two elements: an animation
-        // that writes `transform` would otherwise overwrite the centring and
-        // leave the tooltip hanging off to one side.
+        // Centring and entrance-animation each own a separate transform on
+        // separate elements — combined on one, the animation would
+        // overwrite the centring and leave the tooltip off to one side.
         <div className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2">
           <div
             role="alert"

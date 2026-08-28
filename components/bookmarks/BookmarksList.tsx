@@ -15,13 +15,9 @@ import { relativeTime } from "@/lib/relative-time";
 import { tokensForKind } from "@/lib/topics-shared";
 
 /**
- * Saved stories: a hairline-divided index, not a card grid — the grid it
- * replaced was wrong in three ways, all visible at once: `SecondaryPostCard`
- * was hard-coded to 260px, so every card floated inside a 380px grid cell;
- * the remove button was positioned against the *cell*, not the card, so it
- * sat in mid-air a hundred pixels from what it removed; and a three-up grid
- * of tilting plates is the feed's lead treatment, which §0.5 reserves for
- * exactly that.
+ * Saved stories render as a hairline-divided list, not a card grid —
+ * SecondaryPostCard is sized for the feed, and the tilting-plate grid
+ * layout is reserved for the feed's lead treatment.
  */
 
 /** Long enough for `.pulse-row-out` to finish before the row is unmounted. */
@@ -36,10 +32,8 @@ export function BookmarksList({ initialPosts }: { initialPosts: BookmarkedPost[]
     const removed = posts.find((p) => p.id === postId);
     if (!removed || leaving) return;
 
-    // `.pulse-row-out` animates `max-height` to zero, so it needs the row's
-    // real height to start from — a fixed default would clip a two-line
-    // headline the instant the animation began, which reads as a jump rather
-    // than a collapse.
+    // `.pulse-row-out` animates from the row's real height — a fixed default
+    // would clip a two-line headline instead of collapsing smoothly.
     const row = document.querySelector<HTMLElement>(`[data-flip-key="${postId}"]`);
     if (row) row.style.setProperty("--row-h", `${row.offsetHeight}px`);
 
@@ -47,8 +41,7 @@ export function BookmarksList({ initialPosts }: { initialPosts: BookmarkedPost[]
     const restore = () =>
       setPosts((prev) => (prev.some((p) => p.id === postId) ? prev : [...prev, removed]));
 
-    // Runs in parallel with the exit animation, so the server round-trip is
-    // never added on top of it.
+    // Runs alongside the exit animation so the round-trip isn't added on top.
     setTimeout(() => {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setLeaving(null);
@@ -57,9 +50,8 @@ export function BookmarksList({ initialPosts }: { initialPosts: BookmarkedPost[]
     startTransition(async () => {
       try {
         const result = await toggleBookmark(postId);
-        // The action toggled it back ON (a race with another tab, or a
-        // stale click after removal) — put it back rather than silently
-        // disagree with the server's record.
+        // Server toggled it back ON (race with another tab, or a stale
+        // click) — restore it instead of disagreeing with its record.
         if (result.ok && result.bookmarked) restore();
       } catch {
         restore();

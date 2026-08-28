@@ -17,13 +17,10 @@ type Props = {
 };
 
 /**
- * How far this post will travel, chosen at publication.
- *
- * - **network** — an AI-level office publishes to the network by position:
- *   nothing to decide, so this is a sentence, not a control.
- * - **choice** — the publisher may spend one of their MC's promotions now,
- *   rather than later. Same permission and budget check as post detail's
- *   promotion panel, and the note is mandatory.
+ * How far this post will travel, chosen at publication. AI-level offices
+ * publish network-wide automatically (a sentence, not a control). Others
+ * may spend an MC promotion now — same permission/budget check as the
+ * post-detail promotion panel, with a mandatory note.
  */
 export function ReachPicker({
   options,
@@ -68,7 +65,11 @@ export function ReachPicker({
         Reach
       </p>
 
-      <div role="group" aria-labelledby="reach-label" className="flex flex-wrap gap-2">
+      <div
+        role="group"
+        aria-labelledby="reach-label"
+        className="inline-flex flex-wrap gap-1 rounded-[var(--radius-md)] bg-[var(--muted)] p-1"
+      >
         <ReachOption
           label="Your MC"
           active={!networkChosen}
@@ -144,10 +145,10 @@ function ReachOption({
       disabled={disabled}
       onClick={onClick}
       className={[
-        "rounded-[3px] border px-3.5 py-2 text-[13px] font-medium tracking-[0.02em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50",
+        "rounded-[var(--radius-sm)] px-3.5 py-2 text-[13px] font-medium tracking-[0.02em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50",
         active
-          ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[color:var(--primary-text)]"
-          : "border-[var(--border)] bg-[var(--card)] text-[color:var(--muted-foreground)] hover:border-[var(--primary)]/60 hover:text-[color:var(--foreground)]",
+          ? "bg-[var(--card)] text-[color:var(--foreground)]"
+          : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
       ].join(" ")}
     >
       {label}

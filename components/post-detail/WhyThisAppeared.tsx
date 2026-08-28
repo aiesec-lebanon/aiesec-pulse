@@ -2,10 +2,8 @@ import { ChevronDown } from "lucide-react";
 
 import type { ProximityTier, ScoredPost } from "@/lib/feed";
 
-// A native <details>/<summary> needs no custom ARIA: the browser owns the
-// expanded/collapsed state.
-// A negligible term (recency on a very old post, an exact-zero affinity) is
-// left out rather than listed as "+0.00", so the list only ever shows terms
+// <details>/<summary> needs no custom ARIA — the browser owns expanded state.
+// Negligible terms (e.g. "+0.00") are left out so the list only shows terms
 // that actually moved this post.
 
 const NEGLIGIBLE = 0.01;

@@ -30,9 +30,9 @@ async function timed(fn: () => Promise<unknown>): Promise<Check> {
 export async function GET() {
   const database = await timed(() => db.$queryRaw`SELECT 1`);
 
-  // Redis is a hard dependency in production (distributed rate limiting) but
-  // optional locally, so its absence is reported as "skipped", not a failure.
-  // `assertProductionEnv` refuses the production boot.
+  // Redis is required in prod (rate limiting) but optional locally — its
+  // absence here reports as "skipped", not a failure (assertProductionEnv
+  // handles the prod case).
   const cache: Check | { ok: true; skipped: true } = has.redis()
     ? await timed(async () => {
         const client = redis();

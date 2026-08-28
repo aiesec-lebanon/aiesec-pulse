@@ -7,8 +7,7 @@ import { db } from "@/lib/db";
 import { scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 
-// Visibility is re-checked because bookmarking is a write against a
-// caller-supplied post id, same rule toggleReaction already applies.
+// Re-checked because postId is caller-supplied — same rule as toggleReaction.
 export async function toggleBookmark(
   postId: string
 ): Promise<{ ok: true; bookmarked: boolean } | { ok: false; error: string }> {

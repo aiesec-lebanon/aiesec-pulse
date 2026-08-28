@@ -36,9 +36,8 @@ describe("rolesSpendingAt", () => {
   });
 
   it("follows the live matrix rather than the seeded defaults", () => {
-    // The matrix is editable, so withdrawing post.promote has to remove the
-    // budget row too — otherwise an administrator configures an allowance for
-    // a class that can no longer spend it.
+    // The matrix is editable — withdrawing post.promote must also remove
+    // the budget row, or an admin ends up allowing spend nobody can make.
     const matrix = seededMatrix();
     const withoutPromotion = {
       ...matrix,

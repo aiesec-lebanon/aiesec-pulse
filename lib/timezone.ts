@@ -23,11 +23,9 @@ function offsetParts(instant: Date, timeZone: string) {
 }
 
 /**
- * Interprets a `datetime-local` input's value (bare wall-clock digits, no
- * zone) as a moment in `timeZone`, returning the equivalent UTC instant.
- * Needed because the picker reflects the browser's own clock, but scheduling
- * honours the author's stored `User.timezone` — "Monday 9am Beirut" must
- * mean that regardless of where the author's browser is.
+ * Interprets a `datetime-local` value (no zone) as a moment in `timeZone`.
+ * Scheduling honours the author's stored timezone, not the browser's —
+ * "Monday 9am Beirut" must mean that wherever the author is.
  */
 export function zonedWallTimeToUtc(localDateTime: string, timeZone: string): Date {
   const naiveUtc = new Date(`${localDateTime}:00.000Z`);

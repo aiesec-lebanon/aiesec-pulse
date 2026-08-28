@@ -20,9 +20,8 @@ export type AuthorProfile = {
   viewerFollowState: "none" | "following" | "muted";
 };
 
-// See M21. UI ref 4a's quote and "recognition" list have no backing field and
-// stay dropped rather than invented — this profile surfaces only what a real
-// query can answer, plus what the subject actually wrote.
+// Surfaces only what a real query can answer — the mock's quote and
+// "recognition" fields have no backing column and are dropped, not invented.
 export async function getAuthorProfile(userId: string): Promise<AuthorProfile | null> {
   const viewer = await requireSession();
   const now = new Date();
@@ -97,9 +96,8 @@ export type EntityProfile = {
   viewerFollowState: "none" | "following" | "muted";
 };
 
-// Same rule as the author profile (see above). UI ref 4b's overview
-// paragraph and MC-president pull-quote have no backing field on Entity and
-// are dropped rather than invented.
+// Same rule as the author profile: the mock's overview/pull-quote fields
+// have no backing column on Entity, so they're dropped, not invented.
 export async function getEntityProfile(entityId: string): Promise<EntityProfile | null> {
   const viewer = await requireSession();
 

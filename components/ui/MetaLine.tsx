@@ -1,8 +1,6 @@
 /**
- * The metadata rule — entity, reading time, age, count — separated by a dot.
- *
- * Falsy items are dropped, so a caller can pass an optional field without
- * composing the separators itself.
+ * Metadata rule (entity, reading time, age, count) joined by a dot.
+ * Falsy items are dropped, so callers can pass optional fields directly.
  */
 export function MetaLine({
   items,

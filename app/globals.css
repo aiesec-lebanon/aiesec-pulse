@@ -12,30 +12,19 @@
   --primary: #037ef3;
   --primary-foreground: #ffffff;
 
-  /* ── Text-safe derivatives ─────────────────────────────────────────────
-     The brand accents are specified for surfaces, and none of them reaches
-     4.5:1 at body size (16px bold is not "large text" — that starts at
-     18.66px bold):
-
-       white on --primary   #037ef3  →  3.98:1
-       --destructive        #f48924  →  2.48:1 on white
-       --success            #0cb9c1  →  2.43:1 on white
-
-     The originals still drive fills, borders, focus rings, chart series and
-     tints. These derivatives are used only where the colour *is* the text, or
-     is a fill carrying body-size white text. */
+  /* ── Text-safe derivatives ──────────────────────────────────────────────
+     Brand accents fail 4.5:1 at body-bold size on their own surfaces (16px
+     bold isn't "large text" — that starts at 18.66px). Originals still
+     drive fills/borders/rings/charts; these derivatives are for text only. */
   --primary-fill: #0063c1; /* white on this: 5.83:1 */
   --primary-text: #0063c1; /* on --card 5.91:1 · on --background 5.08:1 */
-  /* Both moved a step darker when the page ground did: on the v2 --background
-     the previous values measured 4.48:1 and 4.41:1, under the 4.5:1 floor. */
   --destructive-text: #a35400; /* on --card 5.49:1 · on --background 4.72:1 */
   --success-text: #00767c; /* on --card 5.41:1 · on --background 4.65:1 */
 
   /* Neutral / muted */
   --muted: #f5f5f5;
-  /* Three grounds have to clear 4.5:1: --card, --background/--muted, and
-     --stage, where the micro-label register sits. #5d6675 clears all three
-     — 5.83:1, 5.30:1 and 4.76:1 respectively. */
+  /* Must clear 4.5:1 on --card, --background/--muted and --stage — #5d6675
+     clears all three (5.83:1, 5.30:1, 4.76:1). */
   --muted-foreground: #5d6675;
 
   /* Structural */
@@ -53,14 +42,9 @@
   --chart-5: #9ca7ae;
 
   /* ── Topic colour ──────────────────────────────────────────────
-     One colour per TopicKind rather than per topic: the palette carries three
-     accents and the data model has three kinds, so a reader learns the code
-     once — blue is a programme, teal is a function, orange is everything the
-     network decides together. Keyed on `kind` because `Topic` has no colour
-     column, and inventing one would put a design decision in a migration.
-
-     Only blue carries white text. Orange and teal are light enough that white
-     on them fails at label size, so their fills carry ink instead. */
+     One colour per TopicKind, not per topic — blue=programme, teal=function,
+     orange=general. Keyed on `kind` since Topic has no colour column. Only
+     blue carries white text; orange/teal fail contrast at label size. */
   --topic-programme: var(--primary);
   --topic-programme-fill: var(--primary-fill);
   --topic-programme-on: #ffffff;
@@ -92,26 +76,21 @@
   --shadow-button: 0px 2px 0px 0px rgba(5, 145, 255, 0.1);
 
   /* ── Depth scale ────────────────────────────────────────────────
-     Every step carries a real y-offset and a soft blur — a zero-offset halo
-     is decoration, not depth. The ambient (first) layer grounds the plate;
-     the direct (second) layer gives it a contact edge. Dark theme re-states
-     these below rather than dropping them: on a cinematic stage the plates
-     still need to sit above the ground, so dark trades the light-mode
-     black-alpha for a deeper, tighter shadow plus a lit top edge. */
+     Each step has a real y-offset plus blur — a zero-offset halo isn't
+     depth. Dark re-states these rather than dropping them, trading the
+     light-mode black-alpha for a tighter shadow plus a lit top edge. */
   --elev-1: 0 1px 2px -1px rgb(29 33 41 / 0.06), 0 2px 8px -2px rgb(29 33 41 / 0.06);
   --elev-2: 0 2px 4px -2px rgb(29 33 41 / 0.08), 0 8px 20px -6px rgb(29 33 41 / 0.1);
   --elev-3: 0 4px 8px -4px rgb(29 33 41 / 0.1), 0 18px 40px -12px rgb(29 33 41 / 0.14);
   --elev-4: 0 8px 16px -8px rgb(29 33 41 / 0.12), 0 32px 72px -20px rgb(29 33 41 / 0.2);
 
   /* ── Stage & field ─────────────────────────────────────────────────────
-     Derived from the theme tokens, never a new hex. `--stage` is the ground
-     the lifted plates sit on: pulled a step away from `--card` so elevation
-     has something to read against, which flat `--background` on `--card`
-     never gave it. `--scrim` is the sticky-header wash. */
-  /* Deliberately NOT re-declared under .dark: this is the dark ground behind
-     an image scrim, which must stay dark in both themes. Keying it to
-     --foreground inverted it in dark mode and left white overlay text on a
-     near-white field. */
+     Derived from theme tokens, never a new hex. `--stage` sits a step away
+     from `--card` so elevation has something to read against. `--scrim` is
+     the sticky-header wash. */
+  /* --ink is NOT re-declared under .dark: it's the dark ground behind an
+     image scrim and must stay dark in both themes — keying it to
+     --foreground inverted it in dark mode, leaving white text on white. */
   --ink: #11141a;
   --stage: var(--background);
   --stage-deep: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
@@ -152,20 +131,18 @@
   --muted-foreground: #9ca7ae;
   --border: #2a3038;
 
-  /* On dark surfaces the specified accents already clear 4.5:1, while the
-     light-mode derivatives would not — so the text variants revert. The fill
-     stays dark, because the text sitting on it is white in both themes. */
+  /* Dark surfaces already clear 4.5:1 with the specified accents (the
+     light-mode derivatives would not), so text variants revert here. The
+     fill stays dark since the text on it is white in both themes. */
   --primary-text: #5aa9ff; /* on --card 6.3:1 */
   --destructive-text: #f48924; /* on --card 6.6:1 */
   --success-text: #0cb9c1; /* on --card 6.7:1 */
   --chart-4: #6b7586;
   --chart-5: #e3e5e9;
 
-  /* On the dark stage the plates are lifted by a deeper cast shadow plus a
-     lit top edge, since black-on-near-black reads as nothing. The
-     "dark drops shadows" rule assumed a flat card grid; a depth-led
-     composition needs the z-order to survive the theme switch, so dark
-     re-states elevation rather than disabling it. */
+  /* Plates are lifted by a deeper cast shadow plus a lit top edge, since
+     black-on-near-black reads as nothing — the z-order needs to survive
+     the theme switch, so dark re-states elevation rather than dropping it. */
   --elev-1: 0 1px 0 0 rgb(255 255 255 / 0.04), 0 2px 8px -2px rgb(0 0 0 / 0.5);
   --elev-2: 0 1px 0 0 rgb(255 255 255 / 0.05), 0 10px 24px -6px rgb(0 0 0 / 0.6);
   --elev-3: 0 1px 0 0 rgb(255 255 255 / 0.06), 0 22px 48px -12px rgb(0 0 0 / 0.7);
@@ -231,11 +208,10 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Element resets belong in @layer base. Unlayered, this rule beat *every*
-   Tailwind text-colour utility on an anchor — layered rules always lose to
-   unlayered ones, whatever their specificity — so `text-[color:var(--x)]` on
-   a link silently did nothing app-wide, which is how "Sign in with AIESEC"
-   rendered near-black on the blue CTA and failed axe's contrast check. */
+/* Must stay in @layer base: unlayered rules always beat layered ones
+   regardless of specificity, so this would otherwise silently beat every
+   Tailwind text-colour utility on a link (broke "Sign in with AIESEC",
+   rendering it near-black on the blue CTA). */
 @layer base {
   a {
     color: inherit;
@@ -292,12 +268,9 @@ body {
   border-color: var(--primary);
 }
 
-/* The editorial action: a flat rectangle of ink carrying a tracked mono label.
-   Where `.aiesec-btn-primary` is the brand's call to action — blue, Lato, the
-   thing you press to publish — this is the way out of a page: back to the
-   feed, search instead, read the story. No shadow, no gradient, a 3px corner.
-   It reads as a printed rule rather than as a control, which is the point on a
-   page that is otherwise all type. */
+/* The editorial "way out" of a page (back to feed, search, read on) —
+   distinct from .aiesec-btn-primary's CTA styling: no shadow, no gradient,
+   a 3px corner, reading as a printed rule rather than a button. */
 .pulse-action {
   display: inline-flex;
   align-items: center;
@@ -367,18 +340,12 @@ body {
 /* ═══════════════════════════════════════════════════════════════════════════
    MOTION SYSTEM
 
-   Motion is a first-class, on-by-default part of this interface, and the
-   preference that governs it is the member's explicit choice — a `Motion`
-   control in the header, persisted alongside the theme — not an inferred OS
-   setting. `data-motion` lands on <html> before first paint (MotionScript),
-   so nothing animates into the wrong state on load.
-
-   Reduced does not mean dead. It collapses `--motion-scale` toward zero and
-   `--motion-travel` to zero: scenes stop moving, parallax and 3-D tilt stop
-   responding, the ambient canvas holds a still frame — while colour, focus,
-   and state transitions survive, because those carry meaning rather than
-   atmosphere. Every authored duration below multiplies by `--motion-scale`,
-   so the whole system collapses from these two declarations.
+   Motion preference is an explicit, persisted member choice, not inferred
+   from OS settings — data-motion lands on <html> before first paint via
+   MotionScript. Reduced zeroes --motion-scale/--motion-travel (movement
+   stops; colour/focus/state transitions don't, since those carry meaning).
+   Every duration below multiplies by --motion-scale, so these two
+   declarations collapse the whole system.
    ══════════════════════════════════════════════════════════════════════════ */
 
 [data-motion="reduced"] {
@@ -393,20 +360,12 @@ body {
 }
 
 /* ── Reveal ────────────────────────────────────────────────────────────────
-   The single entrance grammar. Content is fully visible by default and the
-   `data-reveal` hook is only added by client JS once an observer is live, so
-   a no-JS or pre-hydration render never hides anything.
-
-   Deliberately **no opacity**. An `opacity: 0` wrapper composites its text
-   away, so every automated contrast check reads the text as invisible against
-   its ground and reports a serious violation for content that is perfectly
-   legible the moment a reader reaches it — and that is not purely a tooling
-   artefact: an opacity-hidden element is still in the accessibility tree, so a
-   screen-reader user is read content a sighted user cannot see. Travel and a
-   short blur carry the arrival instead; both leave the text's real colour
-   against its real background at every instant. `.pulse-line-mask` (below)
-   supplies the harder-edged version for headlines, clipping rather than
-   fading. */
+   Visible by default; data-reveal is added by client JS only once an
+   observer is live, so no-JS/pre-hydration never hides content. No opacity:
+   an opacity:0 wrapper stays in the a11y tree and fails contrast checks
+   even though it's invisible — travel plus a short blur carry the arrival
+   instead, keeping real colour on real background. `.pulse-line-mask`
+   below is the harder-edged, clipped version for headlines. */
 [data-reveal] {
   transform: translate3d(
       calc(var(--reveal-x, 0px) * var(--motion-travel)),
@@ -417,9 +376,9 @@ body {
   filter: blur(calc(var(--reveal-blur, 7px) * var(--motion-travel)));
   transition:
     transform calc(var(--dur-scene) * var(--motion-scale)) var(--ease-out-expo)
-      var(--reveal-delay, 0ms),
+      calc(var(--reveal-delay, 0ms) * var(--motion-scale)),
     filter calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo)
-      var(--reveal-delay, 0ms);
+      calc(var(--reveal-delay, 0ms) * var(--motion-scale));
   will-change: transform, filter;
 }
 
@@ -550,10 +509,9 @@ body {
    CINEMATIC SURFACES
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* The ground every page sits on. Two very wide, very soft brand-light fields
-   anchored off-canvas, so the stage is lit rather than flat — the whole
-   reason plates read as lifted. Fixed, so scrolling moves content through
-   the light instead of dragging the light along. */
+/* The ground every page sits on — two soft brand-light fields anchored
+   off-canvas so plates read as lifted, not flat. Fixed, so scrolling moves
+   content through the light rather than dragging the light along. */
 .pulse-stage {
   position: relative;
   background-color: var(--stage);
@@ -700,28 +658,17 @@ body {
   );
 }
 
-/* The story hero's angled photo/type split (UI ref 2a). 46% at the top edge
+/* The story hero's angled photo/type split. 46% at the top edge
    to 26% at the bottom — the dark left three-fifths carries the headline and
    spec strip, the photograph owns the right two-thirds. */
 .pulse-story-clip {
   clip-path: polygon(100% 0, 100% 100%, 26% 100%, 46% 0);
 }
 
-/* The ramp under that split, and the one thing about 2a that had to be
-   re-derived rather than copied.
-
-   `.pulse-hero-scrim` (below) is tuned against a permanently dark rotator
-   frame: fixed near-black stops, white type on top, correct in both themes
-   because the frame itself never changes. The story hero is not that. It is
-   part of the page — the reference file sets the section to `var(--bg)` and
-   the headline to `var(--fg)` — so a fixed dark scrim under a `text-white`
-   headline is right in dark mode and, in light mode, puts white type over a
-   near-white photograph. Which is exactly what it did.
-
-   Derived from `--background` instead: the photograph fades into the page it
-   sits on, the headline stays in `--foreground`, and the composition survives
-   the theme switch without a second set of overrides. The final stop is a
-   vignette at the frame's trailing edge, as in 2a. */
+/* Derived from --background, not a fixed dark scrim like .pulse-hero-scrim
+   below — the story hero sits on the page (var(--bg) section, var(--fg)
+   headline), so a fixed dark scrim would put white type over a near-white
+   photo in light mode. Final stop is a vignette at the frame's trailing edge. */
 .pulse-story-scrim {
   position: absolute;
   inset: 0;
@@ -767,11 +714,9 @@ body {
   );
 }
 
-/* The rotator's vertical index-rail progress bar: fills top-to-bottom over
-   one slide's dwell time, restarted by remounting on a fresh `key` per
-   active index rather than by resetting the animation shorthand — resetting
-   `animation` also resets play-state, so a bar paused via the shorthand
-   silently un-pauses the moment a new title is picked. */
+/* Vertical dwell-time bar, restarted by remounting on a fresh `key` per
+   slide rather than resetting the animation shorthand — that also resets
+   play-state, silently un-pausing a paused bar on the next title. */
 @keyframes pulse-progress-v {
   from {
     transform: scaleY(0);
@@ -801,10 +746,9 @@ body {
   animation-duration: var(--rotator-duration, 8000ms);
 }
 
-/* The "elsewhere in the network" ticker: a doubled track scrolling at a
-   constant rate, masked at both edges so entries don't clip mid-word. The
-   content is duplicated once in markup (not via `content:` / pseudo-element)
-   so it works with any number of real items rather than a fixed set. */
+/* Doubled track scrolling at a constant rate, edge-masked so entries don't
+   clip mid-word. Duplicated in markup, not via a pseudo-element, so it
+   works with any number of real items. */
 @keyframes pulse-ticker-scroll {
   from {
     transform: translateX(0);
@@ -841,23 +785,18 @@ body {
 }
 
 /* ── Editorial register ─────────────────────────────────────
-   Instrument Serif carries the journalism: headlines, big numerals, drop caps,
-   pull-quote attribution. Never body copy and never a UI label — it has one
-   weight and no small-size legibility to spare.
-
-   It sets small for its size, so each step is a little larger than the Lato
-   display step it replaces. Tracking stays near zero: a serif at 96px needs no
-   help, and negative tracking closes the counters that make it readable. */
+   Instrument Serif: headlines, numerals, drop caps, pull-quotes — never
+   body copy or UI labels (one weight, no small-size legibility). Sized a
+   step larger than the Lato scale it replaces; tracking stays near zero. */
 .pulse-serif {
   font-family: var(--font-serif);
   font-weight: 400;
   letter-spacing: -0.005em;
 }
 
-/* Balance is a headline setting, not a face setting, and it is kept off
-   `.pulse-serif` deliberately: `text-wrap` is a shorthand that resets
-   `text-wrap-mode`, so an unlayered `balance` silently beats a `truncate`
-   utility on the same element and a one-line value wraps to two. */
+/* Kept off .pulse-serif deliberately: text-wrap is a shorthand that resets
+   text-wrap-mode, so an unlayered `balance` would silently beat a
+   `truncate` utility on the same element. */
 .pulse-balance {
   text-wrap: balance;
 }
@@ -879,23 +818,18 @@ body {
   line-height: 1.16;
 }
 
-/* One word of the headline, set italic in the topic's colour. The accent is
-   the whole device: it names what the story is about inside the sentence
-   rather than beside it. Colour is never the only cue — the italic carries it
-   for anyone who cannot see the hue. */
+/* One headline word, italic in the topic colour — names the subject inside
+   the sentence rather than beside it. Colour is never the only cue: italic
+   carries it for anyone who can't see the hue. */
 .pulse-serif-accent {
   font-style: italic;
   color: var(--accent-color, var(--primary-text));
 }
 
 /* ── Instrument register ───────────────────────────────────
-   IBM Plex Mono for everything that measures rather than says: eyebrows,
-   timestamps, counters, stat labels, breadcrumbs. Always tracked, almost
-   always uppercase, always tabular so a column of numbers lines up.
-
-   11px rather than the 10.5/9.5 the reference file uses. Uppercase mono at
-   9.5px is legible on a designer's display and marginal on a laptop at arm's
-   length; 11px keeps the register without asking anyone to lean in. */
+   IBM Plex Mono for things that measure rather than say: eyebrows,
+   timestamps, counters, breadcrumbs. Tracked, uppercase, tabular.
+   11px, not 9.5–10.5: smaller reads marginal on a laptop at arm's length. */
 .pulse-label {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -908,14 +842,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* The register's colour, and *only* its colour, sits in `@layer components`.
-   Everything above is unlayered on purpose — that is what lets `.pulse-label`
-   beat a size or weight utility on the same element without an `!important`
-   (see `TopicPill`). Colour cannot afford the same treatment: an unlayered
-   `color` also beats every Tailwind text-colour utility, which is how
-   `pulse-label text-white/70` on a photograph silently rendered muted grey.
-   Layered, the default still applies everywhere it is wanted and a utility can
-   still override it where the ground demands. */
+/* Only colour lives in @layer components; everything else stays unlayered
+   so .pulse-label beats a size/weight utility without !important (see
+   TopicPill). Colour must be layered though — unlayered `color` also beat
+   every Tailwind text-colour utility, silently rendering `text-white/70`
+   as muted grey on a photo. */
 @layer components {
   .pulse-label {
     color: var(--muted-foreground);
@@ -1003,13 +934,6 @@ textarea,
 /* ── Legal & policy prose ──────────────────────────────────────────────────
    Scoped to app/legal/**. Line length is bounded by the 720px container
    rather than here, so the measure stays in a comfortable reading range. */
-.legal-prose h1 {
-  font-size: 34px;
-  font-weight: 900;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-  color: var(--foreground);
-}
 .legal-prose h2 {
   margin-top: 32px;
   margin-bottom: 12px;
@@ -1037,12 +961,6 @@ textarea,
   line-height: 1.6;
   color: var(--muted-foreground);
 }
-.legal-prose p.meta {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted-foreground);
-}
-
 .legal-prose p.open-question {
   border-inline-start: 2px solid var(--destructive);
   padding-inline-start: 16px;
@@ -1065,7 +983,6 @@ textarea,
 .legal-prose li {
   margin-bottom: 8px;
 }
-.legal-prose a,
 .pulse-editor-prose a {
   color: var(--primary-text);
   text-decoration: underline;
@@ -1075,7 +992,6 @@ textarea,
   transition: text-decoration-color var(--transition-standard);
 }
 
-.legal-prose a:hover,
 .pulse-editor-prose a:hover {
   text-decoration-color: currentColor;
 }
@@ -1110,11 +1026,9 @@ textarea,
 }
 
 /* ── Rich-text editor prose ────────────────────────
-   Scoped to the TipTap editable surface. ProseMirror renders bare tags into
-   the DOM directly, not through React, so per-element Tailwind classes
-   aren't reachable here — these descendant selectors are the same technique
-   .legal-prose already uses, sized to match DocumentRenderer's read-mode
-   scale exactly: what an author sees while typing is what a reader sees. */
+   ProseMirror renders bare tags directly into the DOM (not through React),
+   so Tailwind classes aren't reachable — these descendant selectors are
+   .legal-prose's technique, sized to match DocumentRenderer's read scale. */
 .pulse-editor-prose {
   min-height: 150px;
   padding: 12px 16px;
@@ -1220,37 +1134,28 @@ textarea,
 /* ═══════════════════════════════════════════════════════════════════════════
    CINEMATIC CONTINUITY  (v2.1)
 
-   One rule governs everything below: a reader is never shown a hard cut.
-   Every state change in this app — a route change, a rotating lead, a card
-   leaving a list, an image opening to full size — has an authored in-between.
-   Durations come from §8.1's three steps and every one multiplies by
-   `--motion-scale`, so Reduced collapses this whole layer from the two
-   declarations at the top of the motion system rather than from here.
+   Rule: no hard cuts — every state change (route, rotator, list exit,
+   lightbox) has an authored in-between. Durations multiply by
+   --motion-scale, so Reduced collapses this whole layer from the motion
+   system's two declarations, not from anything here.
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Descender-safe clamping ───────────────────────────────────────────────
-   `-webkit-line-clamp` measures line *boxes* and clips to the padding edge.
-   The editorial serif sets at a 0.92–0.98 line-height, which makes the final
-   line box shorter than the glyphs inside it — so a headline ending in "g",
-   "y" or "Q" had its descender sliced off mid-curve. The padding gives the
-   descender room inside the clip; the negative margin hands the space back to
-   the layout so nothing below it moves. Pair with any `line-clamp-*`. */
+/* ── Descender-safe clamping ──────────────────────────────────────────
+   line-clamp clips to the padding edge; the tight editorial line-height
+   makes the last line box shorter than its glyphs, slicing descenders
+   ("g", "y", "Q"). Padding gives them room; negative margin gives the
+   space back so layout doesn't shift. Pair with any line-clamp-*. */
 .pulse-clamp-safe {
   padding-bottom: 0.18em;
   margin-bottom: -0.18em;
 }
 
-/* ── Route transition ──────────────────────────────────────────────────────
-   The shell's content column replays this on every pathname change, so a
-   navigation reads as one continuous move rather than as a page being
-   replaced. The header, the lit ground and the scroll position sit outside
-   the animated element on purpose: a rail that re-enters with its own page
-   destroys the fixed reference a reader navigates by.
-
-   No `opacity` channel, for the reason `[data-reveal]` documents — an
-   opacity-hidden subtree is still in the accessibility tree, and every
-   contrast checker reads its text as invisible. Travel plus a short blur
-   carries the arrival with the real colours intact at every frame. */
+/* ── Route transition ─────────────────────────────────────────────────
+   Replayed on every pathname change so navigation reads as one continuous
+   move. Header, lit ground and scroll position stay outside it — a rail
+   that re-enters with its own page loses the reader's fixed reference.
+   No opacity channel (see [data-reveal]): travel plus blur carry the
+   arrival with real colours intact instead. */
 @keyframes pulse-route-in {
   from {
     transform: translate3d(0, calc(18px * var(--motion-travel)), 0)
@@ -1268,11 +1173,10 @@ textarea,
   transform-origin: top center;
 }
 
-/* ── Copy arrival ──────────────────────────────────────────────────────────
-   The generic "a line of type has just been dealt onto the page" move, used
-   by the rotators when their content changes under a container that itself
-   does not move. Staggered through `--reveal-delay`, the same custom property
-   `Reveal` uses, so a stagger reads identically wherever it is authored. */
+/* ── Copy arrival ─────────────────────────────────────────────────────
+   "A line of type just got dealt" — used by rotators when content changes
+   under a static container. Staggered via --reveal-delay, the same
+   property Reveal uses, so staggers read identically wherever authored. */
 @keyframes pulse-copy-in {
   from {
     transform: translate3d(
@@ -1302,13 +1206,10 @@ textarea,
   margin-bottom: -0.14em;
 }
 
-/* ── Rotator slide ─────────────────────────────────────────────────────────
-   All slides stay mounted and stacked; only `data-active` moves between them.
-   That is what makes the change a cross-dissolve rather than a swap: the
-   outgoing frame is still painted while the incoming one settles out of its
-   own scale and bloom. Under Reduced the duration and the travel are both
-   zero, so it degrades to an instant cut — the honest reduced behaviour for a
-   carousel, not a slower one. */
+/* ── Rotator slide ────────────────────────────────────────────────────
+   All slides stay mounted and stacked; only data-active moves — that's
+   what makes it a cross-dissolve, not a swap. Under Reduced, duration and
+   travel both zero out to an instant cut, not a slower dissolve. */
 .pulse-hero-slide {
   position: absolute;
   inset: 0;
@@ -1553,21 +1454,11 @@ textarea,
   transform: none;
 }
 
-/* ── The brand lockup ──────────────────────────────────────────────────────
-   An office is never "Lebanon". It is "AIESEC in Lebanon" — and the *place*
-   half is the one that takes the accent, set italic in the brand colour, with
-   the wordmark left in the ambient colour. The wordmark is the constant on
-   every office in the network; the place is the variable, and an accent belongs
-   on the variable.
-
-   Two corrections are baked in here, both of them attention-economy mistakes
-   rather than colour mistakes. The first version accented the *wordmark*, which
-   is backwards. It also applied the two-tone treatment everywhere an entity was
-   named — every card footer, byline, comment and metadata rule — which put a
-   saturated accent into the quietest text on every screen and pulled the eye
-   off the headline the reader came for. This is a **title** treatment: once per
-   screen, on the `h1` of a page whose subject is the office itself. Everywhere
-   else an office is named in one colour. */
+/* ── The brand lockup ──────────────────────────────────────────────────
+   The *place* half of "AIESEC in <place>" takes the italic brand accent,
+   never the wordmark — the wordmark is constant, the place is the variable.
+   Title treatment only: once per screen, on the page's own h1. Applying
+   it everywhere an entity is named pulls the eye off the real headline. */
 .pulse-brand-place {
   color: var(--accent-color, var(--primary-text));
   font-style: italic;

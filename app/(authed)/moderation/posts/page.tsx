@@ -1,10 +1,13 @@
-import Link from "next/link";
-
 import type { Prisma } from "@/app/generated/prisma/client";
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { PageSizeSelect } from "@/components/admin/PageSizeSelect";
 import { PostsSearch } from "@/components/moderation/PostsSearch";
 import { type PostRow, PostsTable } from "@/components/moderation/PostsTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Pagination } from "@/components/ui/Pagination";
+import { SpecStrip } from "@/components/ui/SpecStrip";
+import { TextTabs } from "@/components/ui/TextTabs";
 import { db } from "@/lib/db";
 import { entityDisplayName } from "@/lib/org/display";
 import { requirePermission } from "@/lib/rbac/guards";
@@ -73,7 +76,7 @@ export default async function ModerationPostsPage({
       : {}),
   };
 
-  const [total, posts] = await Promise.all([
+  const [total, posts, statusTotals] = await Promise.all([
     db.post.count({ where }),
     db.post.findMany({
       where,
@@ -93,7 +96,14 @@ export default async function ModerationPostsPage({
         publisher: { select: { name: true, kind: true } },
       },
     }),
+    db.post.groupBy({
+      by: ["status"],
+      where: postScopeWhere(scope),
+      _count: { _all: true },
+    }),
   ]);
+
+  const statusTotal = (s: PostStatus) => statusTotals.find((t) => t.status === s)?._count._all ?? 0;
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
@@ -121,74 +131,78 @@ export default async function ModerationPostsPage({
   };
 
   return (
-    <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">All posts</h1>
-      <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
-        {scope.kind === "all"
-          ? "Every post across the network."
-          : "Posts published by entities in your moderation scope."}
-      </p>
+    <main className="mx-auto w-full max-w-[1100px] px-4 pb-24 pt-8 sm:px-6">
+      <PageHeader
+        breadcrumb={[{ href: "/feed", label: "Feed" }, { label: "All posts" }]}
+        title="All posts"
+        standfirst={
+          scope.kind === "all"
+            ? "Every post across the network."
+            : "Posts published by entities in your moderation scope."
+        }
+        count={total}
+        countLabel={total === 1 ? "post" : "posts"}
+        bordered={false}
+      />
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <nav
-          aria-label="Filter by status"
-          className="flex flex-wrap gap-1 rounded-[8px] bg-[var(--muted)] p-1"
-        >
-          {STATUS_OPTIONS.map((option) => (
-            <Link
-              key={option.value}
-              href={buildHref({ status: option.value, page: 1 })}
-              aria-current={statusParam === option.value ? "page" : undefined}
-              className={[
-                "min-h-[28px] rounded-[4px] px-3 py-1 text-[14px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-                statusParam === option.value
-                  ? "bg-[var(--card)] text-[color:var(--foreground)]"
-                  : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
-              ].join(" ")}
-            >
-              {option.label}
-            </Link>
-          ))}
-        </nav>
+      <SpecStrip
+        ariaLabel="Post status totals"
+        className="mt-8"
+        cells={[
+          {
+            label: "Published",
+            value: <span className="tabular">{statusTotal(PostStatus.PUBLISHED)}</span>,
+          },
+          {
+            label: "In review",
+            value: <span className="tabular">{statusTotal(PostStatus.IN_REVIEW)}</span>,
+          },
+          {
+            label: "Rejected",
+            value: <span className="tabular">{statusTotal(PostStatus.REJECTED)}</span>,
+          },
+          {
+            label: "Hidden",
+            value: <span className="tabular">{statusTotal(PostStatus.HIDDEN)}</span>,
+          },
+        ]}
+      />
+
+      <TextTabs
+        ariaLabel="Filter by status"
+        className="mt-8"
+        items={STATUS_OPTIONS.map((option) => ({
+          href: buildHref({ status: option.value, page: 1 }),
+          label: option.label,
+          isActive: statusParam === option.value,
+        }))}
+      />
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <PostsSearch q={q} status={statusParam} limit={limit} />
         <div className="ml-auto">
           <PageSizeSelect current={limit} />
         </div>
       </div>
 
-      <p className="mt-4 text-[13px] text-[color:var(--muted-foreground)]" role="status">
-        {total} {total === 1 ? "post" : "posts"}
-      </p>
-
-      <div className="mt-3">
+      <div className="mt-6">
         {rows.length === 0 ? (
-          <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[color:var(--muted-foreground)]">
-              No posts match those filters.
-            </p>
-          </div>
+          <EmptyState
+            heading="No posts match those filters."
+            body="Try widening the status filter or clearing the search above."
+          />
         ) : (
           <PostsTable rows={rows} />
         )}
       </div>
 
-      {totalPages > 1 && (
-        <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-4">
-          {page > 1 && (
-            <Link href={buildHref({ page: page - 1 })} className="aiesec-btn-secondary">
-              Previous
-            </Link>
-          )}
-          <span className="text-[14px] tabular-nums text-[color:var(--muted-foreground)]">
-            Page {page} of {totalPages}
-          </span>
-          {page < totalPages && (
-            <Link href={buildHref({ page: page + 1 })} className="aiesec-btn-secondary">
-              Next
-            </Link>
-          )}
-        </nav>
-      )}
+      <Pagination
+        label="Posts pagination"
+        page={page}
+        hasNext={page < totalPages}
+        previousHref={page > 1 ? buildHref({ page: page - 1 }) : null}
+        nextHref={page < totalPages ? buildHref({ page: page + 1 }) : null}
+      />
     </main>
   );
 }

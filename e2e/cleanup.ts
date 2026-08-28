@@ -14,38 +14,21 @@ import { E2E_ADMIN } from "./admin-credentials";
 import { E2E_OFFICE_IDS, E2E_PERSON_ID_PREFIX, INTERIOR_OFFICES } from "./gis-stub/fixtures";
 
 /**
- * The suite writes to a real database through the real application — there is
- * no in-memory substitute, because the point of these specs is that the
- * production data path runs. What there must not be is a run that leaves its
- * writes behind: accumulated personas and posts change what the ranked feed
- * returns, what the entity typeahead matches, and how much work every query
- * does, so yesterday's run silently becomes today's fixture.
+ * Runs against the real database, so leftover rows would pollute the next
+ * run's feed/search results. Every suite row is reachable from an
+ * `e2e-`-prefixed GIS person id or a stub office — never real data — which
+ * purge() below keys off. Called from both globalSetup and globalTeardown,
+ * since a killed run skips teardown.
  *
- * So the suite owns its rows and removes them. Every account it creates carries
- * a GIS person id beginning `e2e-` (gis-stub/fixtures.ts), which no real GIS
- * person id can — those are numeric. Everything else the suite writes hangs off
- * one of those accounts or off one of the stub's offices, so that single
- * discriminator is enough to find all of it, and narrow enough that this can
- * never reach a real member's data.
- *
- * Called from both ends of the run: globalSetup clears whatever an interrupted
- * previous run left behind, globalTeardown clears this one's. Belt and braces —
- * a suite killed with Ctrl+C never reaches its teardown, and without the setup
- * sweep that debris would be permanent.
- *
- * Run as a script, never imported by Playwright: the generated Prisma client is
- * ESM and uses `import.meta`, which Playwright's CommonJS test loader cannot
- * evaluate. `e2e/cleanup-runner.ts` starts it through `npm run e2e:cleanup`,
- * which is also the way to run it by hand:
- *
- *     npm run e2e:cleanup -- clean
+ * Runs as a standalone script (not imported): the generated Prisma client
+ * needs `import.meta`, which Playwright's CommonJS loader can't evaluate.
+ * Run by hand with `npm run e2e:cleanup -- clean` (see cleanup-runner.ts).
  */
 
 type Db = PrismaClient;
 
-// The seed reaches for DIRECT_URL first and so does this: teardown is a burst of
-// DELETEs, which is the shape pgbouncer's transaction pooling is worst at, and
-// nothing here needs the pooler.
+// DIRECT_URL bypasses pgbouncer's transaction pooling, which handles a burst
+// of DELETEs badly; nothing here needs the pooler anyway.
 function connectionString(): string {
   const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
   if (!url) {
@@ -55,9 +38,8 @@ function connectionString(): string {
 }
 
 /**
- * The one hard stop. `PULSE_DEPLOYMENT` is what `lib/env.ts` and the test-hook
- * switch already key on, so "is this production?" has the same answer here as
- * everywhere else rather than a second, subtly different rule.
+ * Keys on PULSE_DEPLOYMENT, the same flag lib/env.ts uses — one definition
+ * of "is this production", not a second rule that could drift.
  */
 function refuseOnProduction(): void {
   if (process.env.PULSE_DEPLOYMENT === "production") {
@@ -78,11 +60,9 @@ async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   }
 }
 
-// Deleting rows is only half of it. The ranked-feed window is cached per entity
-// for 60s (lib/feed.ts) and flags for 15s (lib/flags.ts), so a purge that
-// ignored Redis would leave the next run reading ids that no longer exist —
-// trading one flake for another. Keys are named, never scanned: a wildcard
-// flush would take a developer's unrelated cache with it.
+// Deleted rows still linger in Redis (feed cache 60s, flags 15s), so purge
+// must also clear those keys explicitly — never a wildcard flush, which
+// would take a developer's unrelated cache with it.
 
 function redis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -115,13 +95,10 @@ export type PurgeSummary = {
 };
 
 /**
- * Order is dictated by the schema, not by preference. `Post.author`,
- * `PostVersion.editedBy`, `Report.reporter` and `Appeal.appellant` are required
- * relations, and Prisma leaves those at Restrict — so every row pointing at an
- * account has to go before the account does. Everything reached by a cascade
- * (comments, reactions, grants, sessions, notifications, …) is deliberately not
- * listed: the schema already removes it, and re-listing it here would be a
- * second copy of the cascade rules to keep in step.
+ * Order follows the schema's Restrict relations (Post.author, PostVersion.
+ * editedBy, Report.reporter, Appeal.appellant) — those rows must go before
+ * the account. Cascaded relations (comments, reactions, sessions, …) are
+ * intentionally not listed here; the schema already handles them.
  */
 async function purge(db: Db): Promise<PurgeSummary> {
   const users = await db.user.findMany({
@@ -152,11 +129,10 @@ async function purge(db: Db): Promise<PurgeSummary> {
     await db.session.findMany({ where: { userId: { in: userIds } }, select: { id: true } })
   ).map((session) => session.id);
 
-  // AuditEvent carries no foreign key — `actorId` is a bare string by design, so
-  // an actor can be deleted without erasing the record that they acted. That
-  // makes it the one table nothing cascades into, and the one that would grow
-  // without bound if this did not name it explicitly. Admin rows match on the
-  // label because `adminActor` records no id (lib/audit.ts).
+  // AuditEvent has no FK (actorId is a bare string by design, so deleting an
+  // actor doesn't erase the record) — the one table nothing cascades into,
+  // so it must be purged explicitly. Admin rows match by label; adminActor
+  // records no id (lib/audit.ts).
   const auditEvents = await db.auditEvent.deleteMany({
     where: {
       OR: [
@@ -168,9 +144,8 @@ async function purge(db: Db): Promise<PurgeSummary> {
     },
   });
 
-  // Before the posts: a version written by a suite account on some other post
-  // would otherwise block that account's deletion. Versions on the suite's own
-  // posts are taken by the cascade a moment later either way.
+  // Must run before posts: a version written on someone else's post would
+  // otherwise block this account's deletion.
   await db.postVersion.deleteMany({ where: { editedById: { in: userIds } } });
 
   const posts = await db.post.deleteMany({ where: postFilter });
@@ -179,10 +154,8 @@ async function purge(db: Db): Promise<PurgeSummary> {
   // than the row; the uploads themselves belong to the suite and go now.
   await db.media.deleteMany({ where: { ownerId: { in: userIds } } });
 
-  // Appeals point at reports, so they unwind in that order. Neither is written
-  // by any spec today — moderation is out of MVP scope — but
-  // both are Restrict relations onto User, so leaving them out would turn a
-  // future moderation spec into a confusing foreign-key failure here.
+  // Appeals reference reports, so unwind in that order. Neither is used yet
+  // (moderation is out of MVP scope), but both are Restrict relations onto User.
   await db.appeal.deleteMany({ where: { appellantId: { in: userIds } } });
   await db.report.deleteMany({
     where: { OR: [{ reporterId: { in: userIds } }, { assigneeId: { in: userIds } }] },
@@ -190,9 +163,8 @@ async function purge(db: Db): Promise<PurgeSummary> {
 
   const deletedUsers = await db.user.deleteMany({ where: { id: { in: userIds } } });
 
-  // Every entity's window, not just the suite's: a post targeted at Everyone —
-  // which the PAI audience spec does exactly — lands in all of them. Read before
-  // the entity rows go, so the list is complete.
+  // Every entity's window, not just the suite's — a post targeted at Everyone
+  // lands in all of them. Read before the entity rows are deleted.
   const feedKeys = (await db.entity.findMany({ select: { id: true } })).map((entity) =>
     cacheKeys.feedRanked(entity.id)
   );
@@ -209,10 +181,8 @@ async function purge(db: Db): Promise<PurgeSummary> {
       await db.entity.delete({ where: { id: entity.id } });
       deletedEntities++;
     } catch (error) {
-      // Something outside the suite adopted it — a developer's own account with
-      // this as its primary entity, say. Leave it and say so: it is one row, and
-      // the fixed gisOfficeId means the next run reuses it rather than adding
-      // another.
+      // Something outside the suite adopted this entity (e.g. a dev's primary
+      // entity) — leave it; the fixed gisOfficeId means next run reuses it.
       console.warn(`[e2e cleanup] Left entity ${entity.path} in place:`, error);
     }
   }
@@ -234,17 +204,12 @@ async function purge(db: Db): Promise<PurgeSummary> {
 }
 
 /**
- * Creates the stub's interior offices before the first spec runs.
- *
- * An office enters the tree when someone holding a position there signs in, and
- * `resolveOfficeEntity` parks one whose parent is not there yet directly under
- * the root. With `fullyParallel` there is no first login, so the shape of the
- * tree — and therefore every scope set computed from it — would depend on which
- * worker happened to get there first. Creating the interior nodes up front makes
- * that deterministic; the leaves still arrive through the production path.
- *
- * Idempotent on `gisOfficeId`, which is also what the purge above deletes on, so
- * setup and teardown stay symmetric.
+ * With `fullyParallel`, there's no guaranteed "first login" to build the
+ * office tree — resolveOfficeEntity would park a missing-parent office
+ * directly under root, making tree shape (and scope sets) worker-order
+ * dependent. Seeding interior nodes up front makes it deterministic; leaves
+ * still arrive via the production path. Idempotent on gisOfficeId, matching
+ * what purge() deletes on.
  */
 async function seedInteriorOffices(db: Db): Promise<void> {
   const root = await db.entity.findUnique({ where: { gisOfficeId: "1" } });
@@ -282,12 +247,10 @@ async function seedInteriorOffices(db: Db): Promise<void> {
   }
 }
 
-// Flags are seeded configuration rather than suite data, so they cannot simply
-// be deleted — but several specs turn them on and would otherwise leave them on,
-// which is a change to a shared development database that nobody asked for.
-// Rather than assume the seed's "all off", the run records what it found and
-// puts exactly that back. test-results/ is wiped by Playwright immediately
-// before globalSetup and is gitignored.
+// Flags are shared config, not suite data — can't just delete them. Specs
+// that flip a flag on would leave it on, so the run snapshots the baseline
+// and restores it rather than assuming "all off". test-results/ is wiped by
+// Playwright before globalSetup and is gitignored.
 
 const BASELINE_PATH = join(process.cwd(), "test-results", ".flag-baseline.json");
 
@@ -306,9 +269,8 @@ async function restoreFlags(db: Db): Promise<string[]> {
   try {
     baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as FlagBaseline;
   } catch {
-    // No baseline means globalSetup never ran — a single spec file pointed at an
-    // already-running server, most likely. Restoring from a guess would be worse
-    // than leaving the flags alone.
+    // No baseline means globalSetup never ran (e.g. a spec pointed at an
+    // already-running server) — better to leave flags alone than guess.
     return [];
   }
 
@@ -374,9 +336,8 @@ function isCleanupMode(value: string | undefined): value is CleanupMode {
   return (CLEANUP_MODES as readonly string[]).includes(value ?? "");
 }
 
-// Dispatches on the mode argument rather than on "am I the entry point?", which
-// is what keeps an accidental `import` of this module inert: Playwright's own
-// argv never carries one of these words.
+// Dispatches on the mode arg (not "is this the entry point") so an
+// accidental import stays inert — Playwright's argv never carries these words.
 const mode = process.argv[2];
 if (isCleanupMode(mode)) {
   const run = mode === "prepare" ? prepareDatabase : cleanUpDatabase;

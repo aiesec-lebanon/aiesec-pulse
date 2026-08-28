@@ -97,9 +97,9 @@ export function PromotionControls({
         </p>
       )}
 
-      {/* The outcome of a non-navigating action is announced, never left to a
-          colour change nobody is looking at. Both regions are always rendered,
-          so each exists before it has anything to say. */}
+      {/* Announced via aria-live, not left to a colour change alone — both
+          regions render unconditionally so each exists before it has
+          anything to say. */}
       <p role="status" aria-live="polite" className="sr-only">
         {status}
       </p>

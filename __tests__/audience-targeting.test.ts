@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 import { ScopeType } from "@/app/generated/prisma/enums";
 import { decideAudienceForSubmission } from "@/lib/org/scope";
 
-// Targeting beyond one's own scope belongs only to classes holding
-// post.target_beyond; availableAudiencesFor encodes that as "fixed" vs
-// "open". These tests exercise the boundary decideAudienceForSubmission
-// enforces for each.
+// post.target_beyond gates targeting beyond one's own entity ("open" vs
+// "fixed" from availableAudiencesFor); these tests pin that boundary.
 
 const OWN_ENTITY = "ent_lc_beirut";
 const OTHER_ENTITY = "ent_lc_cairo";

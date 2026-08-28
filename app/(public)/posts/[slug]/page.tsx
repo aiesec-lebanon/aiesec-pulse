@@ -138,12 +138,21 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   const publishedAt = post.publishedAt ?? post.createdAt;
   const cover = mediaUrl(post.cover);
   const primaryTopic = post.topics[0]?.topic ?? null;
-  // Resolved once here and threaded through every surface on the page.
   const publisherName =
     entityDisplayName(post.publisher.name, post.publisher.kind) ?? post.publisher.name;
 
   const specCells = [
-    { label: "Entity", value: <EntityName name={publisherName} /> },
+    {
+      label: "Entity",
+      value: (
+        <Link
+          href={`/entities/${post.publisherEntityId}`}
+          className="pulse-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          <EntityName name={publisherName} />
+        </Link>
+      ),
+    },
     {
       label: "Published",
       value: (
@@ -170,7 +179,6 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
         cover={cover}
         coverAlt={post.cover?.altText ?? ""}
         primaryTopic={primaryTopic}
-        entityName={publisherName}
         specCells={specCells}
       />
 

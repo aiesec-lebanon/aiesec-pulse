@@ -19,10 +19,9 @@ async function targetExists(targetType: FollowTarget, targetId: string): Promise
 export type ToggleFollowResult = { ok: true; state: FollowState } | { ok: false; error: string };
 
 /**
- * Follow and mute share one row — `muted` inverts the signal (see the
- * schema's comment on Follow). Toggling to a state the row doesn't hold
- * flips its polarity, no separate unfollow/unmute needed; toggling the
- * held state removes the row, back to no explicit preference.
+ * Follow and mute share one row (`muted` inverts it — see Follow in the
+ * schema). Toggling the held state removes the row; toggling the other
+ * flips polarity.
  */
 async function toggle(
   targetType: FollowTarget,

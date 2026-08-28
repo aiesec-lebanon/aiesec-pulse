@@ -11,11 +11,9 @@ import {
   seededPermissionsFor,
 } from "@/lib/rbac/catalogue";
 
-// The catalogue lives in the module, in the migrations and in the seed. A role
-// added to one and forgotten in another is silent, so this makes it a CI
-// failure. Permissions are created across two migrations - the first seeded the
-// original catalogue and the position-classes migration amends it - so the
-// permission assertions read both; roles and quotas are wholly redefined by the
+// The catalogue lives in the module, migrations, and seed — drift between
+// them is silent unless asserted here. Permissions are seeded across two
+// migrations (read both below); roles/quotas are fully redefined by the
 // later one and read only that.
 
 const sql = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
@@ -78,9 +76,8 @@ describe("position classes", () => {
   });
 
   it("carries no administration capability at all", () => {
-    // Administering the platform is a separate credential login, so there is
-    // no permission for an AIESEC position to hold and no matrix state that
-    // could confer one.
+    // Platform admin uses a separate credential login — no AIESEC position
+    // permission exists, and no matrix state can confer one.
     for (const retired of [
       "admin.configure_roles",
       "admin.configure",
@@ -195,9 +192,8 @@ describe("publishing tiers", () => {
 
 describe("promotion quota", () => {
   it("seeds a NETWORK budget for every class that may promote", () => {
-    // Holding `post.promote` with no NETWORK policy behind it is a class that
-    // can reach the control and never use it — resolveQuotaPolicy returns null
-    // and the action refuses. The two have to be seeded together.
+    // post.promote with no NETWORK policy behind it is a dead control —
+    // resolveQuotaPolicy returns null and the action refuses. Seed both together.
     const promoters = ROLE_KEYS.filter((role) =>
       (seededPermissionsFor(role) as readonly string[]).includes("post.promote")
     );

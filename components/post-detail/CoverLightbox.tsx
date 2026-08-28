@@ -6,27 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /**
- * The cover photograph, openable — a control that opens it at full size, crop
- * removed.
- *
- * It renders as a transparent button laid over the image rather than wrapping
- * it: the hero's cover lives inside a `clip-path` container with a parallax
- * layer inside that, and wrapping either would clip the control or hand it a
- * transform. The hint mark in the corner is the affordance — `cursor:
- * zoom-in` is invisible on touch and to anyone not already moving their
- * pointer.
- *
- * Dialog mechanics follow §9.4 exactly, the same contract `ReasonModal`
- * already meets: `role="dialog"` + `aria-modal`, focus moved to the close
- * control on open and returned to the trigger on close, Escape closes,
- * backdrop click closes, Tab is trapped, and the page behind it does not
- * scroll.
- *
- * The dialog is **portalled to `document.body`**, and has to be: the trigger
- * sits inside the hero's `clip-path` container on wide viewports and an
- * `overflow: hidden` media frame on narrow ones. Both clip their descendants,
- * `position: fixed` included, so a dialog rendered in place would open as an
- * angled sliver of itself.
+ * Transparent button overlaid on the cover image, not wrapped around it —
+ * the hero's clip-path/parallax layers would clip or transform a wrapper.
+ * Dialog follows the same a11y contract as ReasonModal (role="dialog",
+ * focus management, Escape/backdrop close, Tab trap, scroll lock), and is
+ * portalled to `document.body` since the clip-path/overflow-hidden
+ * ancestors here would clip a `position: fixed` dialog rendered in place.
  */
 export function CoverLightbox({
   src,

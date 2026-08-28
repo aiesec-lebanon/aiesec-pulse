@@ -181,7 +181,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className={[
-                  "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 text-[14px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+                  "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 text-[14px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
                   fieldErrors.title ? "border-[var(--destructive)]" : "border-[var(--border)]",
                 ].join(" ")}
               />
@@ -237,7 +237,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder="https://…"
                 className={[
-                  "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 text-[14px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-shadow focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40",
+                  "h-10 w-full rounded-[var(--radius-sm)] border bg-[var(--muted)] px-3 text-[14px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
                   linkIsInvalid ? "border-[var(--destructive)]" : "border-[var(--border)]",
                 ].join(" ")}
               />
@@ -276,7 +276,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] shadow-[0px_2px_0px_0px_rgba(5,145,255,0.1)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting && (
                   <Loader2
@@ -292,7 +292,7 @@ export function RejectedPostPanel({ post, richTextEnabled = false, topics = [] }
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={isSubmitting}
-                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2 text-[14px] font-bold text-[color:var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2 text-[14px] font-bold text-[color:var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>

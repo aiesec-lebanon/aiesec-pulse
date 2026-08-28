@@ -9,16 +9,12 @@ import { permissionMatrix } from "@/lib/rbac/matrix";
 import { cached, cacheKeys } from "@/lib/redis";
 
 // Each active grant expands to an entity subtree by Entity.path prefix match.
-// Permissions are deliberately not in the session JWT — a token carrying
-// authority can't be de-authorised — so they're resolved per request and
-// cached briefly, busted explicitly on grant change.
-//
-// A grant says which class a person holds and where; the editable matrix says
-// what that class may do. Only the first is cached per user, so an admin's
-// matrix edit lands for everyone at once instead of waiting out a TTL.
-//
-// No position resolves to platform administration — that's a separate
-// credential login (lib/auth/admin-session.ts), never a permission here.
+// Permissions aren't in the session JWT (a token can't be de-authorised) —
+// resolved per request, cached briefly, busted on grant change. Grants
+// (who/where) are cached per user; the shared matrix (what a class may do)
+// isn't, so an admin's edit lands for everyone at once. No position
+// resolves to platform admin — that's a separate credential
+// (lib/auth/admin-session.ts), never a permission here.
 
 export type ScopeRef = { type: "GLOBAL" } | { type: "REGION" | "ENTITY"; entityId: string };
 

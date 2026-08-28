@@ -22,7 +22,8 @@ export function PageHeader({
   countLabel?: string;
   actions?: React.ReactNode;
   bordered?: boolean;
-  /** A small decorative mark above the breadcrumb — the topic-colour dots a few hero-led pages open with. */
+  /** Decorative mark above the breadcrumb — the topic-colour dots some
+   *  hero-led pages open with. */
   eyebrow?: React.ReactNode;
 }) {
   return (

@@ -5,13 +5,10 @@ import { useEffect, useRef } from "react";
 import { motionEnabled } from "@/components/motion/motion-context";
 
 /**
- * The network, drawn: a point cloud distributed evenly over a sphere
- * (Fibonacci lattice), rotated in three dimensions and projected to 2-D with
- * real perspective divide, chords drawn between points close in 3-D space.
- *
- * Behaviour under the motion preference: Reduced draws exactly one frame and
- * stops. The image stays — it is composition, not decoration — but nothing
- * moves. Off-screen, the loop is cancelled outright rather than throttled.
+ * Point cloud on a Fibonacci-lattice sphere, rotated in 3-D and projected
+ * with perspective divide; chords drawn between nearby points.
+ * Reduced motion: draws one frame and stops (still composition, not gone).
+ * Off-screen: loop is cancelled outright, not throttled.
  */
 
 type Point = { x: number; y: number; z: number };
@@ -62,9 +59,8 @@ export function NetworkField({
     // a layout read on every tick.
     const primary = readToken(canvas, "--primary", "#037ef3");
     const success = readToken(canvas, "--success", "#0cb9c1");
-    // The same alphas that read as a lit constellation on the dark stage
-    // disappear on a near-white one, so ink is scaled per theme — re-read on
-    // the theme-change event rather than per frame.
+    // Alpha that reads as a lit constellation on dark disappears on light,
+    // so ink scales per theme — re-read on theme change, not per frame.
     let ink = document.documentElement.classList.contains("dark") ? 1 : 1.7;
 
     let width = 0;
@@ -109,8 +105,7 @@ export function NetworkField({
         const y2 = point.y * cosX - z1 * sinX;
         const z2 = point.y * sinX + z1 * cosX;
 
-        // Perspective divide — the reason the near face reads larger and the
-        // far face collapses toward the centre.
+        // Perspective divide: near face reads larger, far face collapses to centre.
         const perspective = 2.4 / (2.4 + z2);
         projected.push({
           x: cx + x1 * radius * perspective,
@@ -120,10 +115,9 @@ export function NetworkField({
         });
       }
 
-      // Chords first, so nodes sit on top of their own connections. The pair
-      // scan is O(n²), so both axes are rejected via a bare subtraction before
-      // any square root runs — the bounding-box test throws out most pairs
-      // and keeps this inside a frame budget.
+      // Chords drawn first so nodes sit on top of their connections. Both
+      // axes are rejected via subtraction before any sqrt runs, so the
+      // bounding-box pre-filter keeps this O(n²) scan inside a frame budget.
       const maxChord = radius * 0.3;
       const maxChordSq = maxChord * maxChord;
       context.lineWidth = 0.6;

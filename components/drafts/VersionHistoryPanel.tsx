@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { restorePostVersion } from "@/app/actions/drafts";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
+import { Pill } from "@/components/ui/Pill";
 
 export type VersionHistoryEntry = {
   version: number;
@@ -42,20 +44,21 @@ export function VersionHistoryPanel({
 
   return (
     <section className="mt-10" aria-labelledby="version-history-heading">
-      <h2
+      <DisplayTitle
         id="version-history-heading"
-        className="text-[20px] font-bold text-[color:var(--foreground)]"
-      >
-        Version history
-      </h2>
-      <div className="mt-3 flex flex-col gap-2" role="list" aria-label="Versions">
+        as="h2"
+        size="sm"
+        title="Version history"
+        className="text-[color:var(--foreground)]"
+      />
+      <div className="mt-3 flex flex-col" role="list" aria-label="Versions">
         {versions.map((entry) => {
           const isCurrent = entry.version === currentVersion;
           return (
             <article
               key={entry.version}
               role="listitem"
-              className="aiesec-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 border-b border-[var(--hairline)] py-4 first:pt-0 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0 flex-1">
                 <time
@@ -76,9 +79,12 @@ export function VersionHistoryPanel({
               </div>
 
               {isCurrent ? (
-                <span className="shrink-0 rounded-[var(--radius-md)] bg-[var(--muted)] px-2 py-0.5 text-[12px] font-medium text-[color:var(--muted-foreground)]">
-                  Current
-                </span>
+                <Pill
+                  className="shrink-0"
+                  label="Current"
+                  tint="var(--muted)"
+                  text="var(--muted-foreground)"
+                />
               ) : (
                 <button
                   type="button"

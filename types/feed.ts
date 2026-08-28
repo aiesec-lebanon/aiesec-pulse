@@ -18,7 +18,7 @@ export type FeedPost = {
     entityName: string | null;
   };
   publisherEntityId: string;
-  /** The viewer's own follow state for the publishing entity — "none" when signed out. */
+  /** Viewer's follow state for the publisher; "none" when signed out. */
   entityFollowState: FollowState;
   reactionCount: number;
   commentCount: number;

@@ -7,6 +7,7 @@ import { ProfileHero } from "@/components/profile/ProfileHero";
 import { ProfileIndexRail, type ProfileSection } from "@/components/profile/ProfileIndexRail";
 import { PublishedIndexRow } from "@/components/profile/PublishedIndexRow";
 import { RejectedPostPanel } from "@/components/profile/RejectedPostPanel";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { listActiveTopics } from "@/lib/content/topics";
@@ -20,16 +21,9 @@ import { initialsOf } from "@/lib/topics-shared";
 
 export const metadata = { title: "Your posts · AIESEC Pulse" };
 
-/**
- * The member's own page.
- *
- * Numbered, linkable rows are reserved for posts that are actually live
- * (`published`) — a rejected or waiting post isn't a destination yet, so it
- * gets a `PendingRow` instead.
- *
- * `User` has no bio, quote, or award field, so an overview paragraph,
- * pull-quote, or "recognition" cards are dropped rather than faked.
- */
+// PublishedIndexRow is only for live posts — rejected/waiting posts use
+// PendingRow since they're not a destination yet.
+// No quote/award field on User, so no pull-quote or "recognition" cards.
 export default async function ProfilePage() {
   const user = await requireSession();
   const canPublish = await can(user, "post.publish");
@@ -132,7 +126,7 @@ export default async function ProfilePage() {
       >
         {hasRail && (
           <aside className="pulse-sticky-rail hidden lg:block">
-            <ProfileIndexRail sections={sections} label="On this profile" />
+            <ProfileIndexRail sections={sections} />
           </aside>
         )}
 
@@ -256,9 +250,12 @@ function Section({
     <Reveal as="section" y={20} className="mt-14 first:mt-0">
       {/* `scroll-mt` clears the sticky rail when the index jumps here. */}
       <div id={id} className="scroll-mt-[calc(var(--rail-h)+40px)]">
-        <h2 className="mb-1 text-[24px] font-bold leading-[1.2] tracking-[-0.01em] text-[color:var(--foreground)]">
-          {heading}
-        </h2>
+        <DisplayTitle
+          as="h2"
+          size="sm"
+          title={heading}
+          className="mb-1 text-[color:var(--foreground)]"
+        />
       </div>
       <div className="mt-4 flex flex-col border-t border-[var(--hairline)]">{children}</div>
     </Reveal>

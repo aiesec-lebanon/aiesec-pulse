@@ -11,18 +11,21 @@ import { postScopeWhere, type ScopeFilter } from "@/lib/rbac/scope-filter";
 import { isoWeekShortLabel, lastNIsoWeeks } from "@/lib/week";
 
 /**
- * One implementation shared by two routes, each responsible for its own
- * authorization before calling in: `/insights` requires an AIESEC position
- * with `analytics.view_entity`, `/admin/activity` requires a platform
- * credential. This component receives an already-resolved `scope` and does
- * no authorization of its own — copied into two files, the two would drift.
+ * Shared by /insights (member analytics.view_entity) and /admin/activity
+ * (platform credential) — each authorizes before calling in; this component
+ * takes an already-resolved `scope` and does no auth of its own.
  */
 export async function PublishingActivity({
   scope,
   breadcrumb,
+  variant,
 }: {
   scope: ScopeFilter;
   breadcrumb: Array<{ href?: string; label: string }>;
+  /** `dense` = admin console's operational table (admin/activity only).
+   *  `hairline` = member-facing (/insights) — same browsing-list treatment
+   *  as /review; governance isn't administration. */
+  variant: "dense" | "hairline";
 }) {
   const scopeWhere: Prisma.PostWhereInput = postScopeWhere(scope);
   const weeks = lastNIsoWeeks(8);
@@ -119,7 +122,7 @@ export async function PublishingActivity({
             heading="Nothing published yet."
             body="Publishing activity will appear here as soon as the first post goes out."
           />
-        ) : (
+        ) : variant === "dense" ? (
           <div className="aiesec-card overflow-x-auto p-0">
             <table className="w-full text-left">
               <caption className="sr-only">Publishers ordered by number of published posts</caption>
@@ -171,6 +174,35 @@ export async function PublishingActivity({
                 })}
               </tbody>
             </table>
+          </div>
+        ) : (
+          <div className="flex flex-col" role="list" aria-label="Publishers by post count">
+            {publishers.map((row) => {
+              const author = authorById.get(row.authorId);
+              const entity = entityDisplayName(
+                author?.primaryEntity?.name,
+                author?.primaryEntity?.kind
+              );
+              return (
+                <div
+                  key={row.authorId}
+                  role="listitem"
+                  className="flex items-center justify-between gap-4 border-b border-[var(--hairline)] py-4 first:pt-0 last:border-0"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-bold text-[color:var(--foreground)]">
+                      {author?.fullName ?? "Former member"}
+                    </p>
+                    <p className="mt-0.5 truncate text-[13px] text-[color:var(--muted-foreground)]">
+                      {entity ? <EntityName name={entity} /> : "—"}
+                    </p>
+                  </div>
+                  <span className="pulse-serif pulse-serif-sm shrink-0 tabular-nums text-[color:var(--foreground)]">
+                    {row._count._all}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

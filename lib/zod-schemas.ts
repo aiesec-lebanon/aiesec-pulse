@@ -23,9 +23,8 @@ const httpUrl = z
 
 const optionalHttpUrl = z.union([httpUrl, z.literal("")]).optional();
 
-// The composer sends an ISO instant already converted to UTC client-side
-// (lib/timezone.ts) — this only re-checks shape and futurity, since every
-// client-computed value here is still validated server-side, not trusted.
+// Composer sends a UTC ISO instant (lib/timezone.ts) — this only re-checks
+// shape and futurity; nothing client-computed is trusted as-is.
 const scheduledAtField = z
   .string()
   .trim()
@@ -38,11 +37,9 @@ const scheduledAtField = z
     message: "Scheduled time must be in the future",
   });
 
-// Absent means "use the default for what this publisher may target"
-// (lib/org/scope.ts's decideAudienceForSubmission) — sent only when the
-// composer's publisher has a picker to choose from. The shape is still
-// re-validated against that publisher's real scope server-side, regardless
-// of what's sent here.
+// Absent means "use the default for this publisher"
+// (lib/org/scope.ts's decideAudienceForSubmission) — re-validated against
+// the publisher's real scope server-side regardless of what's sent here.
 const audienceField = z
   .object({
     scopeType: z.enum(["GLOBAL", "REGION", "ENTITY"]),
@@ -50,12 +47,9 @@ const audienceField = z
   })
   .optional();
 
-// Absent means "no topics" on a fresh create; an update re-sends the full
-// set each time, never merged — topics on create/publish/resubmit are
-// exactly what the picker showed, not accumulated. An id naming no real,
-// active Topic is silently dropped server-side (lib/content/topics.ts's
-// resolveValidTopicIds), not rejected — a tag carries no authorisation
-// weight.
+// Absent means "no topics"; updates re-send the full set, never merged —
+// exactly what the picker showed. An id naming no real Topic is silently
+// dropped server-side (lib/content/topics.ts's resolveValidTopicIds), not rejected.
 const topicIdsField = z.array(z.string().trim().min(1)).max(20).optional();
 
 // Sanitised here too, not just on read — a document arriving as a Server
@@ -77,12 +71,9 @@ export const createPostSchema = z
       .trim()
       .min(3, "Give your post a title of at least 3 characters")
       .max(200, "Titles are limited to 200 characters"),
-    // The phrase the author set italic in the topic's colour. Stored as a
-    // substring, not an offset pair, so editing the rest of the headline
-    // can't corrupt it; a phrase no longer present is simply ignored at
-    // render, not mis-highlighted. Not validated against the title: that
-    // would reject a legitimate edit-then-retype, and the render path is
-    // already safe on a mismatch.
+    // The highlighted phrase, stored as a substring not an offset pair —
+    // editing the headline can't corrupt it, and a vanished phrase is
+    // simply ignored at render, not mis-highlighted.
     titleAccent: z.string().trim().max(200, "Highlights are limited to 200 characters").optional(),
     bodyJson: bodyJsonField,
     summary: z.string().trim().max(400, "Summaries are limited to 400 characters").optional(),
@@ -92,9 +83,8 @@ export const createPostSchema = z
     scheduledAt: scheduledAtField,
     audience: audienceField,
     topicIds: topicIdsField,
-    // Reach, chosen at publication. Ignored unless the
-    // publisher may actually promote — the server re-derives that; this is only
-    // what the composer asked for.
+    // Reach chosen at publication; ignored unless the publisher can
+    // actually promote — the server re-derives that, this is just the ask.
     promoteToNetwork: z.boolean().optional(),
     promotionNote: z.string().trim().max(500, "Notes are limited to 500 characters").optional(),
   })
@@ -109,19 +99,14 @@ export const createPostSchema = z
     path: ["promotionNote"],
   });
 
-// z.input, not z.infer/z.output — the parameter type for createPost/
-// resubmitPost/publishDraft: what a caller sends before validation.
-// scheduledAt arrives as the composer's UTC ISO string, not yet the `Date`
-// its transform produces. Every other field here was untransformed; bodyJson
-// stayed correct under z.infer only because its input type, `unknown`, is
-// wide enough for what the composer already holds — a coincidence that
-// doesn't extend to a field whose input and output types genuinely differ.
+// z.input, not z.infer — this is what a caller sends before validation.
+// scheduledAt's input is a string, not the `Date` its transform produces;
+// z.infer would silently mistype it (bodyJson only "worked" by coincidence).
 export type CreatePostInput = z.input<typeof createPostSchema>;
 
-// Deliberately lenient: a draft must be saveable in whatever half-finished
-// state it's in — "leave and return to it" — so no minimum title/body length
-// and no cross-field alt-text-required rule. createPostSchema re-enforces
-// full completeness when the draft is actually published.
+// Deliberately lenient — a draft must be saveable half-finished ("leave
+// and return to it"), so no length minimums or alt-text-required rule.
+// createPostSchema re-enforces full completeness on publish.
 const draftBodyJsonField = z
   .unknown()
   .transform((value): PulseDocument => sanitiseDocument(value))
@@ -167,9 +152,8 @@ export const hideContentSchema = z.object({
 });
 
 /**
- * The note is mandatory: the promotion quota is always spent against a stated
- * reason, so the audit record says why the network's attention
- * was bought and not only that it was.
+ * Mandatory — the promotion quota is always spent against a stated
+ * reason, so the audit record says why, not just that it happened.
  */
 export const promotePostSchema = z.object({
   note: z

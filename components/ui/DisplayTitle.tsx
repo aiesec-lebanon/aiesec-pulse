@@ -1,10 +1,7 @@
 /**
- * A headline in the display serif, with one word — or one phrase — set italic
- * in an accent colour. A caller may pass a phrase the story is already filed
- * under; see `lib/content/accent.ts`.
- *
- * Colour is never the only cue: the accent is italic as well as coloured, so
- * the emphasis survives for a reader who cannot see the hue.
+ * Headline in the display serif with one word/phrase set italic in an
+ * accent colour (see lib/content/accent.ts). Accent is italic as well as
+ * coloured so the emphasis survives without color.
  */
 export function DisplayTitle({
   title,
@@ -13,6 +10,7 @@ export function DisplayTitle({
   size = "lg",
   as: Tag = "h1",
   className,
+  id,
 }: {
   title: string;
   /** A whole word or phrase from `title`. Ignored when it is not present. */
@@ -22,11 +20,14 @@ export function DisplayTitle({
   size?: "xl" | "lg" | "md" | "sm";
   as?: "h1" | "h2" | "h3" | "p";
   className?: string;
+  /** For `aria-labelledby` pairing with the section it titles. */
+  id?: string;
 }) {
   const parts = splitOnWord(title, accentWord);
 
   return (
     <Tag
+      id={id}
       className={["pulse-serif pulse-balance", `pulse-serif-${size}`, "break-words", className]
         .filter(Boolean)
         .join(" ")}
@@ -48,13 +49,9 @@ export function DisplayTitle({
 type Split = { before: string; accent: string | null; after: string };
 
 /**
- * Matches whole words only, so accenting "on" cannot italicise the middle of
- * "long". Returns the title unchanged when the word is absent, so a stale
- * accent stays harmless after an edit.
- *
- * A multi-word target is matched with `\s+` between its words rather than a
- * literal space, so "AIESEC  in Brazil" in a pasted headline still matches
- * "AIESEC in Brazil".
+ * Whole-word match only (accenting "on" won't hit "long"); an absent word
+ * leaves the title unchanged so a stale accent is harmless. Multi-word
+ * targets match on \s+, so double-spaced pastes still hit.
  */
 export function splitOnWord(title: string, word: string | null | undefined): Split {
   const target = word?.trim();

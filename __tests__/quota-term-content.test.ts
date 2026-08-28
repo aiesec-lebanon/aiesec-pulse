@@ -303,9 +303,8 @@ describe("slugify", () => {
 });
 
 /**
- * `returnTo` is attacker-influenced input on an unauthenticated endpoint. An
- * open redirect off the sign-in flow is a credible phishing primitive:
- * "aiesec-pulse.org signed me in and then sent me here".
+ * `returnTo` is attacker-controlled on an unauthenticated endpoint — an
+ * open redirect here is a ready-made phishing vector.
  */
 describe("safeReturnTo", () => {
   it("allows internal paths", () => {

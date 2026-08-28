@@ -14,6 +14,7 @@ export default async function AdminActivityPage() {
     <PublishingActivity
       scope={{ kind: "all" }}
       breadcrumb={[{ label: "Admin" }, { label: "Activity" }]}
+      variant="dense"
     />
   );
 }

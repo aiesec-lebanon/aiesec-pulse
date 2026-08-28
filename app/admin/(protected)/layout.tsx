@@ -4,11 +4,9 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminSession } from "@/lib/auth/admin-session";
 
 /**
- * `/admin` is the platform credential's console only — guarded by
- * `requireAdmin`/`getAdminSession`, not `requirePermission` (which needs a
- * member session this layout never has). Position-scoped surfaces belong in
- * the member-facing app instead: `/review`, `/moderation/posts`,
- * `/moderation/comments`, `/insights`.
+ * Platform-credential console only — guarded by requireAdmin/getAdminSession,
+ * not requirePermission (there's no member session here). Position-scoped
+ * surfaces live in the member app: /review, /moderation/*, /insights.
  */
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const admin = await getAdminSession();

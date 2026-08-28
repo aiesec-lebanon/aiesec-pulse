@@ -2,13 +2,9 @@ import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
 /**
- * Starts `e2e/cleanup.ts` in its own process.
- *
- * The indirection is not a preference. Playwright transpiles globalSetup and
- * globalTeardown to CommonJS, and the generated Prisma client is ESM that uses
- * `import.meta` — importing it from a Playwright hook fails at load with
- * "Cannot use 'import.meta' outside a module". Running the cleanup under `tsx`
- * sidesteps the loader entirely.
+ * Starts `e2e/cleanup.ts` in its own process — required, not stylistic:
+ * Playwright transpiles hooks to CommonJS, but the generated Prisma client
+ * is ESM using `import.meta`, which fails to load directly from a hook.
  */
 
 export type CleanupMode = "prepare" | "clean";
@@ -19,11 +15,9 @@ const REPO_ROOT = resolve(__dirname, "..");
 
 export function runCleanup(mode: CleanupMode): Promise<void> {
   return new Promise((fulfil, reject) => {
-    // `shell: true` because npm is a .cmd on Windows, and one command string
-    // rather than an argv array because passing both trips Node's DEP0190. Every
-    // word here is a literal — nothing user-supplied reaches the shell — and the
-    // working directory, which may well contain spaces, is passed as an option
-    // instead of being interpolated into the command.
+    // shell:true because npm is a .cmd on Windows; a single command string
+    // (not argv) avoids Node's DEP0190. Every word here is a literal —
+    // nothing user-supplied reaches the shell.
     const child = spawn(`npm run --silent e2e:cleanup -- ${mode}`, {
       cwd: REPO_ROOT,
       shell: true,

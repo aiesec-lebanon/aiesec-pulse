@@ -8,9 +8,8 @@ import { hashIp } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { logger, newCorrelationId } from "@/lib/logger";
 
-// The wrapped work runs first and the event is written only after it
-// succeeds, so a failed action leaves no row claiming it happened. A failed
-// audit write is logged but does not fail the action.
+// Action runs first; the audit write happens only after it succeeds, so a
+// failed action never gets an audit row. A failed write is only logged.
 
 export type AuditActor = {
   type: ActorType;

@@ -2,13 +2,8 @@ import { PostStatus } from "@/app/generated/prisma/enums";
 import { Pill } from "@/components/ui/Pill";
 
 /**
- * The status pill, as one component instead of two maps.
- *
- * `PostsTable`'s `STATUS_PILL` and the profile page's `STATUS_BADGE` were
- * independent copies that had already drifted — the profile map added borders
- * and mixed its tints into `--card` rather than `transparent`, so the same
- * post status rendered differently depending on which page you were on. The
- * shape itself lives in `Pill`, shared with `LevelBadge`.
+ * One shared component — PostsTable and the profile page used to keep
+ * independent status-pill maps that had already drifted visually.
  */
 
 type PillTone = { label: string; tint: string; text: string };

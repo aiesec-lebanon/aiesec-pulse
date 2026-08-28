@@ -49,9 +49,8 @@ export default async function RootLayout({
     <html
       lang="en"
       dir="ltr"
-      // Server default; BootScript overrides it before first paint when the
-      // member has chosen Reduced. `suppressHydrationWarning` above covers the
-      // divergence, exactly as it already does for the theme class.
+      // Server default; BootScript overrides it pre-paint for a Reduced
+      // motion choice — suppressHydrationWarning above covers that divergence.
       data-motion="full"
       className={`${lato.variable} ${instrumentSerif.variable} ${plexMono.variable} h-full antialiased`}
       suppressHydrationWarning
@@ -64,7 +63,7 @@ export default async function RootLayout({
         */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-[var(--radius-sm)] focus:bg-[var(--primary)] focus:px-4 focus:py-2 focus:text-[15px] focus:font-bold focus:text-[color:var(--primary-foreground)]"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-[var(--radius-sm)] focus:bg-[var(--primary-fill)] focus:px-4 focus:py-2 focus:text-[15px] focus:font-bold focus:text-[color:var(--primary-foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         >
           Skip to content
         </a>

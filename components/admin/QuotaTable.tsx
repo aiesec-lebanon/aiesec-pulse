@@ -21,11 +21,8 @@ export type QuotaGroup = { level: PostLevel; label: string; rows: QuotaRow[] };
 
 const PERIODS = Object.keys(PERIOD_NAMES) as QuotaPeriod[];
 
-/**
- * Every edit here is explicit rather than auto-saved on change: a half-typed
- * budget is a different budget, and saving on each keystroke would write
- * three wrong policies before the right one.
- */
+/** Edits save explicitly, never on keystroke — a half-typed budget would
+ *  otherwise get written as a real policy before the user finishes typing. */
 export function QuotaTable({
   caption,
   groups,

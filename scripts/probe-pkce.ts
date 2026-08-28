@@ -2,10 +2,8 @@ import "dotenv/config";
 
 import { createHash, randomBytes } from "node:crypto";
 
-// A script rather than runtime detection: authorization codes are single-use,
-// so a rejected speculative challenge breaks every login. The probe is
-// partial — a server ignoring an unknown parameter looks identical to one
-// honouring it.
+// Manual script, not runtime detection: codes are single-use, so a bad
+// probe burns a real login. Same response either way is inconclusive.
 
 function requireEnv(name: string): string {
   const value = process.env[name];

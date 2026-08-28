@@ -21,24 +21,10 @@ import type { FeedPost } from "@/types/feed";
 const TITLE_ID = "hero-rotator-title";
 
 /**
- * The full-bleed rotating lead — 1b in the reference file. Purely a
- * controlled view: `FeedLead` (`components/feed/FeedLead.tsx`) owns
- * `active`/`running` and the timer, because the sibling "more top stories"
- * rail needs that same `active` index to leave the hero's post out of its own
- * list — two components reading one piece of state, not two copies of it.
- *
- * **Every slide stays mounted.** That's what makes a change of lead a
- * cross-dissolve rather than a swap: the outgoing photograph stays on screen
- * and painted while the incoming one settles out of its own scale and bloom
- * (`.pulse-hero-slide`), a projector wipe crosses the frame once, and the
- * copy deals back in on a stagger. Rendering only the active slide — this
- * component's old behaviour — makes all of that impossible: there's nothing
- * to dissolve *from*.
- *
- * Height is aspect-ratio-driven up to a capped `max-h`, so a very tall (or
- * ultrawide) viewport never turns the hero into something a reader has to
- * scroll past. The extra bottom padding at `lg:` is room for the "more top
- * stories" rail to overlap into.
+ * Controlled: `active`/`running`/timer live in FeedLead so the rail can
+ * share the same index. Every slide stays mounted so a change
+ * cross-dissolves instead of popping. Aspect-ratio height with a capped
+ * max-h avoids forcing scroll; `lg:` padding reserves room for the rail.
  */
 export function HeroRotator({
   slides,
@@ -52,9 +38,9 @@ export function HeroRotator({
   slides: FeedPost[];
   active: number;
   running: boolean;
-  /** Whether the secondary rail overlaps the frame's bottom edge — the only
-   *  reason to reserve room for it. A one-post feed renders no rail, and must
-   *  not be left with a 196px void under its headline. */
+  /** Whether the secondary rail overlaps the hero's bottom edge — reserves
+   *  room for it so a one-post feed (no rail) isn't left with a blank void
+   *  under its headline. */
   overlapping: boolean;
   onPick: (index: number) => void;
   onPause: () => void;
@@ -64,10 +50,9 @@ export function HeroRotator({
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const rotatable = slides.length > 1;
 
-  // Focus follows the active tick, but only when the change originates inside
-  // this component (a click or arrow key) — not on every `active` change,
-  // since the timer's own auto-advance would otherwise steal focus from
-  // wherever the reader actually is.
+  // Focus follows the tick only for clicks/arrow keys inside this component,
+  // not every `active` change — otherwise the auto-advance timer would
+  // steal focus from wherever the reader actually is.
   function pick(index: number) {
     onPick(index);
     tabRefs.current[index]?.focus();
@@ -93,10 +78,9 @@ export function HeroRotator({
   const slide = slides[active];
   const href = `/posts/${slide.slug}`;
   const primaryTopic = slide.topics[0];
-  // The author's own accent phrase. `splitOnWord`, not `DisplayTitle`,
-  // because this headline carries its own size and clamp, and because the
-  // size classes are unlayered — a `text-[clamp(...)]` utility on
-  // `DisplayTitle` would silently lose to `.pulse-serif-xl`.
+  // splitOnWord, not DisplayTitle — this headline sets its own size/clamp,
+  // and DisplayTitle's text-[clamp(...)] utility would silently lose to
+  // .pulse-serif-xl's unlayered class.
   const headline = splitOnWord(slide.title, slide.titleAccent);
   const accentColor = primaryTopic ? tokensForKind(primaryTopic.kind).text : undefined;
 
@@ -125,8 +109,7 @@ export function HeroRotator({
                 src={s.mediaUrl}
                 alt={i === active ? (s.mediaAlt ?? "") : ""}
                 fill
-                // Only the first lead blocks the paint. The other four are
-                // ordinary lazy images that have eight seconds to arrive.
+                // Only the first slide blocks paint — the rest lazy-load with 8s to spare.
                 priority={i === 0}
                 className="object-cover"
                 sizes="100vw"
@@ -136,11 +119,10 @@ export function HeroRotator({
                 aria-hidden
                 className="absolute inset-0 bg-[color-mix(in_srgb,var(--ink)_92%,var(--primary))]"
               >
-                {/* The canvas only runs for the slide on screen — five live
-                    particle fields behind one visible frame is four wasted
-                    rAF loops. The plate underneath is identical for every
-                    coverless slide, so the dissolve still has something to
-                    dissolve between. */}
+                {/* Canvas runs only for the visible slide — 5 live particle
+                    fields would be 4 wasted rAF loops. The plate below is
+                    identical across coverless slides, so there's still
+                    something to dissolve between. */}
                 {i === active && (
                   <span className="absolute inset-0 opacity-90">
                     <NetworkField density={200} intensity={1} />
@@ -157,15 +139,13 @@ export function HeroRotator({
         aria-hidden
         className="pointer-events-none absolute inset-x-[-10%] bottom-[-30%] z-[2] h-[60%] rounded-full bg-[var(--glow-primary)] blur-3xl"
       />
-      {/* The projector wipe, once per change of lead. Keyed on `active` so it
-          remounts and replays rather than looping. */}
+      {/* Wipe plays once per lead change — keyed on `active` so it remounts instead of looping. */}
       {rotatable && <span key={`wipe-${active}`} aria-hidden className="pulse-wipe z-[3]" />}
 
-      {/* The frame itself is the link — a direct child of the section, not a
-          `::after` on the headline, because `#hero-rotator-panel` is
-          absolutely positioned and would bound the overlay to the bottom
-          strip, leaving the photograph — what a reader actually aims at —
-          dead to the click. */}
+      {/* Link is a direct child of the section, not an ::after on the
+          headline — the panel is absolutely positioned and would bound the
+          overlay to the bottom strip, leaving the photo (what readers
+          actually click) dead. */}
       <Link
         href={href}
         aria-labelledby={TITLE_ID}
@@ -227,11 +207,9 @@ export function HeroRotator({
 
           <span aria-hidden className="w-px flex-1 bg-gradient-to-b from-white/25 to-white/5" />
 
-          {/* Always mounted (motion full, more than one slide) — only
-              `animation-play-state` toggles on hover/focus. The earlier
-              version conditionally rendered this on `running`, unmounting and
-              remounting it on every pause and restarting the fill from 0%
-              instead of freezing it in place. */}
+          {/* Always mounted — only animation-play-state toggles on hover/focus.
+              Conditionally rendering on `running` used to restart the fill
+              from 0% on every pause instead of freezing it. */}
           <span aria-hidden className="relative h-16 w-[2px] overflow-hidden bg-white/15">
             {motion === "full" && (
               <span
@@ -249,12 +227,9 @@ export function HeroRotator({
         </div>
       )}
 
-      {/* `pointer-events-none` so the frame link underneath keeps the whole
-          area clickable; the one genuinely interactive child opts back in.
-          The copy sits in the shell's own content column, so the headline
-          lines up with the header wordmark and every page below it — it used
-          to carry its own 112px padding, putting it 250px out of step with
-          everything else on a wide screen. */}
+      {/* pointer-events-none keeps the frame link clickable; interactive
+          children opt back in individually. Copy uses the shell's content
+          column so the headline lines up with the header wordmark elsewhere. */}
       <div
         id="hero-rotator-panel"
         role="tabpanel"

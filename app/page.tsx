@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 
-// Pulse has no unauthenticated surface: every route is behind `requireSession()`,
-// so `/` forwards to the feed, whose own guard sends a signed-out visitor to
-// `/login` with a `returnTo`. A public landing page would be new product
-// scope, not a routing detail — and isn't in any current phase plan.
+// No unauthenticated surface: every route sits behind requireSession(), so
+// `/` just forwards to the feed (whose guard sends signed-out visitors to
+// `/login`). A public landing page would be new product scope, not routing.
 export default function HomePage() {
   redirect("/feed");
 }

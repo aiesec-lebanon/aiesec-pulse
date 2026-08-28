@@ -9,9 +9,9 @@ import { depthOf, joinPath, pathSegment } from "@/lib/org/path";
 import { cacheDelete, cacheKeys } from "@/lib/redis";
 import type { GisOffice } from "@/server-utils/gis";
 
-// Pulse mirrors GIS and never masters it: every write is an upsert keyed on
-// gisOfficeId, and nothing is hard-deleted — an office vanishing from a page
-// is far more likely to be a paging artefact than a closed entity.
+// Pulse mirrors GIS, never masters it — upserts keyed on gisOfficeId, and
+// never hard-deletes (a missing office is more likely a paging artefact
+// than a real closure).
 
 export const ROOT_ENTITY_ID = "ent_root_ai";
 
@@ -210,11 +210,9 @@ export async function subtreeEntityIds(entityId: string): Promise<string[]> {
 export type EntitySearchResult = { id: string; name: string; tag: string | null; path: string };
 
 /**
- * Name lookahead for the composer's audience typeahead
- * (components/composer/AudiencePicker.tsx). `contains`/`insensitive` compiles
- * to a leading-wildcard ILIKE, which the `Entity_name_trgm_idx` GIN index can
- * serve. A 2-character floor keeps a single keystroke from scanning the whole
- * table.
+ * Audience typeahead lookahead. `contains`/`insensitive` compiles to a
+ * leading-wildcard ILIKE served by the `Entity_name_trgm_idx` GIN index.
+ * 2-char floor stops a single keystroke from scanning the whole table.
  */
 export async function searchEntitiesByName(
   query: string,
@@ -227,9 +225,8 @@ export async function searchEntitiesByName(
     where: {
       isActive: true,
       kind: { in: kinds },
-      // Matched against the stored place name, not the brand lockup: typing
-      // "leb" must find "Lebanon" whichever half of "AIESEC in Lebanon" the
-      // author had in mind.
+      // Matches the stored place name, not the brand lockup — "leb" must
+      // find "Lebanon" either way.
       name: { contains: trimmed, mode: "insensitive" },
     },
     orderBy: { name: "asc" },
@@ -246,12 +243,9 @@ export async function searchEntitiesByName(
 }
 
 /**
- * The MC a post or a person belongs to — the nearest MC on the chain, or the
- * entity itself when it is one. Null above the MC tier, which is a real answer
- * rather than a failure: an AI-level office belongs to no MC.
- *
- * Resolved by `kind` rather than by counting path segments, so it survives the
- * tree gaining or losing a tier the way a hard-coded depth would not.
+ * Nearest MC on the chain, or self if already an MC. Null above the MC tier
+ * is a real answer, not a failure. Resolved by `kind`, not path depth, so
+ * it survives the tree gaining or losing a tier.
  */
 export async function mcAncestorOf(entityId: string): Promise<Entity | null> {
   const chain = await ancestorChain(entityId);

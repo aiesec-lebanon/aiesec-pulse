@@ -75,7 +75,8 @@ export const retentionSweep = inngest.createFunction(
       return result;
     });
 
-    // Per post because "latest N per group" has no single-statement Prisma form.
+    // Per post: Prisma has no single-statement "latest N per group",
+    // so this loops manually.
     const versionsPruned = await step.run("prune-versions", async () => {
       const noisy = await db.post.findMany({
         where: { versions: { some: {} } },

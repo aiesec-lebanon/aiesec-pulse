@@ -90,9 +90,8 @@ describe("deriving grants from a position", () => {
       position({ positionId: "a", roleName: "AIVP", officeId: "1", officeTag: "AI" }),
       position({ positionId: "b", roleName: "Member", officeId: "500", officeTag: "LC" }),
     ]);
-    // `member` carries OFFICE authority: membership of one LC is not authority
-    // over the network, and a global `member` grant would put every reader's
-    // scope set at the root.
+    // `member` carries OFFICE authority, not GLOBAL — an LC membership isn't
+    // authority over the whole network.
     expect(grants.map((g) => [g.role, g.scopeOfficeId])).toEqual([
       ["ai_vp", null],
       ["member", "500"],

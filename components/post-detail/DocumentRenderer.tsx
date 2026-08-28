@@ -3,9 +3,8 @@ import Link from "next/link";
 
 import { type BlockNode, sanitiseDocument, type TextNode } from "@/lib/content/document";
 
-// mediaId -> public URL. An id that doesn't resolve here renders as nothing
-// rather than a broken img — resolution is deliberately not sanitisation's
-// job, so an unresolved block is not itself a sanitisation failure.
+// mediaId -> public URL. An id that fails to resolve renders as nothing,
+// not a broken img — resolution is deliberately not sanitisation's job.
 export type MediaLookup = Record<string, string>;
 
 // Re-sanitised on read as well as write, so a row from an older build or a

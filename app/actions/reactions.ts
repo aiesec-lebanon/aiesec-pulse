@@ -7,8 +7,8 @@ import { db } from "@/lib/db";
 import { scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 
-// Visibility is re-checked because reacting is a write against a caller-supplied
-// post id. reactionCount is maintained in the same transaction as the row.
+// postId is caller-supplied, so visibility is re-checked (bookmarks does the
+// same). reactionCount stays in sync inside this transaction.
 export async function toggleReaction(
   postId: string
 ): Promise<{ ok: true; reacted: boolean; count: number } | { ok: false; error: string }> {

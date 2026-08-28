@@ -4,9 +4,8 @@ import type { TopicKind } from "@/app/generated/prisma/enums";
 import { tokensForKind } from "@/lib/topics-shared";
 
 /**
- * Read-only display of a topic, not a toggleable filter like `TopicPicker`'s
- * chip — no active/pressed state or `aria-pressed`. Coloured by the topic's
- * own kind, never a hard-coded accent.
+ * Read-only, unlike TopicPicker's toggleable chip — no aria-pressed.
+ * Coloured by the topic's own kind, never a hard-coded accent.
  */
 export function TopicChip({ slug, name, kind }: { slug: string; name: string; kind: TopicKind }) {
   return (

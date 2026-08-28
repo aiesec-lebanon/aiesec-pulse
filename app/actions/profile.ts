@@ -7,17 +7,12 @@ import { requireSession } from "@/lib/rbac/guards";
 import { updateBioSchema } from "@/lib/zod-schemas";
 
 /**
- * A member's own standfirst.
+ * The only `User` field Pulse owns rather than mirrors from GIS (never
+ * overwritten by sync) — and the only self-service write to `User`, hence
+ * always `user.id`, never a caller-supplied id.
  *
- * The only field on `User` that Pulse owns rather than mirrors: GIS has no
- * bio and no way to write one back, so unlike a name, email, or office, it's
- * never overwritten by a sync. Also the only self-service write to `User`
- * in the product — hence the `requireSession` guard and a target that's
- * always `user.id`, never an id from the caller.
- *
- * Not audited. `AuditEvent` records decisions taken *about* other people's
- * content — approvals, rejections, hides, erasures. A member editing their own
- * one-line bio is not that, and logging it would bury the events that matter.
+ * Not audited: `AuditEvent` covers decisions about others' content
+ * (approvals, hides, erasures), not a member editing their own bio.
  */
 export type ProfileResult = { ok: true; bio: string | null } | { ok: false; error: string };
 
@@ -29,16 +24,14 @@ export async function updateOwnBio(input: { bio: string }): Promise<ProfileResul
     return { ok: false, error: parsed.error.issues[0]?.message ?? "That bio can't be saved." };
   }
 
-  // Empty clears it rather than storing "" — every reader branches on null,
-  // and two "no bio" representations is a bug waiting for whichever surface
-  // forgets the second.
+  // Empty clears it to null, not "" — readers branch on null; two "no bio"
+  // representations is a bug waiting to happen.
   const bio = parsed.data.bio.length > 0 ? parsed.data.bio : null;
 
   await db.user.update({ where: { id: user.id }, data: { bio } });
 
   revalidatePath("/profile");
-  // The same text is this member's standfirst on their public page, and on
-  // every story they wrote.
+  // Same bio shows on the public author page and on every story they wrote.
   revalidatePath(`/authors/${user.id}`);
 
   return { ok: true, bio };

@@ -1,16 +1,11 @@
 /**
- * @fileoverview Requires every exported Server Action to begin with an
+ * @fileoverview Requires every exported Server Action to start with an
  * authorisation guard.
  *
- * Server Functions are handled as POST requests to whatever route they are used
- * on, so a matcher change or a refactor that moves one can silently remove proxy
- * coverage from an action whose own code never changed. A missing guard is
- * therefore not caught by reviewing the diff that breaks it.
- *
- * Detection is structural rather than name-based where it can be: an exported
- * async function in an action module must, before any other statement, either
- * call a known guard or delegate to another function in the same module that
- * does. Files may opt out with a documented allowlist entry.
+ * Proxy route guards don't cover this: Server Functions POST to whatever
+ * route uses them, so a refactor can silently drop coverage without the
+ * action's own code changing. Detection is structural — the action (or a
+ * local helper it calls) must call a guard first.
  */
 
 const GUARD_NAMES = new Set([

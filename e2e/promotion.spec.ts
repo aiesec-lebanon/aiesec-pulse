@@ -3,21 +3,13 @@ import type { Page } from "@playwright/test";
 import { expect, isolationId, signInPage, test } from "./fixtures";
 
 /**
- * Post level, end to end.
+ * Post level, end to end. The GIS org tree gives two MCs (Testonia, Farland)
+ * so a promoted post reaching a Fartown member is distinguishable from no
+ * promotion at all.
  *
- * The org tree comes from the GIS fixtures: one region holding two MCs —
- * Testonia, with the LCs Testville and Otherton beneath it, and Farland with
- * Fartown. A Testonia post reaching a Fartown member is the only thing that can
- * distinguish a promotion from no promotion, which is why the suite needs two
- * MCs at all.
- *
- * **Serial by necessity, not by preference.** The promotion budget is one per MC
- * per ISO week (the seeded default), it is counted per MC rather than per
- * account, and demotion does not refund it — so these tests deliberately spend a
- * shared, non-renewable resource and cannot be parallelised the way the rest of
- * the suite is. They are ordered so each starts with the budget it needs:
- * the refusal below spends nothing, then Testonia's promotion is spent, then
- * Farland's.
+ * Serial, not parallel: the promotion budget is one per MC per week, counted
+ * per MC (not per account), and demotion doesn't refund it — tests spend a
+ * shared non-renewable resource and are ordered to match the budget each needs.
  */
 test.describe.configure({ mode: "serial" });
 
@@ -29,9 +21,8 @@ const uniqueTitle = (label: string) =>
 const POST_SLUG_URL = /\/posts\/(?!new$|queued$)[a-z0-9-]+$/;
 
 /**
- * Publishes as whoever is signed in, and returns the post's URL path. Passing a
- * note takes the composer's own reach control — the second route to a promotion
- * spending the same budget as the panel on post detail.
+ * Publishes as whoever is signed in, returns the post's URL path. A note
+ * routes through the composer's own reach control (same budget as the panel).
  */
 async function publish(page: Page, title: string, networkNote?: string): Promise<string> {
   await page.goto("/posts/new");
@@ -47,13 +38,9 @@ async function publish(page: Page, title: string, networkNote?: string): Promise
 }
 
 /**
- * Whether the signed-in viewer can see a post, asked of the post's own page
- * rather than of the feed.
- *
- * The feed renders seven cards chosen by ranking, so "not on the feed" and "not
- * visible" are different statements and only one of them is the rule under test.
- * Post detail applies exactly the same `visibilityFilter` and answers with a
- * 404, so this is the precise question with none of the ranking noise.
+ * Whether the viewer can see a post, asked of the post page (not the feed —
+ * "not on the feed" and "not visible" differ, and only the latter is under
+ * test). Post detail applies the same visibilityFilter and 404s cleanly.
  */
 async function canSee(page: Page, path: string, title: string): Promise<boolean> {
   await page.goto(path);
@@ -79,9 +66,8 @@ test.describe("post level", () => {
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E AI announcement");
 
-    // No reach control to operate: an AI office sits above the MC tier, so
-    // there is no MC for LOCAL to mean anything relative to and nothing to
-    // decide. The composer says so rather than offering a choice.
+    // AI sits above the MC tier, so LOCAL has no meaning and there's nothing
+    // to choose — the composer states this rather than offering a control.
     await signInAs("pai", "/posts/new", isolate);
     await expect(page.getByText(/your office publishes at network level/i)).toBeVisible();
     const path = await publish(page, title);
@@ -111,19 +97,17 @@ test.describe("post level", () => {
     await page.goto(path);
     await expect(promotionPanel(page)).toBeVisible();
 
-    // Swap the identity underneath it. Sessions live in the context's cookie
-    // jar, so signing in on a second page re-points every request this page
-    // makes — while the DOM it already rendered still offers the control. That
-    // is the client bypassed: an MCVP holds no `post.promote` in the seeded
-    // matrix, and the only thing left to refuse the write is the server.
+    // Swaps identity underneath the rendered page: sessions live in the
+    // context's cookie jar, so a second sign-in re-points requests while the
+    // DOM still shows the control — mc_vp holds no post.promote, so only
+    // the server can refuse the write.
     const second = await context.newPage();
     await signInPage(second, "mc_vp", "/feed", isolate);
     await second.close();
 
     await promote(page, "Bypassing the control to check the server refuses it.");
-    // The refusal comes back through the dialog that submitted it, so this asks
-    // the dialog rather than the page — the panel behind it carries a live
-    // region of its own.
+    // Refusal surfaces in the dialog that submitted it (asked here), not the
+    // panel behind it, which has its own live region.
     await expect(page.getByRole("dialog").getByRole("alert")).toContainText(/permission/i, {
       timeout: 15_000,
     });
@@ -145,10 +129,8 @@ test.describe("post level", () => {
     await signInAs("lc_vp", "/feed", isolate);
     const path = await publish(page, title);
 
-    // A member of Otherton — the *sibling* LC — sees it already. This is the
-    // sharing post level exists to provide, and the previous ancestors-only
-    // scope set did not: an LC's news now reaches its sister LCs without any
-    // editorial act at all.
+    // A sibling LC (Otherton) sees it already — the sharing post level exists
+    // for; the old ancestors-only scope set could not do this.
     await signInAs("lc_president", "/feed", isolate);
     expect(await canSee(page, path, title)).toBe(true);
 
@@ -192,9 +174,8 @@ test.describe("post level", () => {
     // Back to the first post — publishing the second navigated away from it.
     await page.goto(firstPath);
 
-    // Demote it. The post goes back to local; the window's promotion does not
-    // come back with it, or promote/demote cycling would
-    // be an unbounded reach budget — so the budget still reads as spent.
+    // Demote: post goes back to local, but the window's promotion is not
+    // refunded — otherwise promote/demote cycling would be unbounded reach.
     await page.getByRole("button", { name: /^return to local$/i }).click();
     await expect(promotionPanel(page).getByText(/only your MC/i)).toBeVisible({
       timeout: 15_000,
@@ -207,9 +188,8 @@ test.describe("post level", () => {
     await expect(promotionPanel(page)).toContainText(/0 of 1 promotion left/i);
     await expect(page.getByRole("button", { name: /^promote to the network$/i })).toBeDisabled();
 
-    // But the first post may be promoted again. That window already paid for
-    // this post's reach, and charging for it twice would make demotion a trap
-    // rather than a reversal.
+    // The first post may be promoted again — this window already paid for
+    // its reach; charging twice would make demotion a trap, not a reversal.
     await page.goto(firstPath);
     await promote(page, "Restoring the reach this window already paid for.");
     await expect(promotionPanel(page).getByText(/every MC sees this post/i)).toBeVisible({

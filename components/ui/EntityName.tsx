@@ -1,15 +1,10 @@
 import { splitBrandLockup } from "@/lib/org/display";
 
 /**
- * An office's name. Defaults to one colour, the ambient text colour: an
- * earlier version coloured the wordmark everywhere an entity appeared,
- * spending the system's strongest signal on repeated subtext instead of the
- * headline.
- *
- * `tone="title"` is the two-tone lockup (place name italic in the accent
- * colour), meant for a single per-screen `h1`. Prefer
- * `accentWord={brandPlaceAccent(name)}` on a `DisplayTitle` heading instead —
- * using `tone="title"` there loses `DisplayTitle`'s balance/clamp behaviour.
+ * Defaults to one plain colour so the two-tone treatment stays a scarce
+ * signal, not a wordmark on every mention. `tone="title"` gives that
+ * two-tone lockup for a lone per-screen h1 — prefer DisplayTitle's
+ * accentWord={brandPlaceAccent(name)} instead, which keeps balance/clamp.
  */
 export function EntityName({
   name,

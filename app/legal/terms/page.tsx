@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
+
 export const metadata = {
   title: "Terms of use · AIESEC Pulse",
   description: "The terms on which AIESEC members use Pulse.",
@@ -10,12 +12,12 @@ const LAST_UPDATED = "14 August 2026";
 export default function TermsPage() {
   return (
     <>
-      <h1>Terms of use</h1>
+      <DisplayTitle as="h1" size="lg" title="Terms of use" />
       <p className="lead">
         Pulse is an internal platform for AIESEC members. These terms set out what you can expect
         from it and what it expects from you.
       </p>
-      <p className="meta">Last updated: {LAST_UPDATED}</p>
+      <p className="pulse-label">Last updated: {LAST_UPDATED}</p>
 
       <h2>Who can use Pulse</h2>
       <p>
@@ -40,7 +42,14 @@ export default function TermsPage() {
         publish — including images and anything about other people.
       </p>
       <p>
-        Content must follow the <Link href="/legal/content-policy">content policy</Link>.
+        Content must follow the{" "}
+        <Link
+          href="/legal/content-policy"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          content policy
+        </Link>
+        .
       </p>
 
       <h2>Pulse is not for confidential material</h2>
@@ -85,8 +94,21 @@ export default function TermsPage() {
 
       <h2>Your data</h2>
       <p>
-        See the <Link href="/legal/privacy">privacy notice</Link>. You can export or request erasure
-        of your data at any time from <Link href="/settings/privacy">Privacy &amp; your data</Link>.
+        See the{" "}
+        <Link
+          href="/legal/privacy"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          privacy notice
+        </Link>
+        . You can export or request erasure of your data at any time from{" "}
+        <Link
+          href="/settings/privacy"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          Privacy &amp; your data
+        </Link>
+        .
       </p>
 
       <h2>Changes</h2>

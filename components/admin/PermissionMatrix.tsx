@@ -16,9 +16,8 @@ export type MatrixCell = `${RoleKey}:${PermissionKey}`;
 
 const cellKey = (role: RoleKey, permission: PermissionKey): MatrixCell => `${role}:${permission}`;
 
-// Empty groups are dropped rather than shown as a heading with no rows — a
-// domain can lose every permission (as Administration did after admin auth
-// moved off this catalogue) without this file changing.
+// Empty groups are dropped rather than shown with no rows, so a domain that
+// loses all its permissions doesn't require an edit here.
 const GROUPS: ReadonlyArray<{ label: string; prefix: string }> = [
   { label: "Posts", prefix: "post." },
   { label: "Comments", prefix: "comment." },

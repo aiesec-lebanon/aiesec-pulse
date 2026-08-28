@@ -1,10 +1,10 @@
-import Link from "next/link";
-
 import type { Prisma } from "@/app/generated/prisma/client";
 import { type AuditRow, AuditTable } from "@/components/admin/AuditTable";
 import { PageSizeSelect } from "@/components/admin/PageSizeSelect";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Pagination } from "@/components/ui/Pagination";
+import { TextTabs } from "@/components/ui/TextTabs";
 import { db } from "@/lib/db";
 import { entityDisplayName } from "@/lib/org/display";
 import { requireAdmin } from "@/lib/rbac/guards";
@@ -119,28 +119,17 @@ export default async function AdminAuditPage({
         bordered={false}
       />
 
-      <div className="mt-8 flex flex-wrap items-center gap-3">
-        <nav
-          aria-label="Filter by actor"
-          className="flex flex-wrap gap-1 rounded-[8px] bg-[var(--muted)] p-1"
-        >
-          {ACTOR_OPTIONS.map((option) => (
-            <Link
-              key={option.value}
-              href={buildHref({ actor: option.value, page: 1 })}
-              aria-current={actor === option.value ? "page" : undefined}
-              className={[
-                "min-h-[28px] rounded-[4px] px-3 py-1 text-[14px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-                actor === option.value
-                  ? "bg-[var(--card)] text-[color:var(--foreground)]"
-                  : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
-              ].join(" ")}
-            >
-              {option.label}
-            </Link>
-          ))}
-        </nav>
+      <TextTabs
+        ariaLabel="Filter by actor"
+        className="mt-8"
+        items={ACTOR_OPTIONS.map((option) => ({
+          href: buildHref({ actor: option.value, page: 1 }),
+          label: option.label,
+          isActive: actor === option.value,
+        }))}
+      />
 
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <form method="get" action="/admin/audit" className="flex items-center gap-2">
           <label htmlFor="audit-action" className="sr-only">
             Filter by action
@@ -165,11 +154,7 @@ export default async function AdminAuditPage({
         </div>
       </div>
 
-      <p className="mt-4 text-[13px] text-[color:var(--muted-foreground)]" role="status">
-        {total} {total === 1 ? "entry" : "entries"}
-      </p>
-
-      <div className="mt-3">
+      <div className="mt-6">
         {rows.length === 0 ? (
           <EmptyState
             heading="No entries match those filters."
@@ -180,23 +165,13 @@ export default async function AdminAuditPage({
         )}
       </div>
 
-      {totalPages > 1 && (
-        <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-4">
-          {page > 1 && (
-            <Link href={buildHref({ page: page - 1 })} className="aiesec-btn-secondary">
-              Previous
-            </Link>
-          )}
-          <span className="text-[14px] tabular-nums text-[color:var(--muted-foreground)]">
-            Page {page} of {totalPages}
-          </span>
-          {page < totalPages && (
-            <Link href={buildHref({ page: page + 1 })} className="aiesec-btn-secondary">
-              Next
-            </Link>
-          )}
-        </nav>
-      )}
+      <Pagination
+        label="Audit log pagination"
+        page={page}
+        hasNext={page < totalPages}
+        previousHref={page > 1 ? buildHref({ page: page - 1 }) : null}
+        nextHref={page < totalPages ? buildHref({ page: page + 1 }) : null}
+      />
     </main>
   );
 }

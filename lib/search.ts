@@ -8,18 +8,16 @@ import { scopeSetFor } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { type FilterableEntity, KIND_LABELS } from "@/lib/search-shared";
 
-// The audience check uses EXISTS — matching lib/org/scope.ts's
-// visibilityFilter() Prisma semantics exactly — so a post targeted at several
-// of the viewer's entities can't produce duplicate rows.
+// EXISTS mirrors lib/org/scope.ts's visibilityFilter semantics — a post
+// targeted at several of the viewer's entities won't produce duplicate rows.
 
 export { type FilterableEntity, KIND_LABELS };
 
 export type SnippetPart = { text: string; highlighted: boolean };
 
-// ts_headline is asked (via chr(1)/chr(2) below) to wrap matches in charCode
-// 1/2 rather than HTML, so the snippet renders as plain React text nodes —
-// never dangerouslySetInnerHTML — with no risk that a post body's literal
-// "<mark>"-like text gets read as markup.
+// ts_headline wraps matches in charCode 1/2, not HTML, so the snippet
+// renders as plain React text — never dangerouslySetInnerHTML — with no
+// risk of a post body's literal "<mark>"-like text being read as markup.
 const SNIPPET_START = String.fromCharCode(1);
 const SNIPPET_STOP = String.fromCharCode(2);
 
@@ -76,9 +74,8 @@ function parseDate(value: string | undefined): Date | null {
 }
 
 /**
- * Pure param parsing, independent of any request or database — an
- * unresolvable topic id or kind is dropped, not rejected: a filter carries no
- * authorisation weight the way audience targeting does.
+ * Pure param parsing — an unresolvable topic id or kind is dropped, not
+ * rejected: a filter carries no authorisation weight, unlike audience targeting.
  */
 export function parseSearchFilters(params: RawSearchParams): SearchFilters {
   const query = (firstValue(params.q) ?? "").trim();
@@ -140,11 +137,9 @@ export async function searchPosts(
   const user = await requireSession();
   const scope = await scopeSetFor(user);
 
-  // Same union the feed and topic archive enforce (lib/org/scope.ts's
-  // visibilityFilter): a post is visible if it's NETWORK, or aimed at
-  // somewhere in the viewer's local scope. Search bypasses neither targeting
-  // nor level — drop either arm and a promoted post from another MC would
-  // show in the feed but be missing from search.
+  // Same union as lib/org/scope.ts's visibilityFilter: NETWORK, or aimed
+  // at the viewer's local scope. Drop either arm and a promoted post from
+  // another MC would show in the feed but vanish from search.
   const visibilityCondition = scope.unrestricted
     ? Prisma.sql`TRUE`
     : Prisma.sql`(
@@ -194,13 +189,9 @@ export async function searchPosts(
 
   const page = Math.max(1, filters.page);
 
-  // CROSS JOIN, not the comma-join form
-  // (`FROM "Post" p, websearch_to_tsquery(...) q`) — Postgres accepts the
-  // comma form fine on its own (verified directly), but Prisma 7's $queryRaw
-  // interpreter throws "invalid reference to FROM-clause entry for table p"
-  // once an explicit `JOIN ... ON` referencing p follows in the same FROM
-  // clause. ANSI CROSS JOIN sidesteps whatever the parser trips on, behaving
-  // identically.
+  // CROSS JOIN, not the comma-join form — Postgres accepts the comma form,
+  // but Prisma 7's $queryRaw interpreter throws once an explicit JOIN ... ON
+  // referencing p follows in the same FROM clause. CROSS JOIN sidesteps it.
   const rows = await db.$queryRaw<RawHit[]>(Prisma.sql`
     SELECT
       p."id" AS "id",
@@ -241,9 +232,8 @@ export async function searchPosts(
   };
 }
 
-// A flat, alphabetised list for the filter bar's plain <select> — no
-// typeahead, unlike the composer's AudiencePicker; escalate to the trigram
-// search the audience picker already uses if the entity count outgrows this.
+// Flat, alphabetised list for the filter bar's plain <select> — no
+// typeahead. Escalate to the composer's trigram search if entity count outgrows this.
 export async function listFilterableEntities(): Promise<FilterableEntity[]> {
   const rows = await db.entity.findMany({
     where: { isActive: true },

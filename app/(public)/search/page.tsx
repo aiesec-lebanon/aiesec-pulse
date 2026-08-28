@@ -14,9 +14,8 @@ export const metadata = { title: "Search · AIESEC Pulse" };
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-// Best-effort: infers which preset SearchForm should show selected after
-// reload. A "from" that doesn't match a known preset just shows as "Any
-// time" — the results still honour the real value.
+// Best-effort preset match for SearchForm's selected state after reload;
+// an unmatched "from" just shows "Any time" — results still honour it.
 function inferDaysPreset(dateFrom: Date | null): string {
   if (!dateFrom) return "";
   const diffDays = Math.round((Date.now() - dateFrom.getTime()) / ONE_DAY_MS);
@@ -45,10 +44,8 @@ export default async function SearchPage({
 }: {
   searchParams: Promise<RawSearchParams>;
 }) {
-  // Search is a signed-in surface, like the rest of the reader experience —
-  // guarded here even though an empty query never reaches
-  // searchPosts's own guard, so landing on /search unauthenticated still
-  // redirects rather than rendering the filter chrome.
+  // Guarded here, not just in searchPosts: an empty query skips that guard,
+  // so unauthenticated users would otherwise see the filter chrome.
   await requireSession();
 
   const params = await searchParams;

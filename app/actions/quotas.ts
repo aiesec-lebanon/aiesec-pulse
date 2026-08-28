@@ -37,12 +37,9 @@ function isPeriod(value: string): value is QuotaPeriod {
 }
 
 /**
- * One policy per scope, class and level — never one per period as well.
- *
- * The unique key carries the period, so writing a monthly row beside a weekly
- * one would leave two active policies competing at the same scope and
- * nearestByScope picking whichever the database returned first. Changing the
- * period rewrites the row in place instead.
+ * One policy per scope/class/level, never per period too — the unique key
+ * doesn't include period, so a monthly row beside a weekly one would leave
+ * two competing policies. Changing the period rewrites the row instead.
  */
 export async function setQuotaPolicy(input: QuotaInput): Promise<QuotaResult> {
   const authorised = await checkAdmin();
@@ -58,9 +55,8 @@ export async function setQuotaPolicy(input: QuotaInput): Promise<QuotaResult> {
     return { ok: false, error: "A budget is a whole number between 0 and 500." };
   }
 
-  // An override is scoped to an MC and to nothing else: the network budget is
-  // pooled per MC, and a local budget set on an MC already reaches every LC
-  // beneath it through the ancestor walk.
+  // Overrides are scoped to an MC only — network budget pools per MC, and a
+  // local budget on an MC already reaches every LC beneath it (ancestor walk).
   if (entityId) {
     const entity = await db.entity.findUnique({
       where: { id: entityId },
@@ -101,9 +97,8 @@ export async function setQuotaPolicy(input: QuotaInput): Promise<QuotaResult> {
 }
 
 /**
- * Removing an override returns that MC to the network-wide default. A default
- * itself is never removable: nothing sits behind it, and a class holding
- * post.publish with no policy anywhere cannot publish at all.
+ * Returns the MC to the network default. A default itself can't be removed
+ * — nothing sits behind it, and a class with no policy anywhere can't publish.
  */
 export async function removeQuotaOverride(policyId: string): Promise<QuotaResult> {
   const authorised = await checkAdmin();
@@ -131,8 +126,10 @@ export async function removeQuotaOverride(policyId: string): Promise<QuotaResult
   );
 }
 
-/** Backs the override form's MC lookahead. Administration is a credential, so
- * this cannot reuse the composer's session-guarded entity search. */
+/**
+ * Backs the override form's MC lookahead — admin is a credential, so it
+ * can't reuse the composer's session-guarded entity search.
+ */
 export async function searchMcEntities(query: string): Promise<EntitySearchResult[]> {
   const authorised = await checkAdmin();
   if (!authorised.ok) return [];

@@ -2,21 +2,16 @@ import { defineConfig, devices, type PlaywrightTestConfig } from "@playwright/te
 
 import { E2E_ADMIN } from "./e2e/admin-credentials";
 
-// Runs against a real `next build` output: the CSP nonce, dynamic rendering and
-// the security headers all behave differently under the dev server.
+// Runs against a real `next build`: CSP nonce, dynamic rendering and
+// security headers differ under the dev server.
 //
-// `PULSE_E2E_PORT` moves the whole run off 3000. Worth having because
-// `reuseExistingServer` cannot tell this suite's server from a `next dev` a
-// developer already had running there, and a dev server carries the real
-// `.env` — so sign-in leaves for auth.aiesec.org and every spec fails on a
-// timeout that says nothing about the code. Same escape hatch the GIS stub
-// already has, for the same reason.
+// PULSE_E2E_PORT avoids colliding with a stray `next dev` (real `.env`),
+// which would send sign-in to real auth.aiesec.org and fail every spec.
 const APP_PORT = process.env.PULSE_E2E_PORT ?? "3000";
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${APP_PORT}`;
 
-// The stub that answers as auth.aiesec.org and gis-api.aiesec.org. Sign-in is
-// otherwise the production path end to end — see e2e/gis-stub/server.ts for why
-// this is a server rather than Playwright route interception.
+// Stub answering as auth.aiesec.org and gis-api.aiesec.org; sign-in is
+// otherwise the real production path (see e2e/gis-stub/server.ts).
 const STUB_PORT = process.env.PULSE_GIS_STUB_PORT ?? "3099";
 const STUB_ORIGIN = `http://127.0.0.1:${STUB_PORT}`;
 
@@ -36,35 +31,28 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
         command: "npm run build && npm run start",
         url: `${baseURL}/api/health`,
         reuseExistingServer: !process.env.CI,
-        // A cold `next build` is the whole of this budget and then some on a
-        // machine without a warm .next cache; 180s was not enough to get to a
-        // first request.
+        // Cold `next build` eats most of this budget without a warm .next
+        // cache; 180s wasn't enough to reach a first request.
         timeout: 300_000,
         env: {
-          // The whole of the test-only configuration: point the two AIESEC
-          // endpoints at the stub. Nothing in `app/` or `lib/` knows the
-          // difference, which is the property that makes this suite worth
-          // having — a bypass wired into application code tests the bypass.
+          // Points the two AIESEC endpoints at the stub; app/lib code never
+          // knows the difference — a bypass wired into app code would test
+          // the bypass, not the app.
           AIESEC_OAUTH_AUTH_URL: STUB_ORIGIN,
           GIS_GRAPHQL_URL: `${STUB_ORIGIN}/graphql`,
-          // Opens /api/test/publish-scheduled, which runs the scheduling cron's
-          // own logic synchronously. Refused outright on a production
-          // deployment — see lib/test-hooks.ts.
+          // Opens /api/test/publish-scheduled to run the cron logic
+          // synchronously; refused in production (see lib/test-hooks.ts).
           PULSE_E2E_TEST_HOOKS: "1",
-          // next start forces NODE_ENV=production, so the deployment is declared
-          // explicitly instead. Anything but "production" keeps the hook available.
+          // next start forces NODE_ENV=production, so declare the deployment
+          // explicitly — anything but "production" keeps the hook available.
           PULSE_DEPLOYMENT: "test",
-          // Inlined into the client bundle at build time, so it has to be right
-          // here rather than only at run time: a stale value sends the callback's
-          // redirects at whatever else is listening on that port.
+          // Inlined into the client bundle at build time; a stale value here
+          // sends the callback redirect at whatever else is on that port.
           NEXT_PUBLIC_BASE_URL: baseURL,
           AIESEC_OAUTH_REDIRECT_URI: `${baseURL}/api/auth/callback`,
           PORT: APP_PORT,
-          // One long-lived server takes every worker's traffic at once, and each
-          // request spends most of its life waiting on a remote round trip
-          // rather than working — so the 10-connection default (right for a
-          // serverless instance, see lib/db.ts) becomes the queue everything
-          // waits in.
+          // One long-lived server serves every worker at once; the
+          // 10-connection serverless default (lib/db.ts) becomes a queue.
           DATABASE_POOL_MAX: "25",
           // Platform administration is a credential login, so the suite needs
           // one it owns rather than whatever a developer's .env carries.
@@ -78,10 +66,8 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
 export default defineConfig({
   testDir: "./e2e",
 
-  // The suite writes to a real database through the real application, so it has
-  // to take its writes back out again: setup clears whatever an interrupted run
-  // left behind, teardown clears this run's. Without them every run inherits the
-  // last one's posts and personas as an unplanned fixture — see e2e/cleanup.ts.
+  // Real database writes need cleanup: setup clears a prior interrupted
+  // run's leftovers, teardown clears this run's (see e2e/cleanup.ts).
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
 
@@ -91,10 +77,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
 
-  // 4 parallel workers against one dev server and one real (remote) database
-  // means every request queues behind real network latency and connection-pool
-  // contention, not just the app's own work — the 5s default leaves too little
-  // margin, most visibly on the assertion right after a publish action.
+  // 4 workers against one remote database queue behind real network/pool
+  // contention; the 5s default is too tight, especially after a publish.
   expect: { timeout: 10_000 },
 
   use: {

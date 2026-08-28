@@ -1,11 +1,9 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 /**
- * Feed / search / topic-archive pagination, as one component.
- *
- * Plain `<a>` elements, not `<Link>`: these are full navigations that must
- * reset scroll and re-run the server component. Each caller computes its own
- * hrefs, since the query-string shape differs per surface.
+ * Plain <a>, not <Link> — these are full navigations that must reset
+ * scroll and re-run the server component. Each caller builds its own
+ * href since the query-string shape differs per surface.
  */
 export function Pagination({
   label,

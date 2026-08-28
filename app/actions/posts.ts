@@ -119,9 +119,9 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const audiences = audienceDecision.audiences;
   const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
-  // Resolved after the audience: an AI-level office's network default gives
-  // way to a narrowed audience. Resolved outside the transaction — only the
-  // budget count runs inside it.
+  // Resolved after audience: a narrowed audience overrides an AI-level
+  // office's network default. Kept outside the tx — only the budget count
+  // needs serializability.
   const reach = await reachContextFor(
     user,
     entityId,
@@ -157,8 +157,7 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
       promoteToNetwork: promoteToNetwork ?? false,
       note: promotionNote,
     });
-    // Returned before anything is written, so the transaction commits empty
-    // rather than leaving a post behind that nobody asked to publish locally.
+    // Return before writing — an empty commit, not an unwanted local post.
     if (!decision.ok) return { refused: decision, post: null, status, decision: null };
 
     const post = await tx.post.create({
@@ -170,8 +169,8 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
         level: decision.level,
         ...(decision.stamp ?? {}),
         title,
-        // Sent in full each time rather than merged: clearing the highlight has
-        // to be expressible, and `undefined` in a Prisma `data` means "leave it".
+        // Sent in full, not merged — clearing the highlight must stay
+        // expressible, and `undefined` in Prisma `data` means "leave alone".
         titleAccent: titleAccent || null,
         summary: summary?.trim() || excerptFrom(bodyText),
         bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
@@ -222,9 +221,8 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     async () => undefined
   );
 
-  // A promotion spent at publication is still a promotion: audited under the
-  // same "post.promote" action name as a later promotePost, or an auditor
-  // searching that action would miss these.
+  // Audited under the same "post.promote" action as a later promotePost —
+  // an auditor searching that action shouldn't miss promotions spent at publish.
   if (decision.stamp) {
     await withAudit(
       userActor(user),
@@ -339,9 +337,8 @@ export async function resubmitPost(
   });
 
   if (status === PostStatus.SCHEDULED) {
-    // decidePublishStatus only returns this when given a scheduledAt, which
-    // resubmission never passes — guards against silently writing a
-    // SCHEDULED post with no scheduledAt set if that ever changes.
+    // Guards against a silent SCHEDULED write with no scheduledAt: resubmission
+    // never passes one, so decidePublishStatus should never return it here.
     throw new Error("Unexpected SCHEDULED status while resubmitting a post");
   }
 
@@ -519,10 +516,9 @@ export type PromotionBudget = {
   max: number;
   periodLabel: string;
   /**
-   * Whether *this* post may still be promoted, which is not the same question:
-   * a post the window already paid for can be promoted again after a demotion
-   * without spending anything, so the budget can read as fully spent while this
-   * one action remains available.
+   * Not just "budget left": a post already paid for this window can be
+   * re-promoted after a demotion for free, so this can be true even when
+   * the pool reads fully spent.
    */
   available: boolean;
 };
@@ -550,14 +546,12 @@ const promotableSelect = {
 } as const;
 
 /**
- * Everything `promotePost`, `demotePost`, and the control's budget label
- * must establish: that the actor may act on this post, that it's their
- * own MC, and which budget the act is billed against. Shared so the three
- * can't drift — a demotion that skipped the same-MC check would let
- * someone withdraw another MC's post.
+ * Shared by promotePost, demotePost, and the budget label so the actor/MC/
+ * budget checks can't drift — a demotion skipping the same-MC check would
+ * let someone withdraw another MC's post.
  *
- * Revalidating positions against GIS is the callers' job, not this one's:
- * the two writes do it and the budget read does not.
+ * GIS position revalidation is the callers' job: the two writes do it, the
+ * budget read doesn't.
  */
 async function promotionContextFor(
   postId: string,
@@ -578,11 +572,9 @@ async function promotionContextFor(
     mcAncestorOf(post.publisherEntityId),
   ]);
 
-  // The same-MC rule is about officers who *have* an MC. An AI-level actor
-  // has none,
-  // and taking the equality literally there would deny a class the catalogue
-  // grants `post.promote` to; their boundary is the grant scope the permission
-  // check above already applied, which for them is global by design.
+  // The same-MC rule only applies to officers with an MC — an AI-level actor
+  // has none, and their boundary is already the grant scope from the
+  // permission check above (global, by design).
   if (actorMc && actorMc.id !== postMc?.id) {
     return { ok: false, error: "You can only promote posts from your own MC." };
   }
@@ -599,21 +591,17 @@ async function promotionContextFor(
 }
 
 /**
- * Null when the viewer lacks promotion authority over the post, which hides
- * the control.
+ * Null hides the control (viewer lacks promotion authority over the post).
  *
- * Deliberately skips GIS revalidation: this runs on every post-page render,
- * and that latency belongs only where authority is actually exercised. A
- * stale "available" label is harmless — the write behind it still refuses
- * once revalidated.
+ * Skips GIS revalidation deliberately — this runs on every post-page render;
+ * a stale "available" label is harmless since the actual write still
+ * revalidates and refuses if needed.
  */
 export async function promotionBudgetFor(postId: string): Promise<PromotionBudget | null> {
   const user = await requireSession();
 
-  // GLOBAL scope asks "may they promote anywhere at all" — the right question
-  // for rendering a control — answered from the per-request grant cache. A
-  // member who can't promote leaves here without touching Post; the scoped
-  // check below still decides this post.
+  // GLOBAL here just asks "can they promote anywhere," answered from the
+  // cached grants — lets a non-promoter bail before touching Post at all.
   if (!(await can(user, "post.promote"))) return null;
 
   const context = await promotionContextFor(postId, "post.promote");
@@ -644,9 +632,8 @@ export async function promotePost(postId: string, note: string): Promise<Promoti
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Give a reason." };
   }
 
-  // Before the permission check, never after (see lib/auth/positions.ts):
-  // reconciliation expires grants GIS no longer returns
-  // and busts the authorisation cache, which `can()` memoises per request.
+  // Must run before the permission check (lib/auth/positions.ts): it expires
+  // grants GIS no longer returns and busts can()'s per-request cache.
   const confirmed = await revalidatePositions(user);
   if (!confirmed.ok) return { ok: false, error: confirmed.error };
 
@@ -706,9 +693,9 @@ export async function promotePost(postId: string, note: string): Promise<Promoti
 }
 
 /**
- * The exact inverse, and it refunds nothing: `promotionPeriod` stays on the row
- * so the window's promotion remains spent. Otherwise
- * promote/demote cycling would be an unbounded reach budget.
+ * Inverse of promotePost, but refunds nothing — `promotionPeriod` stays set
+ * so the spend sticks. Otherwise promote/demote cycling would be an
+ * unbounded reach budget.
  */
 export async function demotePost(postId: string): Promise<PromotionResult> {
   const user = await requireSession();
@@ -735,9 +722,8 @@ export async function demotePost(postId: string): Promise<PromotionResult> {
     { type: "post", id: post.id, entityId: post.publisherEntityId },
     { title: post.title, from: PostLevel.NETWORK },
     async () => {
-      // Only `level` moves — `promotedAt`/`promotedById`/`promotionNote`/
-      // `promotionPeriod` stay (see doc above): the spend must remain
-      // permanent for the window.
+      // Only `level` moves — promotedAt/promotedById/promotionNote/
+      // promotionPeriod stay; the spend must remain permanent (see doc above).
       await db.post.update({ where: { id: post.id }, data: { level: PostLevel.LOCAL } });
       revalidatePromotedPost(post.slug);
       return { ok: true as const };

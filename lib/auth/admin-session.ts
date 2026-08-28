@@ -24,8 +24,7 @@ function normaliseEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-// Digests rather than the raw strings, so the comparison is constant-time in
-// the length of the input as well as in its content.
+// Hash first so the comparison is constant-time regardless of input length.
 function equals(a: string, b: string): boolean {
   return timingSafeEqual(
     createHash("sha256").update(a).digest(),

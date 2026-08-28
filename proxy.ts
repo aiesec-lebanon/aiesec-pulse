@@ -1,9 +1,8 @@
 import { jwtVerify } from "jose";
 import { type NextRequest, NextResponse } from "next/server";
 
-// Coarse gate only — it cannot see revocation or scope, so it must never be the
-// only check. The authoritative ones are the guards in lib/rbac/guards.ts.
-// Kept dependency-free: no database, no Redis, no lib/env.
+// Coarse gate only — can't see revocation/scope; lib/rbac/guards.ts is
+// authoritative. Kept dependency-free: no database, no Redis, no lib/env.
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -93,9 +92,8 @@ export async function proxy(request: NextRequest) {
 
   if (isPublicPath(pathname)) return proceed();
 
-  // The console carries both identities: platform administration signs in with
-  // a credential, moderation with an AIESEC position. Either cookie gets past
-  // this gate; which pages it actually opens is settled by the page guards.
+  // Console carries two identities: admin credential login and AIESEC-
+  // position moderation. Either cookie passes here; page guards decide access.
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   if (isAdminArea) {
     const adminToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
@@ -117,9 +115,8 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (!token) return refuse();
 
-  // Missing secret redirects rather than throws, so a misconfiguration cannot
-  // turn into an open door. The cookie is left alone in that case — it may well
-  // be valid, and signing everyone out is not the right answer to a bad deploy.
+  // Missing secret redirects, not throws, so misconfig can't become an
+  // open door; the cookie is left alone since it may still be valid.
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) return refuse();
 

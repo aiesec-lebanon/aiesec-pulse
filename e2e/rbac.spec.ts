@@ -13,12 +13,9 @@ test.describe("a member", () => {
     await expect(page).toHaveURL(/\/unauthorized/);
   });
 
-  // `/admin/*` now asks for the platform credential and nothing else, so an
-  // AIESEC session — any AIESEC session, from a plain member to the PAI — is
-  // sent to the credential login rather than to `/unauthorized`. The old
-  // split (member → /unauthorized, PAI → /admin/login) was an accident of the
-  // layout's per-section gate, which is gone now that the position-held
-  // surfaces live outside /admin.
+  // /admin/* now asks only for the platform credential — any AIESEC session
+  // (member through PAI) goes to the credential login, not /unauthorized.
+  // The old member/PAI split was an artifact of a gate that's gone now.
   test("cannot reach the permission matrix", async ({ page, signInAs }) => {
     await signInAs("member");
     await page.goto("/admin/roles");
@@ -65,9 +62,8 @@ test.describe("an LC vice president", () => {
     await signInAs("lc_vp", "/feed", isolationId(testInfo));
     await page.goto("/posts/new");
     await expect(page.getByRole("heading", { name: /share an update/i })).toBeVisible();
-    // Two `role="status"` regions render on this page (the quota pill and the
-    // composer's own draft-autosave indicator) — both individually correct,
-    // so the locator narrows by content instead of assuming a single match.
+    // Two role="status" regions exist on this page (quota pill + autosave
+    // indicator) — narrow by content instead of assuming a single match.
     await expect(page.getByRole("status").filter({ hasText: /posts this week/i })).toContainText(
       /posts this week: \d+ of 2/i
     );

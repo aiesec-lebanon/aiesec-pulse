@@ -14,9 +14,8 @@ export async function listActiveTopics(): Promise<TopicOption[]> {
 }
 
 /**
- * Silently drops any id that doesn't name a real, active topic, rather than
- * rejecting the submission — a tag carries no authorisation weight (unlike
- * audience targeting), so a stale or tampered id is simply not applied.
+ * Silently drops ids that aren't a real, active topic rather than reject
+ * the submission — tags carry no authorisation weight, unlike targeting.
  */
 export async function resolveValidTopicIds(topicIds: string[]): Promise<string[]> {
   if (topicIds.length === 0) return [];

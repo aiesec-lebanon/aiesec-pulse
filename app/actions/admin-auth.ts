@@ -18,8 +18,7 @@ import { clientIp } from "@/lib/request";
 
 export type AdminLoginState = { error: string } | null;
 
-// One message for a wrong address and a wrong password alike, so the form
-// cannot be used to discover which of the two was right.
+// Same message for a bad email or password — avoids revealing which was wrong.
 const REFUSED = "Those credentials were not accepted.";
 
 const credentials = z.object({

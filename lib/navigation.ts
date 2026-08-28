@@ -1,36 +1,16 @@
 import type { ShellUser } from "@/components/shell/ShellInteractive";
 
 /**
- * One navigation model for the whole shell.
+ * One navigation model for the whole shell, derived into three views so
+ * every destination appears in exactly one place per viewport: `primary`
+ * (reader surfaces — desktop rail + mobile drawer top), `authoring`/
+ * `governance` (role-gated work — account menu / drawer groups), and
+ * `account` (identity/preferences). Capability flags only decide
+ * visibility; the Server Action stays the authoritative check.
  *
- * Before this, the header carried three overlapping navigations: a tab strip
- * hard-coded to a single "Latest" tab with `aria-current="page"` on *every*
- * route; an account dropdown listing eight destinations; and a mobile drawer
- * listing seven of the same eight under different labels ("Your posts" vs the
- * member's name for `/profile`; "Privacy notice" → `/legal/privacy` vs
- * "Privacy & your data" → `/settings/privacy`, which are different pages).
- *
- * The fix is not to restyle three lists but to derive all of them from one:
- *
- *   - `primary`  — the reader's surfaces: the desktop rail and the top of the
- *                  mobile drawer. This is the navigation proper, and the only
- *                  place a destination is duplicated between viewports —
- *                  legitimate since only one of the two is ever visible.
- *   - `authoring`/`governance` — role-gated work surfaces. Desktop: the account
- *                  menu. Mobile: their own drawer groups.
- *   - `account`  — identity and preferences. Account menu on both.
- *
- * Every destination appears in exactly one place per viewport. Capability
- * flags decide visibility as a courtesy only — the authoritative check stays
- * in the Server Action, as it always did.
- *
- * **Governance is not administration.** Its four surfaces are held by AIESEC
- * positions and used to live under `/admin/*`, which promised platform
- * administration but delivered a member permission check — three of them
- * couldn't even be opened by a platform administrator. They're ordinary
- * member routes now (`/review`, `/moderation/*`, `/insights`), and `/admin`
- * is reserved for the credential login that actually administers the
- * platform.
+ * Governance routes are AIESEC-position-gated member routes, not admin —
+ * `/admin` is reserved for the credential login that actually administers
+ * the platform.
  */
 
 export type NavItem = {
@@ -105,12 +85,9 @@ export function buildNavigation(user: ShellUser | null): ShellNavigation {
 }
 
 /**
- * Whether `item` is the destination the given pathname belongs to.
- *
- * `/feed` owns post and topic pages: a member reading a story arrived from the
- * feed and, for wayfinding purposes, is still in it. Matching `/feed` exactly
- * would leave the rail with no active item on the surfaces members spend the
- * most time on.
+ * Whether `item` is the destination `pathname` belongs to. `/feed` owns
+ * post/topic pages too — for wayfinding, a reader there is still "in" the
+ * feed.
  */
 export function isCurrent(item: NavItem, pathname: string): boolean {
   if (pathname === item.href) return true;

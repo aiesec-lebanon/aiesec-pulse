@@ -40,11 +40,11 @@ export function PostsSearch({ q, status, limit }: PostsSearchProps) {
         onChange={(e) => setValue(e.target.value)}
         placeholder="Search title or author…"
         aria-label="Search posts by title or author"
-        className="h-8 w-56 px-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] text-[14px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] focus:outline-none focus:border-[var(--primary)] transition-colors"
+        className="h-11 w-56 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 text-[14px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       />
       <button
         type="submit"
-        className="h-8 px-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] text-[14px] font-medium text-[color:var(--muted-foreground)] hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] transition-colors cursor-pointer"
+        className="min-h-[36px] cursor-pointer rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-3 text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:border-[var(--primary)] hover:text-[color:var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
         Search
       </button>
@@ -52,7 +52,7 @@ export function PostsSearch({ q, status, limit }: PostsSearchProps) {
         <button
           type="button"
           onClick={handleClear}
-          className="text-[13px] text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)] transition-colors"
+          className="rounded-[var(--radius-sm)] text-[13px] text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         >
           Clear
         </button>

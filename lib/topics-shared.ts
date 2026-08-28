@@ -31,9 +31,8 @@ export function tokensForKind(kind: TopicKind): TopicTokens {
 }
 
 /**
- * The two letters a colour plate carries when a post has no cover. Initials of
- * the entity, not of the author: a plate stands for who published, and an
- * entity's initials stay the same while its officers rotate every year.
+ * Two-letter fallback plate for a post with no cover. Initials of the
+ * entity, not the author — officers rotate yearly, the entity doesn't.
  */
 export function initialsOf(name: string): string {
   const words = name

@@ -17,16 +17,14 @@ import { currentTermLabel } from "@/lib/term";
 import type { GisPerson } from "@/server-utils/gis";
 import { warnIfPositionless } from "@/server-utils/gis";
 
-// Reconciliation is additive and expiring, never destructive: a grant that
-// disappears from GIS gets an `endsAt` rather than a DELETE, so past posts
-// keep their attribution through a handover.
+// Reconciliation never deletes grants: a vanished GIS grant gets `endsAt`,
+// so past posts keep their attribution through a handover.
 
 export type SyncResult = {
   /**
-   * `null` only when nothing resolved *and* no account exists — a failed
-   * sign-in shouldn't leave a row behind. An existing account is always
-   * reconciled, even to zero grants, since losing every position is exactly
-   * when the old ones must stop working.
+   * `null` only if nothing resolved and no account exists — a failed
+   * sign-in leaves no row. Existing accounts are always reconciled, even
+   * to zero grants, since that's when stale grants must stop working.
    */
   user: User | null;
   /** Zero means sign-in is refused. Nothing else in the result changes that. */
@@ -42,9 +40,8 @@ async function toPositionInputs(person: GisPerson): Promise<PositionInput[]> {
   for (const position of person.current_positions) {
     if (!position.office?.id) continue;
 
-    // Unknown offices become placeholders rather than failing the login.
-    // Resolved here but not used for the level check — level comes from
-    // `office.tag`, never from where the tree parks a placeholder.
+    // Unknown offices become placeholders rather than failing login. Level
+    // checks use `office.tag`, never the placeholder's spot in the tree.
     await resolveOfficeEntity(position.office);
 
     inputs.push({
@@ -65,10 +62,8 @@ async function roleIdByKey(key: string): Promise<string | null> {
 }
 
 /**
- * A denied position means either an unrecognised title — ordinary, and how
- * the vocabulary gets extended from real data — or the two axes disagreeing,
- * meaning our model of GIS is wrong and worth waking someone for. Both carry
- * title, office, and tag so the record is actionable without a second query.
+ * Denied positions: an unrecognised title (routine — how the vocabulary
+ * grows) or a tag/title mismatch (our GIS model is wrong — page someone).
  */
 function logDenials(userId: string, denied: readonly PositionDenial[]): void {
   for (const denial of denied) {
@@ -96,10 +91,9 @@ function logDenials(userId: string, denied: readonly PositionDenial[]): void {
 }
 
 /**
- * There is no implicit `member` grant — membership is a position like any
- * other and must come back from GIS as one. Granting it to whoever completed
- * the OAuth handshake would let a renamed or expired position quietly
- * downgrade someone to a working account instead of failing loudly.
+ * No implicit `member` grant — it must come back from GIS like any other
+ * position, or a renamed/expired position would fail silently instead of
+ * loudly.
  */
 export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult> {
   warnIfPositionless(person);
@@ -131,8 +125,8 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
           select: { id: true },
         })
       )?.id ?? ROOT_ENTITY_ID)
-    : // Nothing resolved, so there is nothing to move them to. Keeping the last
-      // known entity beats relocating an offboarded member to the global root.
+    : // Nothing resolved: keep the last known entity rather than relocate
+      // an offboarded member to the global root.
       (existing?.primaryEntityId ?? ROOT_ENTITY_ID);
 
   const now = new Date();

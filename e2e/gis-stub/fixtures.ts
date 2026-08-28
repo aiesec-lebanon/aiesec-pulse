@@ -1,11 +1,7 @@
-// GIS `currentPerson` payloads, one per AIESEC position class plus the cases
-// that must be refused. These are the wire shape GIS actually returns —
-// snake_case, ids that may arrive as strings or numbers, `parent` on the office
-// — not a Pulse-shaped convenience object. `__tests__/gis-contract.test.ts`
-// parses every one of them through the live Zod schema in `server-utils/gis.ts`,
-// so a GIS shape change that would break production fails CI instead.
-//
-// Nothing here is imported by application code — see ./server.ts.
+// GIS `currentPerson` payloads, one per position class plus refusal cases —
+// in GIS's actual wire shape (snake_case, string/number ids), not a Pulse
+// convenience object. gis-contract.test.ts parses these through the real
+// Zod schema, so a GIS shape drift fails CI. Not imported by app code.
 
 /** The GIS office shape, as the `currentPerson` query selects it. */
 export type StubOffice = {
@@ -17,27 +13,11 @@ export type StubOffice = {
 };
 
 /**
- * The office tree, at the real AIESEC depth: AI → region → MC → LC.
- *
- * `ai` is the office the seed already created as the entity root
- * (`gisOfficeId: "1"`), so name and tag match it exactly — `resolveOfficeEntity`
- * updates an entity whose name or tag has drifted, and the suite has no business
- * renaming the root.
- *
- * Three things this shape exists to make testable, none of which a flatter or
- * smaller tree can:
- *
- * - **Two LCs under one MC** (`lc`, `otherLc`). Post level makes an LC's news
- *   reach its sister LC automatically, which a suite with one
- *   LC cannot tell from no scoping at all.
- * - **Two MCs under one region** (`mc`, `farMc`). This is what "outside the
- *   viewer's scope" means now that the local scope set is an MC subtree: a
- *   sibling LC is inside it, another MC is not.
- * - **A real region tier.** `Entity.kind` is derived from path depth
- *   (`kindForDepth`), so in a three-level tree the office tagged MC would be
- *   stored as a REGION and the promotion rules — which resolve the viewer's
- *   nearest `EntityKind.MC` ancestor — would be testing the wrong node.
- *   Nobody holds a position at `region`; it exists so the depths are honest.
+ * Real AI → region → MC → LC depth; `ai` matches the seed root (gisOfficeId
+ * "1") exactly or resolveOfficeEntity treats it as drift. Needs: two LCs
+ * under one MC (sister-LC reach), two MCs under one region (defines
+ * "outside scope"), and a real region tier (or kindForDepth mis-stores the
+ * MC as REGION and breaks promotion's nearest-MC lookup).
  */
 export const OFFICES = {
   ai: {
@@ -92,16 +72,10 @@ export const OFFICES = {
 } as const satisfies Record<string, StubOffice>;
 
 /**
- * The interior offices, root-first, with the path and kind Pulse's own
- * derivation would give them.
- *
- * An office enters the tree when someone holding a position there signs in, and
- * `resolveOfficeEntity` parks an office whose parent is not there yet directly
- * under the root — so which spec happens to run first would decide the shape of
- * the tree, and therefore what every scope rule computes. These three are
- * created up front by `e2e/cleanup.ts` in globalSetup instead. The leaves are
- * deliberately left out: they arrive through the production path at login, which
- * is worth continuing to exercise, and by then their parents exist.
+ * Interior offices, root-first, with the path/kind Pulse's derivation gives
+ * them. Without seeding these upfront, resolveOfficeEntity would park a
+ * missing-parent office under root at first login — making tree shape
+ * depend on spec run order. Leaves are left out; they arrive via login.
  */
 export const INTERIOR_OFFICES: Array<{
   office: StubOffice;
@@ -114,11 +88,8 @@ export const INTERIOR_OFFICES: Array<{
 ];
 
 /**
- * The eight position classes, then the refusals.
- *
- * `gis_down` is not a person at all — it makes the stub answer as an unreachable
- * directory, which is the only way to exercise the callback's fail-closed branch
- * end to end.
+ * The eight position classes, then the refusal cases. `gis_down` isn't a
+ * person — it makes the stub unreachable, exercising the fail-closed branch.
  */
 export type PersonaKey =
   | "pai"
@@ -186,9 +157,8 @@ const PERSONAS: Record<Exclude<PersonaKey, "gis_down">, PersonaSpec> = {
     note: "Reads and engages. Sits in the same LC as lc_vp, so it can see what lc_vp publishes.",
   },
 
-  // Same two classes, a whole MC away. Post level is the only thing that can
-  // carry a post across this boundary, so these two are how "invisible until
-  // promoted" is asserted against something rather than against nothing.
+  // Same two classes at a different MC — how "invisible until promoted" is
+  // asserted against a real boundary, not nothing.
   far_mc_president: {
     fullName: "Test Far MCP",
     positions: [["MCP", OFFICES.farMc]],
@@ -223,10 +193,8 @@ export const PERSONA_KEYS = [
 ];
 
 /**
- * One persona per position class, for the specs that assert what a class may do.
- * Not every persona that signs in successfully: `far_mc_president` and
- * `far_member` are the same two classes at the other MC, and listing them here
- * would say Pulse recognises ten classes when it recognises eight.
+ * One persona per position class — not every persona that can sign in.
+ * far_mc_president/far_member duplicate two classes at another MC.
  */
 export const SIGNED_IN_PERSONAS = [
   "pai",
@@ -244,26 +212,22 @@ export function isPersona(value: string): value is PersonaKey {
 }
 
 /**
- * Every GIS person id the suite invents starts with this, and no real one can:
- * GIS person ids are numeric. That makes the prefix a safe discriminator for
- * "rows this suite created" — which is what e2e/cleanup.ts deletes on, so the
- * teardown can never reach an account belonging to a real member.
+ * Every suite-created GIS person id starts with this; real ids are numeric.
+ * cleanup.ts deletes on this prefix, so teardown can't touch real members.
  */
 export const E2E_PERSON_ID_PREFIX = "e2e-";
 
 /**
- * The GIS office ids the suite causes Pulse to materialise as entities. `ai` is
- * excluded deliberately: it is the root the seed owns (gisOfficeId "1"), not
- * something a test run created, and the teardown must leave it alone.
+ * Office ids the suite materialises as entities. `ai` is excluded — it's
+ * the seed-owned root, not suite-created, so teardown must leave it alone.
  */
 export const E2E_OFFICE_IDS: string[] = Object.entries(OFFICES)
   .filter(([key]) => key !== "ai")
   .map(([, office]) => office.id);
 
 /**
- * `isolate` gives a persona its own GIS person, and therefore its own Pulse
- * account. Publishing quota is per author per period, so specs that publish must
- * not share one or the suite becomes order-dependent.
+ * `isolate` gives a persona its own GIS person/Pulse account. Quota is per
+ * author per period, so publish specs must not share one.
  */
 export function personIdFor(persona: PersonaKey, isolate?: string): string {
   return isolate

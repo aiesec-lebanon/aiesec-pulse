@@ -1,4 +1,7 @@
 import { DsrQueue, type DsrRow } from "@/components/admin/DsrQueue";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SpecStrip } from "@/components/ui/SpecStrip";
 import { db } from "@/lib/db";
 import { DSR_SLA_DAYS } from "@/lib/privacy/dsr";
 import { requireAdmin } from "@/lib/rbac/guards";
@@ -48,62 +51,46 @@ export default async function AdminPrivacyPage() {
   const overdue = open.filter((r) => r.overdue);
 
   return (
-    <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">
-        Data subject requests
-      </h1>
-      <p className="mt-1 max-w-[70ch] text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
-        Statutory deadline is {DSR_SLA_DAYS} days from receipt. Erasure is irreversible and is the
-        only path in Pulse that destroys personal data — verify the requester&apos;s identity and
-        record the content election before executing one.
-      </p>
+    <main className="mx-auto w-full max-w-[1100px] px-4 pb-24 pt-8 sm:px-6">
+      <PageHeader
+        breadcrumb={[{ label: "Admin" }, { label: "Privacy" }]}
+        title="Data subject requests"
+        standfirst={`Statutory deadline is ${DSR_SLA_DAYS} days from receipt. Erasure is irreversible and is the only path in Pulse that destroys personal data — verify the requester's identity and record the content election before executing one.`}
+        bordered={false}
+      />
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Stat label="Open" value={open.length} />
-        <Stat
-          label="Overdue"
-          value={overdue.length}
-          tone={overdue.length > 0 ? "alert" : "normal"}
-        />
-        <Stat label="Total on record" value={rows.length} />
-      </div>
+      <SpecStrip
+        ariaLabel="Data subject request totals"
+        className="mt-8"
+        cells={[
+          { label: "Open", value: <span className="tabular">{open.length}</span> },
+          {
+            label: "Overdue",
+            value: (
+              <span
+                className={
+                  overdue.length > 0 ? "tabular text-[color:var(--destructive-text)]" : "tabular"
+                }
+              >
+                {overdue.length}
+              </span>
+            ),
+          },
+          { label: "Total on record", value: <span className="tabular">{rows.length}</span> },
+        ]}
+      />
 
-      <div className="mt-8">
+      <div className="mt-10">
         {rows.length === 0 ? (
-          <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[color:var(--muted-foreground)]">
-              No requests on record.
-            </p>
-          </div>
+          <EmptyState
+            eyebrow="No requests"
+            heading="Nothing on record."
+            body="Data subject requests will appear here as soon as one is received."
+          />
         ) : (
           <DsrQueue rows={rows} />
         )}
       </div>
     </main>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  tone = "normal",
-}: {
-  label: string;
-  value: number;
-  tone?: "normal" | "alert";
-}) {
-  return (
-    <div className="aiesec-card px-5 py-4">
-      <p
-        className={`text-[28px] font-bold ${
-          tone === "alert"
-            ? "text-[color:var(--destructive-text)]"
-            : "text-[color:var(--foreground)]"
-        }`}
-      >
-        {value}
-      </p>
-      <p className="mt-0.5 text-[13px] text-[color:var(--muted-foreground)]">{label}</p>
-    </div>
   );
 }

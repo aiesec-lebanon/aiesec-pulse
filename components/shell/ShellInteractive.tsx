@@ -12,16 +12,15 @@ import { EntityName } from "@/components/ui/EntityName";
 import type { FeedMode } from "@/lib/feed-mode";
 import { buildNavigation, isCurrent, type NavItem } from "@/lib/navigation";
 
-// Capability flags, not roles: hiding a control is a courtesy, never a
-// boundary. The authoritative check stays in the Server Action.
+// Capability flags, not roles — hiding a control is a courtesy; the
+// Server Action is the real authority check.
 
 export type ShellUser = {
   fullName: string;
   entityName: string | null;
   canPublish: boolean;
-  /** Split out of a single `canModerate` flag: the Governance group now lists
-   *  four separate destinations, each guarded by a different permission, so one
-   *  union flag would have offered a member links they cannot open. */
+  /** Split from one canModerate flag — Governance has four destinations,
+   *  each behind its own permission; a union flag would leak links. */
   canApprove: boolean;
   canModerateContent: boolean;
   canViewInsights: boolean;
@@ -65,13 +64,9 @@ export function ShellInteractive({
         .toUpperCase()
     : "?";
 
-  // Route changes close every transient surface. Without this, tapping a
-  // drawer link navigates but leaves the drawer covering the page it opened.
-  //
-  // Adjusted during render rather than in an effect: React's documented
-  // pattern for deriving state from a changed input, and it closes the drawer
-  // in the same commit as the new route instead of one paint later. An effect
-  // here would also trip `react-hooks/set-state-in-effect`.
+  // Closes the drawer/dropdown on route change (else it covers the new
+  // page). Done during render, not an effect, so it lands in the same
+  // commit as the route change and doesn't trip set-state-in-effect.
   const [renderedPath, setRenderedPath] = useState(pathname);
   if (renderedPath !== pathname) {
     setRenderedPath(pathname);
@@ -120,8 +115,7 @@ export function ShellInteractive({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [dropdownOpen, drawerOpen]);
 
-  // The drawer is `aria-modal`, so focus must not escape it while it is open —
-  // otherwise a screen-reader user tabs into content the dialog claims to cover.
+  // aria-modal drawer: focus must stay trapped inside while it's open.
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? "hidden" : "";
     if (!drawerOpen) return;
@@ -270,7 +264,7 @@ export function ShellInteractive({
 
                     <div role="separator" className="my-1.5 border-t border-[var(--hairline)]" />
 
-                    {/* One click from every page — the requirement §8.2 imposes. */}
+                    {/* One click from every page. */}
                     <MotionMenuItem className={`${MENU_ITEM_CLASS} justify-between gap-3`} />
 
                     <div role="separator" className="my-1.5 border-t border-[var(--hairline)]" />
@@ -398,9 +392,8 @@ function Wordmark() {
 }
 
 /**
- * Measured with a layout effect so the first paint after a route change
- * already has the indicator in the right place — an indicator that visibly
- * jumps from 0 on every navigation is worse than no indicator.
+ * useLayoutEffect, not useEffect — the indicator must be positioned before
+ * first paint or it visibly jumps from 0 on every navigation.
  */
 function NavRail({
   items,
@@ -416,11 +409,9 @@ function NavRail({
   const listRef = useRef<HTMLUListElement>(null);
   const [indicator, setIndicator] = useState({ x: 0, w: 0, o: 0 });
 
-  // The close is delayed by one beat. Without it, the few pixels between the
-  // item and the panel below it are enough to close the menu the reader is on
-  // their way to; with it, a pointer that leaves and comes straight back never
-  // sees a flicker. (`.pulse-menu-bridge` covers the gap itself; this covers
-  // the diagonal.)
+  // Close delayed by one beat so a pointer crossing the gap to the panel
+  // doesn't trigger a flicker-close. (.pulse-menu-bridge covers the gap
+  // itself; this covers the diagonal.)
   const [feedMenuOpen, setFeedMenuOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -443,11 +434,9 @@ function NavRail({
 
   useEffect(() => cancelClose, [cancelClose]);
 
-  // A route change must not leave the menu hanging over the page it opened.
-  // Adjusted during render rather than in an effect — React's documented
-  // pattern for deriving state from a changed input, and the same one the
-  // shell above uses to close its drawer. An effect here would also trip
-  // `react-hooks/set-state-in-effect`.
+  // Closes the feed menu on route change; done during render (like the
+  // shell's drawer close above) to land in the same commit and avoid
+  // set-state-in-effect.
   const [renderedPath, setRenderedPath] = useState(pathname);
   if (renderedPath !== pathname) {
     setRenderedPath(pathname);

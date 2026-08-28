@@ -32,7 +32,7 @@ export function SearchResultRow({ hit }: { hit: SearchHit }) {
         </span>
       </div>
 
-      <h3 className="mt-3 flex items-start gap-2 text-[21px] font-bold leading-[1.25] tracking-[-0.01em] text-[color:var(--foreground)]">
+      <h3 className="pulse-serif mt-3 flex items-start gap-2 break-words text-[21px] leading-[1.2] text-[color:var(--foreground)]">
         <Link
           href={`/posts/${hit.slug}`}
           className="block min-h-[26px] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] after:absolute after:inset-0 after:content-[''] hover:text-[color:var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"

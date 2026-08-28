@@ -1,7 +1,6 @@
 /**
- * Shimmer bones shared by every page whose loading state is "a PageHeader,
- * maybe a SpecStrip, then a grid" — search, bookmarks, a topic archive, an
- * author or entity profile. Edits here affect all of them.
+ * Shared shimmer bones for the "PageHeader, maybe SpecStrip, then grid"
+ * loading state — search, bookmarks, topic archive, author/entity profile.
  */
 export function Bone({ className }: { className?: string }) {
   return (
@@ -81,10 +80,8 @@ export function PostGridPageSkeleton({
   );
 }
 
-/**
- * A hairline index, shared by the bookmarks list and both profile surfaces:
- * two-line title bones on a ruled row, with a leading square for a thumbnail.
- */
+/** Hairline index shared by bookmarks and both profile surfaces: two-line
+ *  title bones on a ruled row, leading square for a thumbnail. */
 export function IndexRowsSkeleton({
   count = 5,
   withThumb = true,
@@ -112,11 +109,8 @@ export function IndexRowsSkeleton({
   );
 }
 
-/**
- * The 4a profile composition, as bones: the angled hero, the four-cell stat
- * strip, and the index rail beside a column of ruled rows. Shared by
- * `/profile`, `/authors/[id]` and `/entities/[id]`.
- */
+/** Profile composition as bones (angled hero, stat strip, index rail +
+ *  ruled rows). Shared by /profile, /authors/[id], /entities/[id]. */
 export function ProfilePageSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <main className="flex-1 pb-24" aria-busy="true">

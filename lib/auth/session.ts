@@ -165,8 +165,8 @@ const COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: "lax" as const,
   path: "/",
-  // Lax rather than Strict: the OAuth callback is a cross-site top-level
-  // navigation, and Strict would drop the cookie on the redirect back.
+  // Lax, not Strict: the OAuth callback is a cross-site navigation that
+  // Strict would break.
 };
 
 export function sessionCookieAttributes(expiresAt: Date) {

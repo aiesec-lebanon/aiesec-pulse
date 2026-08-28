@@ -20,10 +20,9 @@ export function CommentList({ postId, comments, allLoaded, onLoadMore }: Props) 
   const [loading, startLoad] = useTransition();
   const firstNewRef = useRef<HTMLLIElement | null>(null);
 
-  // Comments already on screen at first render vs. arriving later (an
-  // optimistic add, a "Show more" page) — without the distinction, either
-  // nothing gets the arrival animation, or the whole thread re-animates on
-  // every row change.
+  // Tracks comments present at first render vs. arriving later (optimistic
+  // add, "Show more") — without this, either nothing gets the arrival
+  // animation or the whole thread re-animates on every change.
   const [seen] = useState(() => new Set(comments.map((c) => c.id)));
   useEffect(() => {
     for (const comment of comments) seen.add(comment.id);
@@ -54,8 +53,7 @@ export function CommentList({ postId, comments, allLoaded, onLoadMore }: Props) 
           const arrivalClass = seen.has(comment.id) ? "" : "pulse-copy-in";
           return comment.tombstone ? (
             <li key={comment.id} ref={i === 0 ? firstNewRef : undefined} className={arrivalClass}>
-              {/* Tombstone: the row keeps its place so the thread does not
-                  reshuffle under a reader, and a reply never orphans. */}
+              {/* Tombstone keeps the row's place so the thread doesn't reshuffle and replies don't orphan. */}
               <p className="text-[15px] italic text-[color:var(--muted-foreground)]">
                 {comment.hiddenReason
                   ? `Comment hidden by a moderator: ${comment.hiddenReason}`

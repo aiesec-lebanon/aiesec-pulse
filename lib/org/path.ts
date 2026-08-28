@@ -1,7 +1,6 @@
-// Two invariants make the prefix arithmetic safe: a path starts with / and
-// never ends with one, and a segment never contains /. Without the second,
-// /ai/mena would prefix-match /ai/menagerie and a regional grant would
-// silently cover an unrelated entity.
+// Invariant: a path starts with / and never ends with one, and a segment
+// never contains /. Without that, /ai/mena would prefix-match
+// /ai/menagerie and leak a grant into the wrong entity.
 
 export function pathSegment(input: string): string {
   const slug = input

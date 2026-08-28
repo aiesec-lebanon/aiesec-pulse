@@ -93,9 +93,8 @@ test.describe("sign-in refusals", () => {
     page,
     attemptSignIn,
   }) => {
-    // The grace window this replaced signed people in on their last-known
-    // authority for up to 72 hours, which is exactly the wrong answer during an
-    // outage: it is when Pulse can least tell whether a position was revoked.
+    // A grace window would sign people in on stale authority during an
+    // outage — exactly when Pulse can't tell whether a position was revoked.
     await attemptSignIn("gis_down");
     await expect(page).toHaveURL(/\/login\?error=gis_unavailable/);
     await expect(alertText(page)).toContainText(/member directory is unavailable/i);
@@ -107,8 +106,7 @@ test.describe("signed-in session", () => {
     await signInAs("member");
     const cookies = await context.cookies();
 
-    // The browser holds a Pulse session identifier, not a
-    // live GIS API credential.
+    // The browser holds a Pulse session id, not a live GIS API credential.
     expect(cookies.map((c) => c.name)).not.toContain("aiesec_token");
     expect(cookies.map((c) => c.name)).not.toContain("refresh_token");
 
@@ -171,11 +169,9 @@ test.describe("security headers", () => {
 });
 
 test.describe("no bypass of AIESEC sign-in", () => {
-  // AIESEC OAuth is the sole identity authority, so
-  // the emergency local-credential path is gone rather than merely disabled.
-  // Signed in first on purpose: an unauthenticated request would be sent to
-  // /login by the proxy either way, which proves nothing about whether the
-  // route still exists.
+  // AIESEC OAuth is the sole identity authority — the break-glass path is
+  // removed, not just disabled. Signs in first on purpose: an unauthenticated
+  // request would redirect to /login regardless, proving nothing about the route.
   test("the break-glass routes are gone, not merely unreachable", async ({ page, signInAs }) => {
     await signInAs("member");
 

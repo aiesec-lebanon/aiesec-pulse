@@ -20,19 +20,10 @@ type RevealProps = {
 };
 
 /**
- * The single entrance grammar for the whole app.
- *
- * Two rules make this safe rather than the usual scroll-animation trap:
- *
- * 1. Content is visible by default. The `data-reveal` attribute — the thing
- *    globals.css hangs `opacity: 0` off — is only written once this component
- *    has mounted and an observer is live. A crawler, a failed hydration, or a
- *    JS-disabled browser therefore sees fully rendered content, never a blank
- *    page waiting for an event that will not fire.
- *
- * 2. It reveals once and disconnects. Content that re-hides when it leaves the
- *    viewport makes a page feel broken on the way back up, and keeps an
- *    observer alive for the session.
+ * The app's entrance animation. `data-reveal` (what globals.css hangs
+ * `opacity: 0` off) is only set once mounted and observing, so a crawler,
+ * failed hydration, or JS-disabled browser sees full content, never a blank
+ * page. Reveals once and disconnects — re-hiding on scroll-out feels broken.
  */
 export function Reveal({
   children,
@@ -67,12 +58,9 @@ export function Reveal({
     setArmed(true);
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // `isIntersecting` alone is not enough. IntersectionObserver evaluates
-        // at frame boundaries, so an element that travels fully past the
-        // viewport between two frames — a wheel flick, a scrollbar drag, an
-        // in-page anchor jump — is never reported as intersecting, and would
-        // stay invisible for the rest of the session. Anything whose top has
-        // gone above the viewport has been scrolled past and must be shown.
+        // isIntersecting alone misses elements that jump fully past the
+        // viewport between frames (flick, scrollbar drag, anchor jump) —
+        // treat "top already above viewport" as scrolled-past and show it.
         if (!entry.isIntersecting && entry.boundingClientRect.top > 0) return;
         setShown(true);
         observer.disconnect();

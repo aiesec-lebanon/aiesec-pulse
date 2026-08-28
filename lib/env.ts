@@ -106,9 +106,8 @@ export const has = {
     ),
 };
 
-// NODE_ENV cannot answer this: `next start` sets it to "production"
-// unconditionally, so CI, a local smoke test and the live site are
-// indistinguishable by it.
+// NODE_ENV can't answer this: `next start` sets it "production"
+// unconditionally, so CI, local smoke tests, and the live site look alike.
 export const isProductionDeployment = (): boolean =>
   process.env.VERCEL_ENV === "production" || process.env.PULSE_DEPLOYMENT === "production";
 

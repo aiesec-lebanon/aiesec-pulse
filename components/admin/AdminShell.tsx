@@ -112,9 +112,7 @@ export function AdminShell({ adminEmail, children }: AdminShellProps) {
           ].join(" ")}
         />
 
-        {/* One nav list rendered into two shells. Previously duplicated, so an
-            active-state or count-badge change had to be made twice, or the
-            viewports drifted apart. */}
+        {/* Shared nav list for both shells so mobile/desktop can't drift apart. */}
         <nav
           aria-label="Admin navigation"
           inert={!sidebarOpen}

@@ -7,27 +7,19 @@ import type { PersonaKey } from "./gis-stub/fixtures";
 export type { PersonaKey } from "./gis-stub/fixtures";
 
 /**
- * Signing in drives the whole real OAuth + GIS path; only the far end of the
- * socket is a stub — see ./gis-stub/server.ts.
- *
- * The persona is chosen with a cookie on the stub's own origin, set here before
- * navigating. The application never learns that personas exist.
+ * Signing in drives the real OAuth + GIS path; only the far socket end is a
+ * stub (./gis-stub/server.ts). Persona is chosen via a cookie on the stub's
+ * own origin — the application never learns personas exist.
  */
 
 const STUB_ORIGIN = `http://127.0.0.1:${process.env.PULSE_GIS_STUB_PORT ?? 3099}`;
 const PERSONA_COOKIE = "pulse_e2e_persona";
 
 /**
- * /api/auth/start throttles per client IP at 10 attempts per 15 minutes, and a
- * suite that signs in dozens of times from one loopback address would spend that
- * budget and start failing on 429s that say nothing about the code under test.
- * Each test presents its own synthetic address instead. `clientIp()` reads
- * `x-forwarded-for` in production too, so this exercises the same code path
- * rather than disabling the limiter.
- *
- * Counted rather than hashed so the addresses cannot collide: workers are
- * separate processes with distinct indices, and tests within a worker run in
- * sequence. A retry is a fresh run and takes the next address.
+ * /api/auth/start rate-limits by IP (10/15min); a suite signing in dozens of
+ * times from one loopback address would trip 429s unrelated to the code
+ * under test. Each test gets its own synthetic x-forwarded-for address
+ * instead — counted, not hashed, so worker index + sequence can't collide.
  */
 let nthRunInWorker = 0;
 
@@ -45,11 +37,9 @@ export type SignInAsAdmin = (returnTo?: string) => Promise<void>;
 export type AttemptSignIn = (persona: PersonaKey, isolate?: string) => Promise<void>;
 
 /**
- * Signs an arbitrary page in, rather than the one the `signInAs` fixture is
- * bound to. Sessions live in the browser context's cookie jar, so a second page
- * signing in swaps the identity of every page in that context — which is how
- * `e2e/promotion.spec.ts` puts a control rendered for one account in front of a
- * request carrying another.
+ * Signs an arbitrary page in (not the `signInAs`-bound one). Sessions live
+ * in the context's cookie jar, so a second sign-in swaps identity for every
+ * page in that context — used by promotion.spec.ts to mix accounts.
  */
 export async function signInPage(
   page: Page,

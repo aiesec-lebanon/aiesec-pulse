@@ -1,13 +1,8 @@
 /**
- * A row of measurements under a hero or page intro — labels over values,
- * divided by hairlines rather than cards.
- *
- * `contained` aligns the strip with the rest of the app: under a full-bleed
- * hero, the *rules* must reach both page edges while the first cell must
- * start where every other page's content does — the shell's own
- * `max-w-[1240px]` column. Without it, the strip started at the page margin
- * while the header wordmark sat in a centred container: 300px out of step on
- * a 1920px screen.
+ * Measurements under a hero, labels over values, divided by hairlines.
+ * `contained` keeps the rules full-bleed while aligning cells to the
+ * shell's max-w-[1240px] column — without it the strip drifted ~300px
+ * out of step with the header on wide screens.
  */
 export function SpecStrip({
   cells,
@@ -31,8 +26,8 @@ export function SpecStrip({
           className={[
             "min-w-0 py-5",
             contained ? "px-4 sm:px-6 sm:first:pl-0" : "px-[var(--page-x)] sm:px-6",
-            // A left rule on every cell but the first in its row draws the
-            // grid without doubling up against the strip's own outer border.
+            // Left rule on all but each row's first cell, to avoid doubling
+            // the strip's outer border.
             i % 2 === 1 ? "border-l border-[var(--hairline)]" : "",
             "sm:border-l sm:first:border-l-0",
           ]

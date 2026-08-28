@@ -10,16 +10,14 @@ export function AppShell({
   children,
 }: {
   user: ShellUser | null;
-  /** The feed's own For You / Latest choice, read server-side so the nav's
-   *  dropdown (rendered while pathname is under /feed) opens already correct. */
+  /** Read server-side so the feed nav dropdown opens already correct. */
   feedMode: FeedMode;
   feedRankedAvailable: boolean;
   children: React.ReactNode;
 }) {
   return (
-    // `pulse-stage` paints the lit ground the whole app sits on; its glow
-    // fields are `position: fixed` pseudo-elements at z-0, so content needs a
-    // stacking context above them.
+    // pulse-stage's glow fields are fixed pseudo-elements at z-0; content
+    // needs its own stacking context above them.
     <div className="pulse-stage flex min-h-full flex-col">
       <ShellInteractive user={user} feedMode={feedMode} feedRankedAvailable={feedRankedAvailable} />
       <div

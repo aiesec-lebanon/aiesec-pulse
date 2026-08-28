@@ -12,22 +12,10 @@ const OPTIONS: Array<{ key: FeedMode; label: string }> = [
 ];
 
 /**
- * The feed's order switch, living in the shell's nav. Only ever rendered
- * while the pathname is under /feed (see `NavRail`).
- *
- * `open` is controlled from outside on desktop (`NavRail` owns hover intent
- * for the item); with no `open` prop (the mobile drawer) it falls back to
- * its own click-driven state.
- *
- * Hover is an addition, never the only way in: the chevron is still a real
- * button that toggles on click and on Enter, and Escape still closes and
- * returns focus. A menu reachable only by hover is unreachable by keyboard and
- * unusable by touch.
- *
- * `mode` is a prop, not local state: `setFeedMode` refreshes the current route
- * on completion, so the server-computed value flows back down through the
- * layout rather than being mirrored here — `isPending` is the only local
- * state, purely to disable the trigger mid-write.
+ * Only rendered under /feed. `open` is controlled by NavRail on desktop
+ * (owns hover intent); the mobile drawer falls back to its own click state.
+ * Hover only adds a path in — chevron/Enter/Escape still work standalone.
+ * `mode` is a prop, not state: setFeedMode refreshes the route itself.
  */
 export function FeedModeMenu({
   mode,
@@ -103,8 +91,7 @@ export function FeedModeMenu({
 
       {open && (
         <>
-          {/* The pointer-safe corridor between trigger and panel. Without it
-              the menu closes in the very gap the reader is crossing. */}
+          {/* Pointer-safe corridor to the panel — else the menu closes mid-crossing. */}
           <span aria-hidden className="pulse-menu-bridge" />
           <div
             role="menu"

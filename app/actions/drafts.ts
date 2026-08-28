@@ -46,16 +46,11 @@ export type SaveDraftResult =
   | { ok: false; errors: Record<string, string> };
 
 /**
- * Create-or-update a `Post{status: DRAFT}` + a `PostVersion` snapshot.
- *
- * Inline images in `bodyJson` are left as the raw upload URL, not
- * materialised, because this runs on a 5-second autosave cadence with no
- * channel to hand a rewritten mediaId back to an actively-typing TipTap
- * instance without disturbing it. Materialisation happens once, at publish
- * time (see `lib/content/publish.ts`).
- *
- * The cover image is resolved eagerly below, idempotently — re-saving the
- * same attached image on every tick must not mint a new Media row each time.
+ * Inline images stay as raw URLs — this runs on a 5s autosave cadence with
+ * no way to hand a rewritten mediaId back to an actively-typing TipTap
+ * instance. Materialisation happens once, at publish (lib/content/publish.ts).
+ * Cover resolution is idempotent: re-saving the same image must not mint a
+ * new Media row each tick.
  */
 export async function saveDraft(input: SaveDraftInput, postId?: string): Promise<SaveDraftResult> {
   const user = await requireSession();
@@ -141,9 +136,8 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
         where: { id: existing.id },
         data: {
           title,
-          // Sent in full each time rather than merged: clearing the highlight
-          // has to be expressible, and `undefined` in a Prisma `data` means
-          // "leave it alone".
+          // Sent in full, not merged — clearing the highlight must stay
+          // expressible, and `undefined` in Prisma `data` means "leave alone".
           titleAccent: titleAccent || null,
           summary: summaryValue,
           bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
@@ -214,11 +208,9 @@ export type PublishDraftResult =
   | { ok: false; errors: Record<string, string> };
 
 /**
- * The draft equivalent of createPost, sharing its quota-resolution and
- * image-materialisation logic (lib/content/publish.ts).
- *
+ * Draft equivalent of createPost (shares its quota + materialisation logic).
  * Re-validated with the strict createPostSchema — saveDraft's lenient schema
- * is a "leave and return" convenience only, not a lower bar for publishing.
+ * is a "leave and return" convenience, not a lower publishing bar.
  */
 export async function publishDraft(
   postId: string,
@@ -368,10 +360,8 @@ export async function publishDraft(
         level: decision.level,
         ...(decision.stamp ?? {}),
         audienceSize,
-        // The draft was created with saveDraft's placeholder GLOBAL audience
-        // (lib/zod-schemas.ts has no audience field on the draft path, only
-        // on publish) — replace it wholesale with what was actually decided
-        // above rather than leaving the placeholder rows in place alongside it.
+        // Drafts start with saveDraft's placeholder GLOBAL audience (no
+        // audience field on the draft schema) — replaced wholesale here.
         audiences: { deleteMany: {}, create: audiences },
         topics: {
           deleteMany: {},
@@ -457,9 +447,8 @@ export async function deleteDraft(
     { type: "post", id: postId, entityId: post.publisherEntityId },
     { title: post.title },
     async () => {
-      // Hard delete: an unpublished draft was never seen by anyone but its
-      // author, so moderation reversibility doesn't apply (retention.ts
-      // hard-deletes stale drafts the same way).
+      // Hard delete — an unpublished draft was seen only by its author, so
+      // moderation reversibility doesn't apply (retention.ts does the same).
       await db.post.delete({ where: { id: postId } });
       revalidatePath("/drafts");
       return { ok: true as const };

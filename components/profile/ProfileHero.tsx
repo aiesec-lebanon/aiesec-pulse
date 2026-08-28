@@ -8,18 +8,9 @@ import { brandPlaceAccent } from "@/lib/org/display";
 const COLUMN = "mx-auto w-full max-w-[1240px] px-6";
 
 /**
- * The hero and the strip fill exactly one screen: the frame is
- * `calc(100svh - var(--rail-h))` less the strip's own height. The strip is
- * rendered here, not by the page, because the two must be measured together
- * — three pages each composing it themselves is three chances to get it
- * wrong.
- *
- * The initials are `aria-hidden`: the name is already in an `h1`, and two
- * stray letters announced first would be noise.
- *
- * Name, position, entity, and member count are all real data — `User` and
- * `Entity` carry no pull-quote or recognition field, so 4a's reference
- * design is illustrative copy there, not a field to wire up.
+ * Hero + spec strip fill one screen and render together (not per-page) so
+ * their heights stay in sync. Initials are aria-hidden (name's already an
+ * h1). All fields here are real — User/Entity have no pull-quote field.
  */
 export function ProfileHero({
   kicker,
@@ -42,7 +33,7 @@ export function ProfileHero({
   /** Already through `entityDisplayName` — the brand lockup, not a place. */
   entityName?: string | null;
   standfirst?: string | null;
-  /** Replaces the standfirst paragraph entirely — how `/profile` puts the bio editor where the bio is read. */
+  /** Replaces the standfirst — how `/profile` slots the bio editor in. */
   standfirstSlot?: React.ReactNode;
   actions?: React.ReactNode;
   specCells: Array<{ label: string; value: React.ReactNode }>;
@@ -97,8 +88,7 @@ export function ProfileHero({
             className="absolute inset-0 z-[2] overflow-hidden"
             style={{
               clipPath: "polygon(100% 0, 100% 100%, 48% 100%, 66% 0)",
-              // Mixed toward `--ink` rather than a literal near-black, so the
-              // wedge keeps its depth in both themes instead of going flat-bright.
+              // Mixed toward --ink, not literal near-black, to keep depth in both themes.
               background: `radial-gradient(135% 115% at 22% 14%, color-mix(in srgb, ${accent} 34%, var(--ink)), color-mix(in srgb, ${accent} 80%, var(--ink)) 68%)`,
             }}
           >

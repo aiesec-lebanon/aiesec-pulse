@@ -101,10 +101,9 @@ async function seedTopics() {
   console.log(`  topics: ${TOPICS.length}`);
 }
 
-// Two budgets, discriminated by post level. LOCAL is the per-author publishing
-// allowance, one row per position class that may publish. NETWORK is the
-// promotion allowance, counted per MC rather than per officer, and seeded only
-// for the classes that hold `post.promote`.
+// Two budgets by post level: LOCAL is the per-author publishing allowance.
+// NETWORK is the promotion allowance, counted per MC (not per officer),
+// seeded only for roles holding `post.promote`.
 const QUOTAS: Array<{
   id: string;
   roleKey: RoleKey;
@@ -119,9 +118,8 @@ const QUOTAS: Array<{
   { id: "quota_default_ai_vp", roleKey: "ai_vp", postLevel: "LOCAL", maxPosts: 100 },
   { id: "quota_default_pai", roleKey: "pai", postLevel: "LOCAL", maxPosts: 100 },
 
-  // An MC gets one promotion a week. The budget is the whole point of the
-  // mechanism, so it starts tight and an admin widens it per MC rather than
-  // starting wide and hoping.
+  // One promotion/week by default — starts tight; an admin widens it per
+  // MC rather than starting wide.
   { id: "quota_network_mc_president", roleKey: "mc_president", postLevel: "NETWORK", maxPosts: 1 },
   { id: "quota_network_ai_manager", roleKey: "ai_manager", postLevel: "NETWORK", maxPosts: 20 },
   { id: "quota_network_ai_vp", roleKey: "ai_vp", postLevel: "NETWORK", maxPosts: 100 },
@@ -129,11 +127,9 @@ const QUOTAS: Array<{
 ];
 
 async function seedQuotas() {
-  // `QuotaPolicy` is uniquely keyed on [scopeType, entityId, roleKey, postLevel,
-  // period], and `entityId` is NULL for every network-wide default. Postgres
-  // treats NULLs as distinct inside a unique index, so upserting on that
-  // constraint would insert a duplicate default on every run — find-then-write
-  // instead.
+  // entityId is NULL for network-wide defaults, and Postgres treats NULLs
+  // as distinct in a unique index — upsert would duplicate on every run,
+  // so this finds-then-writes instead.
   for (const quota of QUOTAS) {
     const existing = await db.quotaPolicy.findFirst({
       where: {

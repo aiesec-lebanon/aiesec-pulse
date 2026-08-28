@@ -1,11 +1,8 @@
 import Link from "next/link";
 
 /**
- * A filter set that reads as text with a 2px rule under the active one, not a
- * row of boxed chips.
- *
- * These are links, not buttons with client state: each filtered view has a
- * URL, so it can be shared, bookmarked, and reached by the back button.
+ * Text tabs, not boxed chips. Links, not buttons with state — each
+ * filtered view has a URL, so it's shareable and back-button-safe.
  */
 export function TextTabs({
   items,

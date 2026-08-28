@@ -2,8 +2,8 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 
-// The env values below are placeholders so modules that validate configuration
-// at first use can be imported. None is a real secret.
+// Placeholder env values so modules that validate config at import time
+// can load; none of this is a real secret.
 export default defineConfig({
   resolve: {
     alias: {

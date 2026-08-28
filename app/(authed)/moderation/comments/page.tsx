@@ -1,8 +1,10 @@
-import Link from "next/link";
-
 import type { Prisma } from "@/app/generated/prisma/client";
 import { PageSizeSelect } from "@/components/admin/PageSizeSelect";
 import { type CommentRow, CommentsTable } from "@/components/moderation/CommentsTable";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Pagination } from "@/components/ui/Pagination";
+import { TextTabs } from "@/components/ui/TextTabs";
 import { db } from "@/lib/db";
 import { entityDisplayName } from "@/lib/org/display";
 import { requirePermission } from "@/lib/rbac/guards";
@@ -84,71 +86,47 @@ export default async function ModerationCommentsPage({
   };
 
   return (
-    <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
-      <h1 className="text-[24px] font-black text-[color:var(--foreground)]">Comments</h1>
-      <p className="mt-1 text-[15px] text-[color:var(--muted-foreground)]">
-        Hiding is reversible and always carries a reason the author can see.
-      </p>
+    <main className="mx-auto w-full max-w-[1100px] px-4 pb-24 pt-8 sm:px-6">
+      <PageHeader
+        breadcrumb={[{ href: "/feed", label: "Feed" }, { label: "Comments" }]}
+        title="Comments"
+        standfirst="Hiding is reversible and always carries a reason the author can see."
+        count={total}
+        countLabel={total === 1 ? "comment" : "comments"}
+        bordered={false}
+      />
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <nav
-          aria-label="Filter comments"
-          className="flex flex-wrap gap-1 rounded-[8px] bg-[var(--muted)] p-1"
-        >
-          {VIEW_OPTIONS.map((option) => (
-            <Link
-              key={option.value}
-              href={buildHref({ view: option.value, page: 1 })}
-              aria-current={view === option.value ? "page" : undefined}
-              className={[
-                "min-h-[28px] rounded-[4px] px-3 py-1 text-[14px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
-                view === option.value
-                  ? "bg-[var(--card)] text-[color:var(--foreground)]"
-                  : "text-[color:var(--muted-foreground)] hover:text-[color:var(--foreground)]",
-              ].join(" ")}
-            >
-              {option.label}
-            </Link>
-          ))}
-        </nav>
+      <TextTabs
+        ariaLabel="Filter comments"
+        className="mt-8"
+        items={VIEW_OPTIONS.map((option) => ({
+          href: buildHref({ view: option.value, page: 1 }),
+          label: option.label,
+          isActive: view === option.value,
+        }))}
+      />
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="ml-auto">
           <PageSizeSelect current={limit} />
         </div>
       </div>
 
-      <p className="mt-4 text-[13px] text-[color:var(--muted-foreground)]" role="status">
-        {total} {total === 1 ? "comment" : "comments"}
-      </p>
-
-      <div className="mt-3">
+      <div className="mt-6">
         {rows.length === 0 ? (
-          <div className="aiesec-card px-8 py-12 text-center">
-            <p className="text-[16px] text-[color:var(--muted-foreground)]">
-              No comments match that filter.
-            </p>
-          </div>
+          <EmptyState heading="No comments match that filter." body="Try a different view above." />
         ) : (
           <CommentsTable rows={rows} />
         )}
       </div>
 
-      {totalPages > 1 && (
-        <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-4">
-          {page > 1 && (
-            <Link href={buildHref({ page: page - 1 })} className="aiesec-btn-secondary">
-              Previous
-            </Link>
-          )}
-          <span className="text-[14px] tabular-nums text-[color:var(--muted-foreground)]">
-            Page {page} of {totalPages}
-          </span>
-          {page < totalPages && (
-            <Link href={buildHref({ page: page + 1 })} className="aiesec-btn-secondary">
-              Next
-            </Link>
-          )}
-        </nav>
-      )}
+      <Pagination
+        label="Comments pagination"
+        page={page}
+        hasNext={page < totalPages}
+        previousHref={page > 1 ? buildHref({ page: page - 1 }) : null}
+        nextHref={page < totalPages ? buildHref({ page: page + 1 }) : null}
+      />
     </main>
   );
 }

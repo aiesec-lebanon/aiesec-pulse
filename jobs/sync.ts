@@ -29,8 +29,8 @@ async function finishRun(
   });
 }
 
-// GIS has no service credential, so a bulk sync borrows the token of a recently
-// active member, preferring global scope for the widest view of the tree.
+// GIS has no service account; borrow a recent member's token, preferring
+// global scope for the widest view of the tree.
 async function borrowAccessToken(): Promise<string | null> {
   const candidates = await db.user.findMany({
     where: {
@@ -50,9 +50,8 @@ async function borrowAccessToken(): Promise<string | null> {
   return null;
 }
 
-// The recompute is not optional: an office can be re-parented, and every
-// descendant's path has to move with it or scope checks silently stop covering
-// entities they should.
+// Recompute is required: a re-parented office's descendants need new
+// paths, or scope checks silently stop covering them.
 export const syncEntities = inngest.createFunction(
   { id: JOB_IDS.syncEntities, retries: 2 },
   [{ cron: "0 3 * * 1" }, { event: "org/entities.sync.requested" }],
@@ -188,8 +187,8 @@ export const syncRoles = inngest.createFunction(
   }
 );
 
-// Runs dry by default: thousands of grants move at once, and a wrong run takes
-// publishing rights from the network exactly when new leadership needs them.
+// Defaults to dry-run: a wrong run at scale strips publishing rights from
+// the network right when new leadership needs them.
 export const termTransition = inngest.createFunction(
   { id: JOB_IDS.termTransition, retries: 1 },
   [{ event: "org/term.transition.requested" }],

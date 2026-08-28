@@ -3,14 +3,9 @@ import type { ElsewhereWindow } from "@/lib/feed";
 import type { FeedPost } from "@/types/feed";
 
 /**
- * 1b's closing section: a stat-led serif headline beside a numbered list of
- * headlines, over a scrolling ticker built from the same posts.
- *
- * The headline and list now share one query (`getElsewhereDigest`) describing
- * one window. They used to be independent — a seven-day publisher count over
- * whatever came next in the feed — putting "1 entity has published this week"
- * above a story from three months earlier. A stat that doesn't describe what's
- * under it is worse than no stat (§0.8).
+ * The feed's closing section — stat headline, numbered list, and ticker,
+ * all from one window (`getElsewhereDigest`). Keep them on the same query:
+ * the stat must describe the posts under it, not an unrelated window.
  */
 
 const WINDOW_PHRASE: Record<ElsewhereWindow, string> = {
@@ -37,10 +32,9 @@ export function ElsewhereSection({
     (post) => `${post.author.entityName ?? post.author.fullName} — ${post.title}`
   );
 
-  // One duplicate of a two-item list is still a two-item list: at ~600px on a
-  // 1240px page, the marquee started halfway across, leaving the left half of
-  // the section blank. The set repeats until it fills a track, *then* doubles
-  // for the seamless -50% loop.
+  // Repeat entries until they fill a full track, then double that set for
+  // a seamless -50% loop — too few repeats starts the marquee mid-track,
+  // leaving blank space on one side.
   const repeats = Math.max(1, Math.ceil(MIN_TICKER_ENTRIES / entries.length));
   const track = Array.from({ length: repeats }, () => entries).flat();
 
@@ -90,8 +84,7 @@ export function ElsewhereSection({
         </div>
       </div>
 
-      {/* The ticker is `aria-hidden`, so the entities it names are announced
-          once, here, in the register a screen reader can actually use. */}
+      {/* Ticker is aria-hidden; this is the one place screen readers hear these entity names. */}
       <p className="sr-only">
         Also publishing:{" "}
         {posts

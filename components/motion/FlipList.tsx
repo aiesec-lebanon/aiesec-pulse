@@ -3,26 +3,10 @@
 import { useLayoutEffect, useRef } from "react";
 
 /**
- * A list whose items *move* when the list reorders, instead of teleporting.
- *
- * FLIP is the standard answer, and at only ~40 lines it lives here rather
- * than pulling in an animation library: measure every child's box *before*
- * the DOM updates (First), read it again after (Last), write the difference
- * back as a transform so each child appears not to have moved (Invert), then
- * clear the transform next frame and let CSS carry it home (Play).
- *
- * Two details that matter:
- *
- *   - Identity comes from `data-flip-key`, stamped on each child by the
- *     caller. Indices are useless here — the whole point is that item three
- *     became item two.
- *   - A child absent from the previous measurement is *new*, and gets the
- *     enter animation rather than a move — a card arriving from nowhere
- *     shouldn't slide in from position zero.
- *
- * Reduced motion needs no branch: `.pulse-flip` multiplies its offset by
- * `--motion-travel`, so the inverted transform evaluates to zero and every
- * item is already home on the first frame.
+ * FLIP reorder animation: measure boxes before/after the DOM update, invert
+ * the diff into a transform, then clear it next frame so CSS eases it home.
+ * Identity is `data-flip-key`, not index — a key missing from the previous
+ * measurement means "new" and gets the enter animation, not a move.
  */
 export function FlipList({
   children,

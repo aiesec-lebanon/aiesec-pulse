@@ -1,12 +1,8 @@
 import { mergeAttributes, Node } from "@tiptap/core";
 
-// Mirrors lib/content/document.ts's image block exactly: mediaId + required
-// alt — nothing else survives sanitiseDocument. `src` is a third,
-// editor-only attribute — absent from the document model's type and
-// stripped by sanitiseDocument()'s allowlist, but what lets a
-// freshly-inserted image preview before the post saves (mediaId is still
-// just the storage URL then; see materializeInlineImages in
-// app/actions/posts.ts for how it becomes a real Media id on submit).
+// mediaId + alt mirror the document model's image block; sanitiseDocument
+// strips everything else, including editor-only `src`, a preview URL until
+// submit swaps mediaId for a real Media id (materializeInlineImages).
 export type PulseImageAttrs = { mediaId: string; alt: string; src?: string | null };
 
 declare module "@tiptap/core" {
@@ -53,12 +49,10 @@ export const PulseImageNode = Node.create({
         dom.setAttribute("alt", alt);
         dom.className = "pulse-editor-image";
       } else {
-        // No preview URL to render — a mediaId already naming a real Media
-        // row (e.g. resuming a rejected post's saved content), not a fresh
-        // upload. Shown as a labelled placeholder, not a broken <img>, so
-        // the author knows the block is there without a media lookup on
-        // the editing surface (a render-time concern DocumentRenderer's
-        // MediaLookup already owns).
+        // No src means mediaId already points to a real Media row (e.g. a
+        // resumed rejected post), not a fresh upload — show a placeholder
+        // rather than resolving it here; DocumentRenderer's MediaLookup
+        // owns that.
         dom.className = "pulse-editor-image-placeholder";
         dom.textContent = alt || "Image";
       }

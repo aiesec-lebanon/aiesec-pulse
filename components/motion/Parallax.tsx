@@ -5,14 +5,10 @@ import { useEffect, useRef } from "react";
 import { motionEnabled } from "@/components/motion/motion-context";
 
 /**
- * Scroll-driven parallax.
- *
- * One shared scroll listener per mounted layer would be wasteful, so every
- * layer registers with a single module-level rAF loop instead. The loop only
- * runs while at least one layer is registered *and* that layer is on screen,
- * and it writes a CSS custom property rather than a transform — the actual
- * translate lives in `.pulse-parallax`, which multiplies by `--motion-travel`
- * so Reduced motion flattens every layer without this file knowing.
+ * Scroll-driven parallax: all layers share one module-level rAF loop rather
+ * than a listener each, running only while a registered layer is on screen.
+ * Writes a CSS custom property (not a transform) that `.pulse-parallax`
+ * multiplies by `--motion-travel`, so Reduced motion flattens it for free.
  */
 
 type Layer = {
@@ -112,13 +108,10 @@ export function Parallax({ children, depth = 40, scale = 1, className }: Paralla
 }
 
 /**
- * Pointer-driven 3-D tilt. Writes rotation and pointer position as custom
- * properties consumed by `.pulse-tilt` / `.pulse-tilt-sheen`; the transform
- * itself is multiplied by `--motion-travel`, so Reduced motion leaves the
- * plate flat while the listeners simply write values nothing reads.
- *
- * Pointer-type gated: a coarse pointer has no hover, so a touch drag must not
- * leave a card stuck at an angle.
+ * Pointer-driven 3-D tilt: writes rotation/position as custom properties for
+ * `.pulse-tilt`; multiplied by `--motion-travel`, so Reduced motion leaves it
+ * flat while listeners just write values nothing reads. Mouse-only — a touch
+ * drag on a coarse pointer must not leave a card stuck at an angle.
  */
 export function Tilt({
   children,
@@ -182,10 +175,9 @@ export function Tilt({
   }, [max, lift, sheen]);
 
   return (
-    // The className lands on the perspective scene, not the tilting plate:
-    // callers size the scene (`h-full` in a card grid), and the plate must
-    // fill it, or the tilt wrappers swallow the height and a row of cards
-    // renders at three different heights.
+    // className sizes the perspective scene, not the tilting plate — the
+    // plate fills it via h-full, or a row of cards renders at mismatched
+    // heights.
     <div className={["pulse-tilt-scene", className].filter(Boolean).join(" ")}>
       <div ref={ref} className="pulse-tilt h-full">
         {children}

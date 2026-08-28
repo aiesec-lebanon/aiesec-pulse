@@ -13,9 +13,8 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { isSameOrigin } from "@/lib/request";
 
-// POST-only with an origin check: a GET logout is a one-pixel-image CSRF.
-// Clearing the cookie is not signing out; the revoked row is what stops a
-// stolen one.
+// POST-only + origin check — a GET logout is a one-pixel-image CSRF. The
+// revoked row is what actually stops a stolen cookie, not clearing it.
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request.headers, env.NEXT_PUBLIC_BASE_URL)) {
     return NextResponse.json({ error: "Cross-origin request rejected." }, { status: 403 });

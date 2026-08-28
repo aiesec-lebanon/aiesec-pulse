@@ -1,9 +1,8 @@
 import { permanentRedirect } from "next/navigation";
 
 /**
- * Moved — see `app/admin/(protected)/layout.tsx`. The redirect stays because
- * members bookmark work queues, and a 404 on a bookmarked queue reads as
- * "the feature was removed".
+ * Moved; see app/admin/(protected)/layout.tsx. Kept as a redirect since
+ * members bookmark this URL — a 404 would read as the feature vanishing.
  */
 export default function MovedPage(): never {
   permanentRedirect("/moderation/comments");

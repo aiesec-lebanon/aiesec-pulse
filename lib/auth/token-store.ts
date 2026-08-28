@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
-// Never leave the server. Token material is redacted by field name in the logger.
+// Never leaves the server; token fields are redacted by name in the logger.
 
 export type TokenSet = {
   accessToken: string;

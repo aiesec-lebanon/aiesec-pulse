@@ -2,12 +2,11 @@
 
 import { useState, useTransition } from "react";
 
-import { approvePost } from "@/app/actions/posts";
+import { approvePost, rejectPost } from "@/app/actions/posts";
 import type { TopicKind } from "@/app/generated/prisma/enums";
 import { EntityName } from "@/components/ui/EntityName";
+import { ReasonModal } from "@/components/ui/ReasonModal";
 import { TopicLabel } from "@/components/ui/TopicPill";
-
-import { RejectModal } from "./RejectModal";
 
 const EXCERPT_LIMIT = 300;
 
@@ -147,11 +146,18 @@ export function QueueCard({
         </div>
       </article>
 
-      <RejectModal
+      <ReasonModal
         key={modalOpen ? "open" : "closed"}
-        postId={postId}
         open={modalOpen}
+        title="Reject this post?"
+        description="This post will be discarded. The MCP will not be notified. Please follow up offline if needed."
+        targetLabel={title}
+        reasonLabel="Reason"
+        reasonHint="Reason must be between 5 and 500 characters."
+        confirmLabel="Reject post"
+        pendingLabel="Rejecting…"
         onClose={() => setModalOpen(false)}
+        onConfirm={async (reason) => rejectPost(postId, reason)}
       />
     </>
   );

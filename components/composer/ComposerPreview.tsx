@@ -1,5 +1,6 @@
 import type { TopicKind } from "@/app/generated/prisma/enums";
 import { DisplayTitle } from "@/components/ui/DisplayTitle";
+import { MetaLine } from "@/components/ui/MetaLine";
 import { TopicPill } from "@/components/ui/TopicPill";
 import { TopicPlate } from "@/components/ui/TopicPlate";
 import { excerptFrom, readingMinutes } from "@/lib/content/document";
@@ -19,10 +20,8 @@ export type ComposerPreviewProps = {
 };
 
 /**
- * The standfirst fallback and word-count/reading-time line call the same
- * functions the server uses to fill a blank summary and store
- * `readingMinutes` — so the preview is never a rounder, prettier lie about
- * what's persisted.
+ * Standfirst fallback and reading-time reuse the server's own functions,
+ * so the preview never diverges from what actually gets persisted.
  */
 export function ComposerPreview({
   title,
@@ -53,14 +52,13 @@ export function ComposerPreview({
           )}
         </div>
         <div className="p-7">
-          <p className="pulse-label mb-4 flex flex-wrap items-center gap-2.5">
-            {topic && <TopicPill name={topic.name} kind={topic.kind} />}
-            {authorEntityName && (
-              <span className="normal-case tracking-[0.06em] text-[color:var(--muted-foreground)]">
-                {authorEntityName}
-              </span>
-            )}
-          </p>
+          <MetaLine
+            className="mb-4"
+            items={[
+              topic && <TopicPill key="topic" name={topic.name} kind={topic.kind} />,
+              authorEntityName,
+            ]}
+          />
           <DisplayTitle
             as="h2"
             size="sm"

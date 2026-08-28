@@ -3,11 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 /**
- * The one dialog: focus trap, Escape-to-close, focus return, generalised
- * over its labels and confirm tone so moderation and promotion share it.
- *
- * `tone` picks the confirm button's fill: `destructive` for an action that
- * takes something away (hide, reject), `primary` for one that grants reach.
+ * Shared dialog (focus trap, Escape-to-close, focus return) generalised
+ * over labels/tone so moderation and promotion both reuse it. `tone` sets
+ * the confirm fill: destructive removes something, primary grants reach.
  */
 export type ReasonModalTone = "destructive" | "primary";
 
@@ -26,6 +24,7 @@ export function ReasonModal({
   confirmLabel,
   pendingLabel,
   tone = "destructive",
+  requireReason = true,
   onClose,
   onConfirm,
 }: {
@@ -33,12 +32,15 @@ export function ReasonModal({
   title: string;
   description: string;
   targetLabel: string;
-  reasonLabel: string;
+  reasonLabel?: string;
   /** Shown when the reason is too short, so the requirement is stated once. */
-  reasonHint: string;
+  reasonHint?: string;
   confirmLabel: string;
   pendingLabel: string;
   tone?: ReasonModalTone;
+  /** False for a plain confirm/cancel (e.g. deleting your own draft) — no
+   * reason is meaningful when there's no one else to show it to. */
+  requireReason?: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
@@ -51,7 +53,11 @@ export function ReasonModal({
   useEffect(() => {
     if (!open) return;
     previousFocus.current = document.activeElement as HTMLElement | null;
-    dialogRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+    if (requireReason) {
+      dialogRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+    } else {
+      dialogRef.current?.querySelector<HTMLButtonElement>("[data-reason-modal-cancel]")?.focus();
+    }
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -79,17 +85,16 @@ export function ReasonModal({
       document.removeEventListener("keydown", onKeyDown);
       previousFocus.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open, onClose, requireReason]);
 
-  // Keyed by the caller, so opening for a different target remounts with
-  // empty state.
+  // Keyed by the caller — a different target remounts with empty state.
   if (!open) return null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = reason.trim();
-    if (trimmed.length < 5) {
-      setError(reasonHint);
+    if (requireReason && trimmed.length < 5) {
+      setError(reasonHint ?? "");
       return;
     }
     setError(null);
@@ -123,26 +128,30 @@ export function ReasonModal({
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4">
-          <label
-            htmlFor="reason-modal-reason"
-            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
-          >
-            {reasonLabel}{" "}
-            <span aria-hidden className="text-[color:var(--destructive-text)]">
-              *
-            </span>
-          </label>
-          <textarea
-            id="reason-modal-reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={3}
-            maxLength={500}
-            required
-            aria-describedby={error ? "reason-modal-error" : undefined}
-            aria-invalid={error ? true : undefined}
-            className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-          />
+          {requireReason && (
+            <>
+              <label
+                htmlFor="reason-modal-reason"
+                className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
+              >
+                {reasonLabel}{" "}
+                <span aria-hidden className="text-[color:var(--destructive-text)]">
+                  *
+                </span>
+              </label>
+              <textarea
+                id="reason-modal-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                maxLength={500}
+                required
+                aria-describedby={error ? "reason-modal-error" : undefined}
+                aria-invalid={error ? true : undefined}
+                className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              />
+            </>
+          )}
           {error && (
             <p
               id="reason-modal-error"
@@ -156,6 +165,7 @@ export function ReasonModal({
           <div className="mt-5 flex justify-end gap-3">
             <button
               type="button"
+              data-reason-modal-cancel
               onClick={onClose}
               disabled={pending}
               className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"

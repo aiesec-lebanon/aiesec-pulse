@@ -7,6 +7,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { ProfileHero } from "@/components/profile/ProfileHero";
 import { ProfileIndexRail, type ProfileSection } from "@/components/profile/ProfileIndexRail";
 import { PublishedIndexRow } from "@/components/profile/PublishedIndexRow";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import {
@@ -29,13 +30,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: `${profile.fullName} · AIESEC Pulse` };
 }
 
-/**
- * A member's public page.
- *
- * `User` has no bio, quote, or award field, so an overview paragraph,
- * pull-quote, or "recognition" cards are dropped rather than faked with
- * placeholder text.
- */
+// No quote/award field on User — no pull-quote or "recognition" cards,
+// only data the page can vouch for.
 export default async function AuthorProfilePage({
   params,
   searchParams,
@@ -83,9 +79,8 @@ export default async function AuthorProfilePage({
         name={profile.fullName}
         positionTitle={profile.positionTitle}
         entityName={entityName}
-        // The member's own words when they have written any; otherwise the
-        // factual line a query can always answer. Never a plausible-sounding
-        // sentence about someone who did not write it.
+        // Their own words if they wrote a bio; otherwise a factual line —
+        // never a plausible-sounding sentence about someone who didn't write it.
         standfirst={
           profile.bio ??
           (entityName
@@ -127,9 +122,12 @@ export default async function AuthorProfilePage({
         <div className="min-w-0 max-w-[860px]">
           <Reveal as="section" y={20}>
             <div id="author-published" className="scroll-mt-[calc(var(--rail-h)+40px)]">
-              <h2 className="mb-1 text-[24px] font-bold leading-[1.2] tracking-[-0.01em] text-[color:var(--foreground)]">
-                Published
-              </h2>
+              <DisplayTitle
+                as="h2"
+                size="sm"
+                title="Published"
+                className="mb-1 text-[color:var(--foreground)]"
+              />
             </div>
 
             {posts.length === 0 ? (
@@ -157,9 +155,12 @@ export default async function AuthorProfilePage({
           {elsewhere.length > 0 && entityName && (
             <Reveal as="section" y={20} className="mt-16 border-t border-[var(--hairline)] pt-10">
               <div id="author-elsewhere" className="scroll-mt-[calc(var(--rail-h)+40px)]">
-                <h2 className="mb-4 text-[24px] font-bold leading-[1.2] tracking-[-0.01em] text-[color:var(--foreground)]">
-                  Elsewhere in {entityName}
-                </h2>
+                <DisplayTitle
+                  as="h2"
+                  size="sm"
+                  title={`Elsewhere in ${entityName}`}
+                  className="mb-4 text-[color:var(--foreground)]"
+                />
               </div>
               {elsewhere.map((post, i) => (
                 <SidebarPostItem key={post.id} post={post} index={i + 1} />
