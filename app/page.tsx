@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 
-// Landing page: redirect authenticated users to the feed.
-// TODO: once session guards are wired, redirect to /feed if logged in,
-// otherwise show a public landing / sign-in prompt.
+// No unauthenticated surface: every route sits behind requireSession(), so
+// `/` just forwards to the feed (whose guard sends signed-out visitors to
+// `/login`). A public landing page would be new product scope, not routing.
 export default function HomePage() {
   redirect("/feed");
 }

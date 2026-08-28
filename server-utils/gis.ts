@@ -5,9 +5,8 @@ import { z } from "zod";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
-// Responses are validated with Zod rather than cast, so a schema change becomes
-// a typed failure at the boundary. Every call has a timeout, because an
-// unbounded third-party fetch makes our latency a function of theirs.
+// Zod-validated, not cast: a schema drift fails typed, not silently. Every
+// call is timeout-bounded so GIS latency can't become our latency.
 
 const GIS_TIMEOUT_MS = 8_000;
 
@@ -43,6 +42,12 @@ const currentPersonSchema = z.object({
 export type GisPosition = z.infer<typeof positionSchema>;
 export type GisOffice = z.infer<typeof officeSchema>;
 export type GisPerson = z.infer<typeof currentPersonSchema>;
+
+/**
+ * Exported for the contract test only: e2e fixtures are parsed through
+ * this schema so a drifted fixture fails CI instead of passing silently.
+ */
+export const __testing = { currentPersonSchema };
 
 const officesPageSchema = z.object({
   data: z.array(officeSchema).default([]),
@@ -142,8 +147,8 @@ const CURRENT_PERSON_QUERY = `
   }
 }`;
 
-// Throws GisUnavailableError on transport failure, so the caller can choose
-// between the cached-identity grace window and failing closed.
+// Throws GisUnavailableError on transport failure — treated as a refusal,
+// not a degradation: no cached-identity grace window.
 export async function fetchCurrentPerson(accessToken: string): Promise<GisPerson> {
   return gisQuery(
     accessToken,
@@ -177,8 +182,6 @@ export async function fetchOfficePage(
   return { offices: result.data, totalPages: result.paging?.total_pages ?? null };
 }
 
-// Empty means no restriction. Kept as configuration because an entity-scoped
-// pilot is plausible and reinstating one should not mean rewriting the callback.
 const ALLOWED_OFFICE_IDS: readonly string[] = [];
 const ALLOWED_ROLE_NAMES: readonly string[] = [];
 
@@ -196,12 +199,12 @@ export function isPersonAllowed(person: GisPerson): boolean {
   });
 }
 
-/** Logged rather than thrown: a person with no positions is a real GIS state. */
+/** Logged, not thrown: no positions is a real GIS state, not an error. */
 export function warnIfPositionless(person: GisPerson): void {
   if (person.current_positions.length === 0) {
     logger.warn("GIS returned a person with no current positions", {
       aiesecPersonId: person.id,
-      consequence: "The member is granted `member` at global scope only.",
+      consequence: "Sign-in is refused: there is no position to derive a role from.",
     });
   }
 }

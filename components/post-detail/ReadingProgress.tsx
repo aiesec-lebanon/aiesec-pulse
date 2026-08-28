@@ -1,22 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-// architecture.md §21 / Design Guidelines §8.2: progress indicators are
-// explicitly named as needing prefers-reduced-motion neutralisation — the
-// fill's transition is dropped, not the indicator itself, since the value it
-// reports is informational rather than decorative.
+/**
+ * Informational, not decorative — renders under every motion setting;
+ * Motion only changes the fill's easing, never hides the bar. Width is
+ * written straight to the DOM from the rAF callback, not through state
+ * (kept only for the `aria-valuenow` announcement) since re-rendering React
+ * 60x/sec to move one bar is heavy. `sticky`, not `fixed` — RouteTransition's
+ * transform is the containing block for fixed descendants, so a fixed bar
+ * would detach and travel with the page mid-transition (see EngagementBar).
+ */
 export function ReadingProgress() {
-  const [progress, setProgress] = useState(0);
+  const fillRef = useRef<HTMLDivElement>(null);
+  const [announced, setAnnounced] = useState(0);
 
   useEffect(() => {
     let ticking = false;
+    let lastAnnounced = 0;
 
     function update() {
-      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-      const next = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
-      setProgress(Math.min(100, Math.max(0, next)));
       ticking = false;
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const ratio = scrollable > 0 ? window.scrollY / scrollable : 0;
+      const clamped = Math.min(1, Math.max(0, ratio));
+
+      // scaleX rather than width: a transform is composited, a width change
+      // is a layout on every frame of every scroll.
+      if (fillRef.current) fillRef.current.style.transform = `scaleX(${clamped})`;
+
+      const percent = Math.round(clamped * 100);
+      if (percent !== lastAnnounced) {
+        lastAnnounced = percent;
+        setAnnounced(percent);
+      }
     }
 
     function onScroll() {
@@ -38,14 +55,15 @@ export function ReadingProgress() {
     <div
       role="progressbar"
       aria-label="Reading progress"
-      aria-valuenow={Math.round(progress)}
+      aria-valuenow={announced}
       aria-valuemin={0}
       aria-valuemax={100}
-      className="fixed left-0 right-0 top-0 z-50 h-1 bg-[var(--border)]"
+      className="fixed left-0 right-0 top-0 z-50 h-[3px] bg-[color-mix(in_srgb,var(--border)_50%,transparent)]"
     >
       <div
-        className="h-full bg-[var(--primary)] transition-[width] duration-150 ease-out motion-reduce:transition-none"
-        style={{ width: `${progress}%` }}
+        ref={fillRef}
+        className="h-full origin-left bg-[var(--primary)] shadow-[0_0_12px_0_var(--glow-primary)] transition-transform duration-[calc(120ms*var(--motion-scale))] ease-out"
+        style={{ transform: "scaleX(0)" }}
       />
     </div>
   );

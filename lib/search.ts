@@ -1,32 +1,23 @@
 import "server-only";
 
 import { Prisma } from "@/app/generated/prisma/client";
-import { PostKind } from "@/app/generated/prisma/enums";
+import { type EntityKind, PostKind, type TopicKind } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { entityDisplayName } from "@/lib/org/display";
 import { scopeSetFor } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { type FilterableEntity, KIND_LABELS } from "@/lib/search-shared";
 
-// architecture.md §12's canonical shape: websearch_to_tsquery over the
-// generated searchVector column, ranked with ts_rank, snippeted with
-// ts_headline. The audience check there is illustrated as a plain JOIN; this
-// uses EXISTS instead (matching lib/org/scope.ts's audienceFilter() Prisma
-// semantics exactly) so a post targeted at more than one entity the viewer
-// belongs to can't produce duplicate rows.
+// EXISTS mirrors lib/org/scope.ts's visibilityFilter semantics — a post
+// targeted at several of the viewer's entities won't produce duplicate rows.
 
-// Re-exported so server-side callers (the search page, SearchResultRow) can
-// keep importing everything from this one module — only the client-side
-// SearchForm needs to reach past this file to lib/search-shared directly.
 export { type FilterableEntity, KIND_LABELS };
 
 export type SnippetPart = { text: string; highlighted: boolean };
 
-// ts_headline is asked (via chr(1)/chr(2) in the query below) to wrap
-// matches in charCode 1/2 rather than HTML, so the snippet can be rendered
-// as plain React text nodes below — never dangerouslySetInnerHTML — with no
-// risk of a post body that happens to contain literal "<mark>"-like text
-// being interpreted as markup. fromCharCode rather than embedding the raw
-// control character keeps the source file plain, diffable ASCII.
+// ts_headline wraps matches in charCode 1/2, not HTML, so the snippet
+// renders as plain React text — never dangerouslySetInnerHTML — with no
+// risk of a post body's literal "<mark>"-like text being read as markup.
 const SNIPPET_START = String.fromCharCode(1);
 const SNIPPET_STOP = String.fromCharCode(2);
 
@@ -83,11 +74,8 @@ function parseDate(value: string | undefined): Date | null {
 }
 
 /**
- * Pure param parsing, independent of any request or database — a topic id
- * or kind that doesn't resolve to anything real is dropped rather than
- * rejected, the same "silently ignore a stale filter" call topics.ts's
- * resolveValidTopicIds already makes, since a filter carries no
- * authorisation weight the way audience targeting does.
+ * Pure param parsing — an unresolvable topic id or kind is dropped, not
+ * rejected: a filter carries no authorisation weight, unlike audience targeting.
  */
 export function parseSearchFilters(params: RawSearchParams): SearchFilters {
   const query = (firstValue(params.q) ?? "").trim();
@@ -120,6 +108,8 @@ export type SearchHit = {
   authorName: string;
   publishedAt: Date;
   snippet: SnippetPart[];
+  topicName: string | null;
+  topicKind: TopicKind | null;
 };
 
 type RawHit = {
@@ -128,9 +118,12 @@ type RawHit = {
   title: string;
   kind: PostKind;
   entityName: string;
+  entityKind: EntityKind;
   authorName: string;
   publishedAt: Date;
   snippet: string;
+  topicName: string | null;
+  topicKind: TopicKind | null;
 };
 
 const PAGE_SIZE = 20;
@@ -144,22 +137,26 @@ export async function searchPosts(
   const user = await requireSession();
   const scope = await scopeSetFor(user);
 
-  // Same rule the feed and topic archive enforce (lib/org/scope.ts's
-  // audienceFilter): visible if targeted at GLOBAL or any entity in the
-  // viewer's own ancestor chain. Search is never a way around targeting.
-  const audienceCondition = Prisma.sql`
-    EXISTS (
-      SELECT 1 FROM "PostAudience" pa
-      WHERE pa."postId" = p."id"
-        AND (
-          pa."scopeType" = 'GLOBAL'
-          ${
-            scope.entityIds.length > 0
-              ? Prisma.sql`OR pa."entityId" IN (${Prisma.join(scope.entityIds)})`
-              : Prisma.empty
-          }
+  // Same union as lib/org/scope.ts's visibilityFilter: NETWORK, or aimed
+  // at the viewer's local scope. Drop either arm and a promoted post from
+  // another MC would show in the feed but vanish from search.
+  const visibilityCondition = scope.unrestricted
+    ? Prisma.sql`TRUE`
+    : Prisma.sql`(
+        p."level" = 'NETWORK'
+        OR EXISTS (
+          SELECT 1 FROM "PostAudience" pa
+          WHERE pa."postId" = p."id"
+            AND (
+              pa."scopeType" = 'GLOBAL'
+              ${
+                scope.entityIds.length > 0
+                  ? Prisma.sql`OR pa."entityId" IN (${Prisma.join(scope.entityIds)})`
+                  : Prisma.empty
+              }
+            )
         )
-    )
+      )
   `;
 
   const conditions: Prisma.Sql[] = [
@@ -167,7 +164,7 @@ export async function searchPosts(
     Prisma.sql`p."publishedAt" <= now()`,
     Prisma.sql`(p."expiresAt" IS NULL OR p."expiresAt" > now())`,
     Prisma.sql`p."searchVector" @@ q`,
-    audienceCondition,
+    visibilityCondition,
   ];
   if (filters.entityId) {
     conditions.push(Prisma.sql`p."publisherEntityId" = ${filters.entityId}`);
@@ -192,13 +189,9 @@ export async function searchPosts(
 
   const page = Math.max(1, filters.page);
 
-  // CROSS JOIN, not the comma-join architecture.md §12 illustrates
-  // (`FROM "Post" p, websearch_to_tsquery(...) q`) — Postgres accepts the
-  // comma form fine on its own (verified directly against it), but Prisma
-  // 7's $queryRaw interpreter throws "invalid reference to FROM-clause entry
-  // for table p" once an explicit `JOIN ... ON` referencing p follows it in
-  // the same FROM clause. ANSI CROSS JOIN sidesteps whatever that parser
-  // trips on and behaves identically.
+  // CROSS JOIN, not the comma-join form — Postgres accepts the comma form,
+  // but Prisma 7's $queryRaw interpreter throws once an explicit JOIN ... ON
+  // referencing p follows in the same FROM clause. CROSS JOIN sidesteps it.
   const rows = await db.$queryRaw<RawHit[]>(Prisma.sql`
     SELECT
       p."id" AS "id",
@@ -206,16 +199,23 @@ export async function searchPosts(
       p."title" AS "title",
       p."kind" AS "kind",
       e."name" AS "entityName",
+      e."kind" AS "entityKind",
       u."fullName" AS "authorName",
       p."publishedAt" AS "publishedAt",
       ts_headline(
         'simple', p."bodyText", q,
         'MaxWords=32, MinWords=15, MaxFragments=2, StartSel=' || chr(1) || ', StopSel=' || chr(2)
-      ) AS "snippet"
+      ) AS "snippet",
+      t."name" AS "topicName",
+      t."kind" AS "topicKind"
     FROM "Post" p
     CROSS JOIN websearch_to_tsquery('simple', ${query}) q
     JOIN "Entity" e ON e."id" = p."publisherEntityId"
     JOIN "User" u ON u."id" = p."authorId"
+    LEFT JOIN LATERAL (
+      SELECT pt."topicId" FROM "PostTopic" pt WHERE pt."postId" = p."id" ORDER BY pt."topicId" LIMIT 1
+    ) first_topic ON true
+    LEFT JOIN "Topic" t ON t."id" = first_topic."topicId"
     WHERE ${Prisma.join(conditions, " AND ")}
     ORDER BY ts_rank(p."searchVector", q) DESC, p."publishedAt" DESC
     LIMIT ${PAGE_SIZE + 1} OFFSET ${(page - 1) * PAGE_SIZE}
@@ -223,22 +223,26 @@ export async function searchPosts(
 
   const page1 = rows.slice(0, PAGE_SIZE);
   return {
-    results: page1.map((row) => ({ ...row, snippet: parseSnippet(row.snippet) })),
+    results: page1.map((row) => ({
+      ...row,
+      entityName: entityDisplayName(row.entityName, row.entityKind) ?? row.entityName,
+      snippet: parseSnippet(row.snippet),
+    })),
     hasNext: rows.length > PAGE_SIZE,
   };
 }
 
-// A flat, alphabetised list for the filter bar's plain <select> (design
-// system §10.3 — no typeahead here, unlike the composer's
-// AudiencePicker). Small enough to list in full at this org's actual scale;
-// escalate to the same trigram search the audience picker already uses if
-// that stops being true.
+// Flat, alphabetised list for the filter bar's plain <select> — no
+// typeahead. Escalate to the composer's trigram search if entity count outgrows this.
 export async function listFilterableEntities(): Promise<FilterableEntity[]> {
-  return db.entity.findMany({
+  const rows = await db.entity.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, tag: true },
+    select: { id: true, name: true, tag: true, kind: true },
   });
+  return rows.map((row) => ({
+    id: row.id,
+    tag: row.tag,
+    name: entityDisplayName(row.name, row.kind) ?? row.name,
+  }));
 }
-
-export const SEARCH_PAGE_SIZE = PAGE_SIZE;

@@ -4,8 +4,8 @@ import { randomBytes } from "node:crypto";
 
 import { db } from "@/lib/db";
 
-// Assigned once at first publication and never regenerated, so a published URL
-// stays valid. Titles collide constantly, so the id tail disambiguates.
+// Assigned once at first publication, never regenerated — so a published
+// URL stays valid. Titles collide constantly; the id tail disambiguates.
 
 const MAX_BASE_LENGTH = 60;
 

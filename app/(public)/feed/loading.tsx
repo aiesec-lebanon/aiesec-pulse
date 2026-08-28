@@ -1,114 +1,83 @@
-function Bone({ className }: { className: string }) {
-  return <div className={`rounded bg-[var(--border)] ${className}`} />;
+function Bone({ className }: { className?: string }) {
+  return (
+    <div
+      className={[
+        "relative overflow-hidden rounded-[var(--radius-sm)] bg-[var(--border)]",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span
+        aria-hidden
+        className="pulse-ambient absolute inset-0 -translate-x-full bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--card)_55%,transparent),transparent)]"
+        style={{ animation: "sheen-sweep 1.6s var(--ease-in-out-quint) infinite" }}
+      />
+    </div>
+  );
 }
 
 export default function FeedLoading() {
   return (
-    <main
-      className="flex-1 w-full max-w-[1200px] mx-auto px-6 py-10"
-      aria-busy="true"
-      aria-label="Loading feed"
-    >
-      {/* ── PRIMARY ROW ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 animate-pulse motion-reduce:animate-none">
-        {/* HERO SKELETON — 8 cols */}
-        <div className="lg:col-span-8 space-y-0">
-          {/* Image */}
-          <Bone className="aspect-[4/3] sm:aspect-video w-full rounded-[20px]" />
-
-          {/* Meta row */}
-          <div className="mt-4 flex items-center gap-2.5">
-            <Bone className="h-10 w-10 shrink-0 rounded-full" />
-            <Bone className="h-3 w-28" />
-            <Bone className="h-3 w-20" />
-            <div className="ml-auto flex shrink-0 items-center gap-3">
-              <Bone className="h-3 w-10" />
-              <Bone className="h-3 w-10" />
-              <Bone className="h-3 w-14" />
-            </div>
-          </div>
-
-          {/* Headline — two lines at large size */}
-          <div className="mt-3 space-y-2.5">
-            <Bone className="h-9 w-full" />
-            <Bone className="h-9 w-3/4" />
-          </div>
-
-          {/* Excerpt */}
-          <div className="mt-3 space-y-2">
-            <Bone className="h-[18px] w-full" />
-            <Bone className="h-[18px] w-full" />
-            <Bone className="h-[18px] w-2/3" />
-          </div>
-
-          {/* CTA */}
-          <Bone className="mt-4 h-4 w-24" />
-        </div>
-
-        {/* SIDEBAR SKELETONS — 4 cols, 3 items */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:col-span-4 lg:grid-cols-1">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="flex gap-4 p-4">
-              <Bone className="h-24 w-24 shrink-0 rounded-xl" />
-              <div className="flex-1 space-y-2 py-1">
-                <Bone className="h-3.5 w-full" />
-                <Bone className="h-3.5 w-4/5" />
-                <Bone className="mt-3 h-3 w-1/2" />
-                <Bone className="h-3 w-3/4" />
-              </div>
-            </div>
+    <main className="flex-1 pb-24" aria-busy="true" aria-label="Loading feed">
+      <div className="relative aspect-[4/5] max-h-[min(620px,82vh)] w-full overflow-hidden bg-[#161b22] sm:aspect-[16/10] lg:aspect-[21/9] lg:max-h-[min(700px,88vh)] lg:min-h-[540px]">
+        <span
+          aria-hidden
+          className="pulse-ambient absolute inset-0 -translate-x-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent)]"
+          style={{ animation: "sheen-sweep 1.8s var(--ease-in-out-quint) infinite" }}
+        />
+        <div className="absolute inset-y-6 left-4 hidden flex-col items-center gap-3 sm:flex lg:left-8">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className="h-[5px] w-[5px] rounded-full bg-white/25" />
           ))}
+        </div>
+        <div className="absolute inset-x-6 bottom-6 sm:inset-x-8 sm:bottom-[112px] lg:bottom-[156px] lg:left-28 lg:right-10">
+          <div className="h-[18px] w-40 rounded-[var(--radius-sm)] bg-white/15" />
+          <div className="mt-6 h-[52px] w-[92%] rounded-[var(--radius-sm)] bg-white/15 sm:w-3/4" />
+          <div className="mt-3 h-[52px] w-2/3 rounded-[var(--radius-sm)] bg-white/15" />
         </div>
       </div>
 
-      {/* ── SECONDARY ROW — 3 cards ──────────────────────────────────────────── */}
-      <section className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-pulse motion-reduce:animate-none">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]"
-          >
-            <Bone className="aspect-[4/3] w-full rounded-none" />
-            <div className="p-4 space-y-2">
-              <Bone className="h-[18px] w-full" />
-              <Bone className="h-[18px] w-3/4" />
-              <div className="mt-3 flex items-center gap-2">
-                <Bone className="h-3 w-1/2" />
-                <div className="ml-auto flex gap-3">
-                  <Bone className="h-3 w-8" />
-                  <Bone className="h-3 w-8" />
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      {/* ── TRENDING AUTHORS STRIP ───────────────────────────────────────────── */}
-      <section className="mt-12 animate-pulse motion-reduce:animate-none">
-        <Bone className="mb-4 h-4 w-40" />
-        <div className="flex gap-4 overflow-hidden pb-3">
-          {[0, 1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="w-80 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-5 space-y-3"
-            >
-              <div className="flex items-center gap-3">
-                <Bone className="h-12 w-12 shrink-0 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Bone className="h-3.5 w-3/4" />
+      <div className="relative z-20 mx-auto w-full max-w-[1240px] px-6">
+        <div className="mt-12 sm:-mt-[96px] lg:-mt-[124px]">
+          <Bone className="mb-5 h-3 w-28" />
+          <div className="flex gap-5 overflow-hidden">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="w-[260px] shrink-0 overflow-hidden rounded-[2px] border border-[var(--hairline)] bg-[var(--card)]"
+              >
+                <Bone className="h-[150px] w-full rounded-none" />
+                <div className="space-y-2.5 p-4 pb-[18px]">
                   <Bone className="h-3 w-1/2" />
+                  <Bone className="h-5 w-full" />
+                  <Bone className="mt-3 h-3 w-2/3" />
                 </div>
               </div>
-              <Bone className="h-6 w-1/2 rounded-[var(--radius-md)]" />
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </section>
 
-      {/* ── LOAD MORE stub ───────────────────────────────────────────────────── */}
-      <div className="mt-12 flex justify-center animate-pulse motion-reduce:animate-none">
-        <Bone className="h-10 w-28 rounded-[var(--radius-sm)]" />
+        {/* Elsewhere section */}
+        <div className="mt-24 border-t border-[var(--hairline)] pt-16">
+          <Bone className="mb-4 h-3 w-48" />
+          <Bone className="mb-12 h-9 w-3/4 max-w-[44ch]" />
+          <div className="grid grid-cols-1 gap-x-12 lg:grid-cols-2">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-5 border-t border-[var(--hairline)] py-5"
+              >
+                <Bone className="h-16 w-16 shrink-0 rounded-[var(--radius-md)]" />
+                <div className="flex-1 space-y-2.5">
+                  <Bone className="h-4 w-full" />
+                  <Bone className="h-4 w-2/3" />
+                  <Bone className="h-3 w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </main>
   );

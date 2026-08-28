@@ -1,4 +1,5 @@
 import { alertText, expect, test } from "./fixtures";
+import { SIGNED_IN_PERSONAS } from "./gis-stub/fixtures";
 
 test.describe("unauthenticated access", () => {
   test("the feed redirects to sign-in and remembers where you were going", async ({ page }) => {
@@ -12,8 +13,8 @@ test.describe("unauthenticated access", () => {
     ).toBeVisible();
   });
 
-  test("the admin area is not reachable", async ({ page }) => {
-    await page.goto("/admin/queue");
+  test("a permission-gated work surface is not reachable", async ({ page }) => {
+    await page.goto("/review");
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -56,19 +57,56 @@ test.describe("OAuth callback", () => {
   });
 });
 
-test.describe("signed-in session", () => {
-  test("a member reaches the feed and sees their account menu", async ({ page, signInAs }) => {
-    await signInAs("member");
-    await expect(page).toHaveURL(/\/feed/);
-    await expect(page.getByRole("button", { name: /account menu/i })).toBeVisible();
+test.describe("position classes", () => {
+  for (const persona of SIGNED_IN_PERSONAS) {
+    test(`${persona} signs in and lands on the feed`, async ({ page, signInAs }) => {
+      await signInAs(persona);
+      await expect(page).toHaveURL(/\/feed/);
+      await expect(page.getByRole("button", { name: /account menu/i })).toBeVisible();
+    });
+  }
+});
+
+test.describe("sign-in refusals", () => {
+  // Authority is exactly what GIS says it is. Each of these is a way of saying
+  // "nothing", and none of them may fall back to a bare `member` account.
+  test("a title held at the wrong office level is refused", async ({ page, attemptSignIn }) => {
+    await attemptSignIn("tag_mismatch");
+    await expect(page).toHaveURL(/\/unauthorized\?reason=no_position/);
   });
 
+  test("a title that merely contains a recognised one is refused", async ({
+    page,
+    attemptSignIn,
+  }) => {
+    // 'MCVP Marketing' is not 'MCVP'. Titles are matched for equality.
+    await attemptSignIn("unknown_title");
+    await expect(page).toHaveURL(/\/unauthorized\?reason=no_position/);
+  });
+
+  test("a person GIS places nowhere is refused", async ({ page, attemptSignIn }) => {
+    await attemptSignIn("positionless");
+    await expect(page).toHaveURL(/\/unauthorized\?reason=no_position/);
+  });
+
+  test("an unreachable GIS refuses sign-in rather than serving a cached identity", async ({
+    page,
+    attemptSignIn,
+  }) => {
+    // A grace window would sign people in on stale authority during an
+    // outage — exactly when Pulse can't tell whether a position was revoked.
+    await attemptSignIn("gis_down");
+    await expect(page).toHaveURL(/\/login\?error=gis_unavailable/);
+    await expect(alertText(page)).toContainText(/member directory is unavailable/i);
+  });
+});
+
+test.describe("signed-in session", () => {
   test("no AIESEC credential is left in the browser", async ({ context, signInAs }) => {
     await signInAs("member");
     const cookies = await context.cookies();
 
-    // The browser holds a Pulse session identifier, not a
-    // live GIS API credential.
+    // The browser holds a Pulse session id, not a live GIS API credential.
     expect(cookies.map((c) => c.name)).not.toContain("aiesec_token");
     expect(cookies.map((c) => c.name)).not.toContain("refresh_token");
 
@@ -130,24 +168,16 @@ test.describe("security headers", () => {
   });
 });
 
-test.describe("break-glass", () => {
-  test("is reachable, warns loudly, and rejects bad credentials uniformly", async ({ page }) => {
-    await page.goto("/break-glass");
-    await expect(page.getByRole("heading", { name: /emergency access/i })).toBeVisible();
-    await expect(page.getByText(/CRITICAL alert/i)).toBeVisible();
+test.describe("no bypass of AIESEC sign-in", () => {
+  // AIESEC OAuth is the sole identity authority — the break-glass path is
+  // removed, not just disabled. Signs in first on purpose: an unauthenticated
+  // request would redirect to /login regardless, proving nothing about the route.
+  test("the break-glass routes are gone, not merely unreachable", async ({ page, signInAs }) => {
+    await signInAs("member");
 
-    await page.getByLabel("Email").fill("nobody@example.invalid");
-    await page.getByLabel("Password").fill("not-the-right-password");
-    await page.getByLabel("Authenticator code").fill("000000");
-    await page.getByRole("button", { name: /sign in/i }).click();
-
-    // Uniform copy — distinguishing "no such account" from "wrong code" turns
-    // this form into an account enumerator.
-    await expect(alertText(page)).toContainText("Invalid credentials.");
-  });
-
-  test("the console is unreachable without a break-glass session", async ({ page }) => {
-    await page.goto("/break-glass/console");
-    await expect(page).toHaveURL(/\/break-glass$/);
+    for (const path of ["/break-glass", "/break-glass/console"]) {
+      const response = await page.goto(path);
+      expect(response!.status(), `${path} should not exist`).toBe(404);
+    }
   });
 });

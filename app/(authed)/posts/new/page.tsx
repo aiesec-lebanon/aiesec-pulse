@@ -1,6 +1,10 @@
 import { PostComposer } from "@/components/PostComposer";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { reachOptionsFor } from "@/lib/content/level";
 import { listActiveTopics } from "@/lib/content/topics";
+import { db } from "@/lib/db";
 import { isEnabled } from "@/lib/flags";
+import { entityDisplayName } from "@/lib/org/display";
 import { availableAudiencesFor, publishingRoleKeyFor } from "@/lib/org/scope";
 import { quotaStateFor } from "@/lib/quota";
 import { requirePermission } from "@/lib/rbac/guards";
@@ -8,32 +12,48 @@ import { requirePermission } from "@/lib/rbac/guards";
 export default async function NewPostPage() {
   const user = await requirePermission("post.draft");
   const roleKey = await publishingRoleKeyFor(user.id);
-  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled, topics] = await Promise.all([
-    quotaStateFor(user.id, user.primaryEntityId, roleKey),
-    isEnabled("posts.rich_text"),
-    isEnabled("posts.scheduling"),
-    isEnabled("posts.targeting"),
-    listActiveTopics(),
-  ]);
+  const [quota, richTextEnabled, schedulingEnabled, targetingEnabled, topics, authorEntity] =
+    await Promise.all([
+      quotaStateFor(user.id, user.primaryEntityId, roleKey),
+      isEnabled("posts.rich_text"),
+      isEnabled("posts.scheduling"),
+      isEnabled("posts.targeting"),
+      listActiveTopics(),
+      user.primaryEntityId
+        ? db.entity.findUnique({
+            where: { id: user.primaryEntityId },
+            select: { name: true, kind: true },
+          })
+        : Promise.resolve(null),
+    ]);
   const audienceOptions =
     targetingEnabled && user.primaryEntityId
       ? await availableAudiencesFor(user, user.primaryEntityId)
       : undefined;
+  // Unflagged, like the promotion panel on post detail: reach is the level
+  // model itself, not one of the authoring features behind a switch.
+  const reachOptions = user.primaryEntityId
+    ? await reachOptionsFor(user, user.primaryEntityId, roleKey)
+    : undefined;
 
   return (
-    <main className="mx-auto w-full max-w-[720px] px-6 py-10">
-      <h1 className="text-[36px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-        Share an update
-      </h1>
-      <p className="mt-2 text-[16px] text-[var(--muted-foreground)]">
-        Your post will reach AIESEC members worldwide.
-      </p>
+    <main className="mx-auto w-full max-w-[820px] flex-1 px-6 pb-24 lg:max-w-[1360px]">
+      <PageHeader
+        title="Share an update"
+        standfirst="Your post will reach AIESEC members worldwide."
+        breadcrumb={[
+          { href: "/feed", label: "Feed" },
+          { href: "/drafts", label: "Drafts" },
+          { label: "New post" },
+        ]}
+        bordered={false}
+      />
 
-      <div className="mt-5 mb-8">
+      <div className="mb-10 mt-2">
         {quota.atLimit ? (
           <span
             role="status"
-            className="inline-flex items-center rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-3 py-1.5 text-[13px] font-medium text-[var(--destructive-text)]"
+            className="inline-flex items-center rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--destructive)_10%,var(--card))] px-3 py-1.5 text-[13px] font-medium text-[color:var(--destructive-text)]"
           >
             You&apos;ve used your {quota.max} {quota.max === 1 ? "post" : "posts"} for this week.
             The next one goes to the approval queue.
@@ -41,7 +61,7 @@ export default async function NewPostPage() {
         ) : (
           <span
             role="status"
-            className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1.5 text-[13px] font-medium text-[var(--muted-foreground)]"
+            className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--muted)] px-3 py-1.5 text-[13px] font-medium text-[color:var(--muted-foreground)]"
           >
             Posts this week: {quota.used} of {quota.max}
           </span>
@@ -54,6 +74,9 @@ export default async function NewPostPage() {
         timezone={user.timezone}
         audienceOptions={audienceOptions}
         topics={topics}
+        reachOptions={reachOptions}
+        authorDisplayName={user.fullName}
+        authorEntityName={entityDisplayName(authorEntity?.name, authorEntity?.kind)}
       />
     </main>
   );

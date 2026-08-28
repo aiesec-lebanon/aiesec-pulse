@@ -1,11 +1,14 @@
 import type { FollowState } from "@/app/actions/follows";
+import type { PostLevel, TopicKind } from "@/app/generated/prisma/enums";
 
 export type FeedPost = {
   id: string;
   slug: string;
   title: string;
+  titleAccent: string | null;
   excerpt: string;
   readingMinutes: number;
+  level: PostLevel;
   mediaUrl: string | null;
   mediaAlt: string | null;
   author: {
@@ -15,10 +18,10 @@ export type FeedPost = {
     entityName: string | null;
   };
   publisherEntityId: string;
-  /** The viewer's own follow state for the publishing entity — "none" when signed out. */
+  /** Viewer's follow state for the publisher; "none" when signed out. */
   entityFollowState: FollowState;
   reactionCount: number;
   commentCount: number;
   publishedAt: Date;
-  topics: Array<{ slug: string; name: string }>;
+  topics: Array<{ slug: string; name: string; kind: TopicKind }>;
 };

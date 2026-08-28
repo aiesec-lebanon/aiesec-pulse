@@ -1,30 +1,41 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 import { isInSubtree } from "@/lib/org/path";
-import type { PermissionKey, RoleKey } from "@/lib/rbac/catalogue";
+import { type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
+import { permissionMatrix } from "@/lib/rbac/matrix";
 import { cached, cacheKeys } from "@/lib/redis";
 
 // Each active grant expands to an entity subtree by Entity.path prefix match.
-// Permissions are deliberately not in the session JWT — a token that carries
-// authority cannot be de-authorised — so they are resolved per request and
-// cached briefly, busted explicitly on grant change.
+// Permissions aren't in the session JWT (a token can't be de-authorised) —
+// resolved per request, cached briefly, busted on grant change. Grants
+// (who/where) are cached per user; the shared matrix (what a class may do)
+// isn't, so an admin's edit lands for everyone at once. No position
+// resolves to platform admin — that's a separate credential
+// (lib/auth/admin-session.ts), never a permission here.
 
 export type ScopeRef = { type: "GLOBAL" } | { type: "REGION" | "ENTITY"; entityId: string };
 
 export const GLOBAL_SCOPE: ScopeRef = { type: "GLOBAL" };
 
-type ResolvedPermission = { permission: string; scopePath: string | null };
+type ResolvedPermission = { permission: PermissionKey; scopePath: string | null };
+
+type ResolvedGrant = { roleKey: RoleKey; scopePath: string | null };
 
 type ResolvedAuthorisation = {
   permissions: ResolvedPermission[];
-  roleKeys: string[];
 };
 
 const TTL_SECONDS = 60;
 
-async function resolve(userId: string): Promise<ResolvedAuthorisation> {
-  return cached<ResolvedAuthorisation>(cacheKeys.permissions(userId), TTL_SECONDS, async () => {
+function isRoleKey(key: string): key is RoleKey {
+  return (ROLE_KEYS as readonly string[]).includes(key);
+}
+
+const grantsOf = cache(async (userId: string): Promise<ResolvedGrant[]> => {
+  return cached<ResolvedGrant[]>(cacheKeys.roleGrants(userId), TTL_SECONDS, async () => {
     const now = new Date();
 
     const grants = await db.roleGrant.findMany({
@@ -37,38 +48,44 @@ async function resolve(userId: string): Promise<ResolvedAuthorisation> {
       },
       select: {
         scopeType: true,
-        role: {
-          select: {
-            key: true,
-            permissions: { select: { permission: { select: { key: true } } } },
-          },
-        },
+        role: { select: { key: true } },
         scope: { select: { path: true } },
       },
     });
 
-    const seen = new Set<string>();
-    const permissions: ResolvedPermission[] = [];
-    const roleKeys = new Set<string>();
-
+    const resolved: ResolvedGrant[] = [];
     for (const grant of grants) {
-      roleKeys.add(grant.role.key);
+      // The position vocabulary is closed. A grant naming a class Pulse no
+      // longer recognises confers nothing rather than defaulting to something.
+      if (!isRoleKey(grant.role.key)) continue;
 
       // A scoped grant whose entity has gone missing resolves to no coverage
       // rather than to global — fail closed.
       const scopePath = grant.scopeType === "GLOBAL" ? null : (grant.scope?.path ?? undefined);
       if (scopePath === undefined) continue;
 
-      for (const rp of grant.role.permissions) {
-        const key = `${rp.permission.key}@${scopePath ?? "*"}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        permissions.push({ permission: rp.permission.key, scopePath });
-      }
+      resolved.push({ roleKey: grant.role.key, scopePath });
     }
-
-    return { permissions, roleKeys: [...roleKeys] };
+    return resolved;
   });
+});
+
+async function resolve(userId: string): Promise<ResolvedAuthorisation> {
+  const grants = await grantsOf(userId);
+  const matrix = await permissionMatrix();
+  const seen = new Set<string>();
+  const permissions: ResolvedPermission[] = [];
+
+  for (const grant of grants) {
+    for (const permission of matrix[grant.roleKey]) {
+      const key = `${permission}@${grant.scopePath ?? "*"}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      permissions.push({ permission, scopePath: grant.scopePath });
+    }
+  }
+
+  return { permissions };
 }
 
 const pathCache = new Map<string, string | null>();
@@ -107,38 +124,10 @@ export async function permissionsOf(user: Principal): Promise<Set<string>> {
   return new Set(permissions.map((p) => p.permission));
 }
 
-export async function rolesOf(user: Principal): Promise<Set<string>> {
-  const { roleKeys } = await resolve(user.id);
-  return new Set(roleKeys);
-}
-
-export async function hasRole(user: Principal, role: RoleKey): Promise<boolean> {
-  return (await rolesOf(user)).has(role);
-}
-
 export async function scopePathsFor(
   user: Principal,
   permission: PermissionKey
 ): Promise<Array<string | null>> {
   const { permissions } = await resolve(user.id);
   return permissions.filter((p) => p.permission === permission).map((p) => p.scopePath);
-}
-
-export async function entityScopeFilter(
-  user: Principal,
-  permission: PermissionKey
-): Promise<
-  | { publisherEntity: { path: { startsWith: string } } }
-  | Record<string, never>
-  | { id: string }
-  | undefined
-> {
-  const paths = await scopePathsFor(user, permission);
-  if (paths.length === 0) return { id: "__no_scope__" };
-  if (paths.includes(null)) return undefined;
-  return { publisherEntity: { path: { startsWith: paths[0]! } } };
-}
-
-export function __clearPathCache(): void {
-  pathCache.clear();
 }

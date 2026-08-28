@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
+
 export const metadata = {
   title: "Content policy · AIESEC Pulse",
   description: "What belongs on AIESEC Pulse, how moderation works, and how to appeal.",
@@ -10,13 +12,13 @@ const LAST_UPDATED = "14 August 2026";
 export default function ContentPolicyPage() {
   return (
     <>
-      <h1>Content policy</h1>
+      <DisplayTitle as="h1" size="lg" title="Content policy" />
       <p className="lead">
         Pulse is the AIESEC network&apos;s record of what is happening across the organisation. This
         policy sets out what belongs here, what does not, and what happens when something crosses
         the line.
       </p>
-      <p className="meta">Last updated: {LAST_UPDATED}</p>
+      <p className="pulse-label">Last updated: {LAST_UPDATED}</p>
 
       <h2>What belongs here</h2>
       <ul>
@@ -123,8 +125,21 @@ export default function ContentPolicyPage() {
         publishing rights that go with it. Changes are announced in the feed before taking effect.
       </p>
       <p>
-        See also the <Link href="/legal/terms">terms of use</Link> and the{" "}
-        <Link href="/legal/privacy">privacy notice</Link>.
+        See also the{" "}
+        <Link
+          href="/legal/terms"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          terms of use
+        </Link>{" "}
+        and the{" "}
+        <Link
+          href="/legal/privacy"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          privacy notice
+        </Link>
+        .
       </p>
     </>
   );

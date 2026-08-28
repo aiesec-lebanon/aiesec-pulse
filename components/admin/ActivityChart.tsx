@@ -9,10 +9,8 @@ export interface ChartPoint {
 
 export function ActivityChart({ data }: { data: ChartPoint[] }) {
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-lg)] px-6 pt-5 pb-4 mb-6">
-      <p className="text-[13px] font-medium text-[var(--muted-foreground)] mb-4 uppercase tracking-wide">
-        Posts per week — last 8 weeks
-      </p>
+    <div className="aiesec-card mb-6 px-6 pb-4 pt-5">
+      <p className="pulse-label mb-4">Posts per week — last 8 weeks</p>
       <ResponsiveContainer width="100%" height={176}>
         <BarChart data={data} barCategoryGap="32%">
           <XAxis

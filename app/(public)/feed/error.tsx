@@ -1,6 +1,6 @@
 "use client";
 
-import { FeedIllustration } from "@/components/feed/FeedIllustration";
+import { RouteError } from "@/components/ui/RouteError";
 
 export default function FeedError({
   error,
@@ -10,35 +10,8 @@ export default function FeedError({
   reset: () => void;
 }) {
   return (
-    <main className="flex-1 mx-auto w-full max-w-[1200px] px-6 py-24">
-      <div className="flex flex-col items-center text-center gap-6">
-        <div className="text-[var(--muted-foreground)] opacity-60" aria-hidden="true">
-          <FeedIllustration variant="error" className="w-36 h-auto" />
-        </div>
-
-        <div className="flex flex-col gap-3 max-w-sm">
-          <h2 className="text-[20px] font-bold text-[var(--foreground)]">
-            Something&apos;s not right.
-          </h2>
-          <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-            Something went wrong on our end. Try again in a moment.
-          </p>
-        </div>
-
-        <button type="button" onClick={reset} className="aiesec-btn-primary">
-          Retry
-        </button>
-
-        {error.digest && (
-          <p className="text-[12px] font-mono text-[var(--muted-foreground)] opacity-60">
-            ID: {error.digest}
-          </p>
-        )}
-
-        <p className="text-[13px] text-[var(--muted-foreground)]">
-          If this keeps happening, contact MC IM.
-        </p>
-      </div>
+    <main className="mx-auto w-full max-w-[1240px] flex-1 px-6">
+      <RouteError error={error} reset={reset} />
     </main>
   );
 }

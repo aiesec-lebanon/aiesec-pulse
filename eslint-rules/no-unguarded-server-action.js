@@ -1,24 +1,20 @@
 /**
- * @fileoverview Requires every exported Server Action to begin with an
+ * @fileoverview Requires every exported Server Action to start with an
  * authorisation guard.
  *
- * Server Functions are handled as POST requests to whatever route they are used
- * on, so a matcher change or a refactor that moves one can silently remove proxy
- * coverage from an action whose own code never changed. A missing guard is
- * therefore not caught by reviewing the diff that breaks it.
- *
- * Detection is structural rather than name-based where it can be: an exported
- * async function in an action module must, before any other statement, either
- * call a known guard or delegate to another function in the same module that
- * does. Files may opt out with a documented allowlist entry.
+ * Proxy route guards don't cover this: Server Functions POST to whatever
+ * route uses them, so a refactor can silently drop coverage without the
+ * action's own code changing. Detection is structural — the action (or a
+ * local helper it calls) must call a guard first.
  */
 
 const GUARD_NAMES = new Set([
   "requireSession",
   "requirePermission",
   "requireSelfOrPermission",
-  "requireBreakGlass",
   "checkPermission",
+  "requireAdmin",
+  "checkAdmin",
 ]);
 
 /**
@@ -27,8 +23,10 @@ const GUARD_NAMES = new Set([
  */
 const ALLOWLIST = new Map([
   [
-    "break-glass.ts",
-    "Break-glass exists for when the RBAC path (AIESEC OAuth + GIS) is unavailable; guarding it with the system it replaces would make it useless in the only case it is for. It is protected by password + TOTP, a fail-closed rate limit, a CRITICAL alert and an audit row on every attempt.",
+    "admin-auth.ts",
+    "The admin sign-in and sign-out actions: there is no session to guard on " +
+      "the way in, and signing out without one is a no-op. This file must " +
+      "contain nothing but those two actions.",
   ],
 ]);
 
@@ -90,7 +88,6 @@ const rule = {
     const filename = context.filename ?? context.getFilename();
     const normalised = filename.replace(/\\/g, "/");
 
-    // Only applies to Server Action modules.
     if (!normalised.includes("/app/actions/")) return {};
 
     const basename = normalised.split("/").pop() ?? "";
@@ -112,7 +109,6 @@ const rule = {
 
     return {
       "Program:exit"(program) {
-        // First pass: learn which local functions are themselves guarded.
         for (const node of program.body) {
           if (node.type === "FunctionDeclaration" && node.id) {
             collectHelper(node, node.id.name);
@@ -131,7 +127,6 @@ const rule = {
           }
         }
 
-        // Second pass: every exported function must be guarded.
         for (const node of program.body) {
           if (node.type !== "ExportNamedDeclaration" || !node.declaration) continue;
           const declaration = node.declaration;

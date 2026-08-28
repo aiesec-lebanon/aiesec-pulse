@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
+
 export const metadata = {
   title: "Privacy notice · AIESEC Pulse",
   description: "What AIESEC Pulse collects, why, and what you can do about it.",
@@ -10,20 +12,25 @@ const LAST_UPDATED = "17 August 2026";
 export default function PrivacyNoticePage() {
   return (
     <>
-      <h1>Privacy notice</h1>
+      <DisplayTitle as="h1" size="lg" title="Privacy notice" />
       <p className="lead">
         This explains what AIESEC Pulse collects about you, why, how long it is kept, and what you
         can ask us to do about it.
       </p>
-      <p className="meta">Last updated: {LAST_UPDATED}</p>
+      <p className="pulse-label">Last updated: {LAST_UPDATED}</p>
 
       <h2>Who is responsible</h2>
       <p>
         AIESEC International is the data controller for AIESEC Pulse. The platform is operated by
         the Information Management portfolio. For anything in this notice, or to exercise a right
         described below, use the controls on your{" "}
-        <Link href="/settings/privacy">Privacy &amp; your data</Link> page or contact your Member
-        Committee&apos;s IM lead.
+        <Link
+          href="/settings/privacy"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          Privacy &amp; your data
+        </Link>{" "}
+        page or contact your Member Committee&apos;s IM lead.
       </p>
 
       <h2>What we collect, and why</h2>
@@ -135,8 +142,14 @@ export default function PrivacyNoticePage() {
       <h2>Your rights</h2>
       <p>
         You can ask for access, a copy, correction, erasure, restriction, or object to processing.
-        Use <Link href="/settings/privacy">Privacy &amp; your data</Link>. Export is immediate;
-        everything else is handled by a person within 30 days.
+        Use{" "}
+        <Link
+          href="/settings/privacy"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          Privacy &amp; your data
+        </Link>
+        . Export is immediate; everything else is handled by a person within 30 days.
       </p>
       <p>
         <strong>On erasure and our records.</strong> If you ask us to erase your data, your account

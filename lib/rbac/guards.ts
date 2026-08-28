@@ -3,20 +3,30 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import type { User } from "@/app/generated/prisma/client";
-import { type BreakGlassSession, getBreakGlassSession } from "@/lib/auth/break-glass";
+import { getAdminSession } from "@/lib/auth/admin-session";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { logger } from "@/lib/logger";
 import { can, GLOBAL_SCOPE, type ScopeRef } from "@/lib/rbac/can";
 import type { PermissionKey } from "@/lib/rbac/catalogue";
 
-// The authoritative check, and the mandatory first statement of every Server
-// Action and protected Route Handler — the no-unguarded-server-action ESLint
-// rule fails the build without one. Guards redirect rather than throw.
+// Mandatory first statement of every Server Action / protected Route
+// Handler — the no-unguarded-server-action ESLint rule fails the build
+// without one. Guards redirect rather than throw.
 
 export async function requireSession(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   return user;
+}
+
+export type AdminPrincipal = { email: string };
+
+// Platform administration. Deliberately not a permission check: no AIESEC
+// position grants it, so there is nothing for `can()` to resolve.
+export async function requireAdmin(): Promise<AdminPrincipal> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  return { email: session.email };
 }
 
 // GLOBAL_SCOPE asks "anywhere at all", which is right for a nav item and wrong
@@ -55,12 +65,6 @@ export async function requireSelfOrPermission(
   redirect("/unauthorized");
 }
 
-export async function requireBreakGlass(): Promise<BreakGlassSession> {
-  const session = await getBreakGlassSession();
-  if (!session) redirect("/break-glass");
-  return session;
-}
-
 export type AuthzFailure = { ok: false; error: string; code: "unauthenticated" | "forbidden" };
 
 export async function checkPermission(
@@ -79,4 +83,16 @@ export async function checkPermission(
     };
   }
   return { ok: true, user };
+}
+
+export async function checkAdmin(): Promise<{ ok: true; admin: AdminPrincipal } | AuthzFailure> {
+  const session = await getAdminSession();
+  if (!session) {
+    return {
+      ok: false,
+      code: "unauthenticated",
+      error: "Sign in to the admin console to continue.",
+    };
+  }
+  return { ok: true, admin: { email: session.email } };
 }

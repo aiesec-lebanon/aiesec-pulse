@@ -1,0 +1,184 @@
+import { notFound } from "next/navigation";
+
+import { FollowTarget } from "@/app/generated/prisma/enums";
+import { FollowButton } from "@/components/engagement/FollowButton";
+import { SidebarPostItem } from "@/components/feed/SidebarPostItem";
+import { Reveal } from "@/components/motion/Reveal";
+import { ProfileHero } from "@/components/profile/ProfileHero";
+import { ProfileIndexRail, type ProfileSection } from "@/components/profile/ProfileIndexRail";
+import { PublishedIndexRow } from "@/components/profile/PublishedIndexRow";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
+import {
+  getAuthorPostCount,
+  getAuthorPosts,
+  getAuthorReactionTotal,
+  getEntityPosts,
+  PROFILE_PAGE_SIZE,
+} from "@/lib/feed";
+import { getAuthorProfile } from "@/lib/profile";
+import { requireSession } from "@/lib/rbac/guards";
+import { initialsOf } from "@/lib/topics-shared";
+
+const ELSEWHERE_TAKE = 3;
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const profile = await getAuthorProfile(id);
+  if (!profile) return { title: "Member not found" };
+  return { title: `${profile.fullName} · AIESEC Pulse` };
+}
+
+// No quote/award field on User — no pull-quote or "recognition" cards,
+// only data the page can vouch for.
+export default async function AuthorProfilePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { id } = await params;
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const viewer = await requireSession();
+
+  const profile = await getAuthorProfile(id);
+  if (!profile) return notFound();
+
+  const [{ posts, hasNext }, postCount, reactionTotal, entityFeed] = await Promise.all([
+    getAuthorPosts(id, page),
+    getAuthorPostCount(id),
+    getAuthorReactionTotal(id),
+    profile.primaryEntity
+      ? getEntityPosts(profile.primaryEntity.id, 1)
+      : Promise.resolve({ posts: [], hasNext: false }),
+  ]);
+
+  const isSelf = viewer.id === id;
+  const sinceYear = profile.onPulseSince.getFullYear();
+  const entityName = profile.primaryEntity?.name ?? null;
+
+  const elsewhere = entityFeed.posts
+    .filter((post) => post.author.id !== id)
+    .slice(0, ELSEWHERE_TAKE);
+
+  const sections: ProfileSection[] = [
+    { id: "author-published", label: `Published (${postCount})` },
+    ...(elsewhere.length > 0 ? [{ id: "author-elsewhere", label: "Elsewhere" }] : []),
+  ];
+
+  const hasRail = sections.length >= 2;
+
+  return (
+    <main className="flex-1 pb-24">
+      <ProfileHero
+        kicker="Author"
+        initials={initialsOf(profile.fullName)}
+        name={profile.fullName}
+        positionTitle={profile.positionTitle}
+        entityName={entityName}
+        // Their own words if they wrote a bio; otherwise a factual line —
+        // never a plausible-sounding sentence about someone who didn't write it.
+        standfirst={
+          profile.bio ??
+          (entityName
+            ? `Publishing from ${entityName} since ${sinceYear}.`
+            : `On Pulse since ${sinceYear}.`)
+        }
+        specLabel={`${profile.fullName} totals`}
+        specCells={[
+          { label: "Posts published", value: <span className="tabular">{postCount}</span> },
+          { label: "Reactions", value: <span className="tabular">{reactionTotal}</span> },
+          { label: "Followers", value: <span className="tabular">{profile.followerCount}</span> },
+          { label: "On Pulse since", value: <span className="tabular">{sinceYear}</span> },
+        ]}
+        actions={
+          isSelf ? undefined : (
+            <FollowButton
+              targetType={FollowTarget.USER}
+              targetId={profile.id}
+              initialState={profile.viewerFollowState}
+              label={profile.fullName}
+              variant="prominent"
+            />
+          )
+        }
+      />
+
+      <div
+        className={[
+          "mx-auto w-full max-w-[1240px] px-6 pt-14",
+          hasRail ? "grid grid-cols-1 items-start gap-12 lg:grid-cols-[230px_minmax(0,1fr)]" : "",
+        ].join(" ")}
+      >
+        {hasRail && (
+          <aside className="pulse-sticky-rail hidden lg:block">
+            <ProfileIndexRail sections={sections} />
+          </aside>
+        )}
+
+        <div className="min-w-0 max-w-[860px]">
+          <Reveal as="section" y={20}>
+            <div id="author-published" className="scroll-mt-[calc(var(--rail-h)+40px)]">
+              <DisplayTitle
+                as="h2"
+                size="sm"
+                title="Published"
+                className="mb-1 text-[color:var(--foreground)]"
+              />
+            </div>
+
+            {posts.length === 0 ? (
+              <EmptyState
+                eyebrow="Nothing published"
+                heading={`Nothing published by ${profile.fullName} yet.`}
+                body="When they publish something you can see, it will appear here."
+              />
+            ) : (
+              <div className="mt-4 flex flex-col border-t border-[var(--hairline)]">
+                {posts.map((post, i) => (
+                  <PublishedIndexRow
+                    key={post.id}
+                    index={(page - 1) * PROFILE_PAGE_SIZE + i + 1}
+                    href={`/posts/${post.slug}`}
+                    title={post.title}
+                    topic={post.topics[0] ?? null}
+                    at={post.publishedAt}
+                  />
+                ))}
+              </div>
+            )}
+          </Reveal>
+
+          {elsewhere.length > 0 && entityName && (
+            <Reveal as="section" y={20} className="mt-16 border-t border-[var(--hairline)] pt-10">
+              <div id="author-elsewhere" className="scroll-mt-[calc(var(--rail-h)+40px)]">
+                <DisplayTitle
+                  as="h2"
+                  size="sm"
+                  title={`Elsewhere in ${entityName}`}
+                  className="mb-4 text-[color:var(--foreground)]"
+                />
+              </div>
+              {elsewhere.map((post, i) => (
+                <SidebarPostItem key={post.id} post={post} index={i + 1} />
+              ))}
+            </Reveal>
+          )}
+
+          <Pagination
+            label="Author pagination"
+            page={page}
+            hasNext={hasNext}
+            previousHref={
+              page > 1 ? (page === 2 ? `/authors/${id}` : `/authors/${id}?page=${page - 1}`) : null
+            }
+            nextHref={`/authors/${id}?page=${page + 1}`}
+          />
+        </div>
+      </div>
+    </main>
+  );
+}

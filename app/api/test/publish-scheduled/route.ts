@@ -1,17 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { dueScheduledPostsQuery, publishDuePost } from "@/jobs/schedule";
-import { mockAuthEnabled } from "@/lib/auth/mock-oauth";
 import { db } from "@/lib/db";
+import { testHooksEnabled } from "@/lib/test-hooks";
 
-// No Inngest dev server runs in the e2e environment (playwright.config.ts has
-// no such webServer), so this runs the same due-post logic the real cron
-// invokes, synchronously, so a spec can assert on the outcome without
-// waiting on a real clock minute. Gated by the same test-only flag as
-// /api/auth/mock — there is one "test backdoors are open" switch, not two —
-// so this is inert everywhere but a deliberately-configured test deployment.
+// Test-only endpoint, inert outside a deliberately configured test
+// deployment. 404, not 403 — a 403 would confirm the endpoint exists.
 export async function POST(request: NextRequest) {
-  if (!mockAuthEnabled()) return new NextResponse("Not found", { status: 404 });
+  if (!testHooksEnabled()) return new NextResponse("Not found", { status: 404 });
 
   const body = (await request.json().catch(() => ({}))) as { asOf?: string };
   const asOf = body.asOf ? new Date(body.asOf) : new Date();

@@ -2,67 +2,83 @@ import { Heart, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { TopicChip } from "@/components/topics/TopicChip";
+import { Tilt } from "@/components/motion/Parallax";
+import { EntityName } from "@/components/ui/EntityName";
+import { LevelBadge } from "@/components/ui/LevelBadge";
+import { TopicLabel } from "@/components/ui/TopicPill";
+import { TopicPlate } from "@/components/ui/TopicPlate";
 import { relativeTime } from "@/lib/relative-time";
+import { tokensForKind } from "@/lib/topics-shared";
 import type { FeedPost } from "@/types/feed";
 
+/**
+ * Tilt plate, the one exception to "no card grid". Whole plate is one
+ * Link, not an overlay — `.pulse-tilt-layer`'s transform makes it a
+ * containing block, so an ::after overlay would stop at the panel edge.
+ * Topic is a label, not a nested link (invalid HTML, fights the link's
+ * z-index). Width comes from the caller; only the internal skeleton is
+ * fixed, so rows stay even at any width.
+ */
 export function SecondaryPostCard({ post }: { post: FeedPost }) {
-  const ago = relativeTime(post.publishedAt);
+  const primaryTopic = post.topics[0];
+  // No topic → no topic colour; bar/plate fall back to neutral rather than
+  // claiming a GENERAL filing.
+  const barColor = primaryTopic ? tokensForKind(primaryTopic.kind).accent : "var(--hairline)";
+  const publisher = post.author.entityName ?? post.author.fullName;
 
   return (
-    // A topic chip below is its own <Link> to the topic archive — nesting it
-    // inside the card's own post link would produce invalid nested anchors,
-    // so the chips row is a sibling of the Link, not a descendant of it.
-    <div className="flex h-full flex-col gap-2">
+    <Tilt max={5} lift={12} className="h-full w-full">
       <Link
         href={`/posts/${post.slug}`}
-        className="group block flex-1 rounded-[var(--radius-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="group/card relative flex h-full w-full flex-col overflow-hidden rounded-[2px] border border-[var(--hairline)] bg-[var(--card)] shadow-[var(--elev-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
-        <article
-          className="flex h-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] transition-all duration-150
-          group-hover:-translate-y-0.5 group-hover:shadow-sm
-          motion-reduce:transition-none motion-reduce:group-hover:translate-y-0
-          dark:group-hover:shadow-none dark:group-hover:border-[var(--muted-foreground)]/30"
+        <span className="pulse-tilt-layer relative block h-[150px] shrink-0 overflow-hidden bg-[var(--ink)]">
+          {post.mediaUrl ? (
+            <Image
+              src={post.mediaUrl}
+              alt=""
+              fill
+              className="object-cover opacity-95 transition-transform duration-[calc(var(--dur-scene)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover/card:scale-[calc(1+0.05*var(--motion-travel))]"
+              sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw"
+            />
+          ) : (
+            <TopicPlate entityName={publisher} kind={primaryTopic?.kind ?? null} />
+          )}
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-[3px]"
+            style={{ background: barColor }}
+          />
+        </span>
+
+        <span
+          className="pulse-tilt-layer flex flex-1 flex-col p-4 pb-[18px]"
+          style={{ "--layer-z": "20px" } as React.CSSProperties}
         >
-          <div className="relative aspect-[4/3] overflow-hidden bg-[var(--muted)]">
-            {post.mediaUrl ? (
-              <Image
-                src={post.mediaUrl}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 33vw"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--primary)]/20 via-[var(--primary)]/8 to-[var(--primary)]/4">
-                <span
-                  aria-hidden
-                  className="select-none text-[48px] font-black text-[var(--primary-text)] opacity-20"
-                >
-                  A
-                </span>
-              </div>
-            )}
-          </div>
+          {/* Row height is reserved even with no topic, so topicless posts don't sit shorter than their neighbours. */}
+          <span className="mb-2.5 flex min-h-[16px] items-center gap-2">
+            {primaryTopic && <TopicLabel name={primaryTopic.name} kind={primaryTopic.kind} />}
+            <LevelBadge level={post.level} />
+          </span>
 
-          <div className="flex flex-1 flex-col p-4">
-            <h3 className="line-clamp-2 text-[18px] font-bold leading-[1.3] text-[var(--card-foreground)]">
-              {post.title}
-            </h3>
+          <span className="pulse-serif pulse-clamp-safe line-clamp-2 block min-h-[2.32em] break-words text-[22px] leading-[1.16] text-[color:var(--card-foreground)] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] group-hover/card:text-[color:var(--primary-text)]">
+            {post.title}
+          </span>
 
-            <div className="mt-3 flex items-center gap-2 text-[13px] text-[var(--muted-foreground)]">
-              <span className="min-w-0 truncate">
-                {post.author.fullName}
-                {post.author.entityName ? ` · ${post.author.entityName}` : ""}
-              </span>
-              <span aria-hidden className="shrink-0">
-                ·
-              </span>
-              <time dateTime={post.publishedAt.toISOString()} className="shrink-0">
-                {ago}
+          {/* Two lines, not one — entity name + timestamp on a single line
+              truncated the publisher, the one fact that says whose story this is. */}
+          <span className="mt-auto block pt-3.5">
+            <span className="pulse-label pulse-label-tight block truncate">
+              <EntityName name={publisher} className="normal-case tracking-[0.06em]" />
+            </span>
+            <span className="mt-1.5 flex items-center gap-3">
+              <time
+                dateTime={post.publishedAt.toISOString()}
+                className="pulse-label pulse-label-tight normal-case tracking-[0.06em]"
+              >
+                {relativeTime(post.publishedAt)}
               </time>
-
-              <div className="ml-auto flex shrink-0 items-center gap-3">
+              <span className="tabular ml-auto flex shrink-0 items-center gap-2.5 text-[12px] text-[color:var(--muted-foreground)]">
                 <span className="flex items-center gap-1">
                   <Heart size={12} strokeWidth={2} aria-hidden />
                   {post.reactionCount}
@@ -73,19 +89,11 @@ export function SecondaryPostCard({ post }: { post: FeedPost }) {
                   {post.commentCount}
                   <span className="sr-only"> comments</span>
                 </span>
-              </div>
-            </div>
-          </div>
-        </article>
+              </span>
+            </span>
+          </span>
+        </span>
       </Link>
-
-      {post.topics.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {post.topics.slice(0, 2).map((topic) => (
-            <TopicChip key={topic.slug} slug={topic.slug} name={topic.name} />
-          ))}
-        </div>
-      )}
-    </div>
+    </Tilt>
   );
 }

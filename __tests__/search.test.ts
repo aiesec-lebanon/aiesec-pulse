@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { parseSearchFilters, parseSnippet } from "@/lib/search";
 
-// parseSnippet decodes the charCode(1)/charCode(2) markers ts_headline is
-// asked to wrap matches in (lib/search.ts) instead of HTML — these tests
-// build that marked-up string by hand, the same shape ts_headline returns.
+// parseSnippet decodes the charCode(1)/charCode(2) markers ts_headline
+// wraps matches in (not HTML); these tests hand-build that same shape.
 const START = String.fromCharCode(1);
 const STOP = String.fromCharCode(2);
 

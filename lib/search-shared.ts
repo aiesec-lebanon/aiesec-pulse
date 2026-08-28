@@ -1,8 +1,5 @@
-// Split out of lib/search.ts deliberately: that module is "server-only" and
-// pulls in @/lib/db (the pg driver, Node built-ins and all), so a client
-// component importing so much as one named export from it drags the whole
-// graph into the browser bundle. This file has no server-only code, so
-// SearchForm ("use client") can import it directly.
+// Split from lib/search.ts (server-only, pulls in @/lib/db) so SearchForm
+// ("use client") can import these without bundling the pg driver.
 
 import type { PostKind } from "@/app/generated/prisma/enums";
 

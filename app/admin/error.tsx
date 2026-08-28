@@ -1,6 +1,6 @@
 "use client";
 
-import { FeedIllustration } from "@/components/feed/FeedIllustration";
+import { RouteError } from "@/components/ui/RouteError";
 
 export default function AdminError({
   error,
@@ -10,42 +10,20 @@ export default function AdminError({
   reset: () => void;
 }) {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="h-16 flex-shrink-0 border-b border-[var(--border)] bg-[var(--card)] flex items-center px-6">
-        <span className="text-[16px] font-bold text-[var(--foreground)]">
-          AIESEC Pulse · Moderator
-        </span>
+    <div className="flex min-h-screen flex-col">
+      <header className="flex h-14 flex-shrink-0 items-center border-b border-[var(--hairline)] px-6">
+        <span className="pulse-label pulse-label-wide">AIESEC Pulse · Moderator</span>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-24">
-        <div className="flex flex-col items-center text-center gap-6 max-w-sm">
-          <div className="text-[var(--muted-foreground)] opacity-60" aria-hidden="true">
-            <FeedIllustration variant="error" className="w-36 h-auto" />
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <h2 className="text-[20px] font-bold text-[var(--foreground)]">
-              An error occurred in the moderator portal.
-            </h2>
-            <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-              Something went wrong. Please try again.
-            </p>
-          </div>
-
-          <button type="button" onClick={reset} className="aiesec-btn-primary">
-            Retry
-          </button>
-
-          {error.digest && (
-            <p className="text-[12px] font-mono text-[var(--muted-foreground)] opacity-60">
-              ID: {error.digest}
-            </p>
-          )}
-
-          <p className="text-[13px] text-[var(--muted-foreground)]">
-            If this keeps happening, contact MC IM.
-          </p>
-        </div>
+      <main className="flex flex-1 flex-col items-center justify-center px-6">
+        <RouteError
+          error={error}
+          reset={reset}
+          eyebrow="Something went wrong"
+          heading="An error occurred in the moderator portal"
+          accentWord="moderator"
+          body="Please try again. If it keeps happening, contact MC IM."
+        />
       </main>
     </div>
   );

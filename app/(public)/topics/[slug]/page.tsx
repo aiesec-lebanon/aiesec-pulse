@@ -1,15 +1,20 @@
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { type FollowState } from "@/app/actions/follows";
 import { FollowTarget } from "@/app/generated/prisma/enums";
 import { FollowButton } from "@/components/engagement/FollowButton";
-import { FeedIllustration } from "@/components/feed/FeedIllustration";
-import { SecondaryPostCard } from "@/components/feed/SecondaryPostCard";
+import { SidebarPostItem } from "@/components/feed/SidebarPostItem";
+import { Parallax } from "@/components/motion/Parallax";
+import { Reveal } from "@/components/motion/Reveal";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Pagination } from "@/components/ui/Pagination";
+import { SpecStrip } from "@/components/ui/SpecStrip";
+import { TextTabs } from "@/components/ui/TextTabs";
 import { db } from "@/lib/db";
-import { getTopicFeed } from "@/lib/feed";
+import { getTopicFeed, getTopicStats, TOPIC_PAGE_SIZE, type TopicSort } from "@/lib/feed";
 import { requireSession } from "@/lib/rbac/guards";
+import { initialsOf, tokensForKind } from "@/lib/topics-shared";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -21,28 +26,37 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: `${topic.name} · AIESEC Pulse` };
 }
 
+function hrefFor(slug: string, page: number, sort: TopicSort): string {
+  const qs = new URLSearchParams();
+  if (sort !== "recent") qs.set("sort", sort);
+  if (page > 1) qs.set("page", String(page));
+  const query = qs.toString();
+  return query ? `/topics/${slug}?${query}` : `/topics/${slug}`;
+}
+
 export default async function TopicArchivePage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; sort?: string }>;
 }) {
   const { slug } = await params;
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, sort: sortParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const sort: TopicSort = sortParam === "popular" ? "popular" : "recent";
   const user = await requireSession();
 
   // Same visibility rule as the main feed: an inactive topic isn't a valid
   // browsing destination even if a stale link to it still exists.
   const topic = await db.topic.findUnique({
     where: { slug },
-    select: { id: true, name: true, description: true, isActive: true },
+    select: { id: true, name: true, description: true, isActive: true, kind: true },
   });
   if (!topic || !topic.isActive) return notFound();
 
-  const [{ posts, hasNext }, follow] = await Promise.all([
-    getTopicFeed(topic.id, page),
+  const [{ posts, hasNext }, follow, stats] = await Promise.all([
+    getTopicFeed(topic.id, page, sort),
     db.follow.findUnique({
       where: {
         userId_targetType_targetId: {
@@ -53,88 +67,98 @@ export default async function TopicArchivePage({
       },
       select: { muted: true },
     }),
+    getTopicStats(topic.id),
   ]);
   const followState: FollowState = follow ? (follow.muted ? "muted" : "following") : "none";
+  const tokens = tokensForKind(topic.kind);
 
   return (
-    <main className="w-full max-w-[1200px] flex-1 mx-auto px-6 py-10">
-      <Link
-        href="/feed"
-        className="mb-6 inline-flex min-h-[24px] items-center gap-1.5 rounded-[var(--radius-sm)] text-[14px] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-      >
-        <ArrowLeft size={14} strokeWidth={2} aria-hidden />
-        Back to feed
-      </Link>
+    <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-24">
+      <div className="relative overflow-hidden">
+        <Parallax
+          depth={24}
+          className="pointer-events-none absolute right-0 top-0 z-0 hidden select-none sm:block"
+        >
+          <span
+            aria-hidden
+            className="pulse-serif block leading-none"
+            style={{
+              fontSize: "clamp(120px,20vw,260px)",
+              color: `color-mix(in srgb, ${tokens.accent} 14%, transparent)`,
+            }}
+          >
+            {initialsOf(topic.name)}
+          </span>
+        </Parallax>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-[32px] font-black leading-[1.1] tracking-tight text-[var(--foreground)]">
-          {topic.name}
-        </h1>
-        <FollowButton
-          targetType={FollowTarget.TOPIC}
-          targetId={topic.id}
-          initialState={followState}
-          label={topic.name}
+        <div className="relative z-10">
+          <PageHeader
+            breadcrumb={[{ href: "/feed", label: "Feed" }, { label: "Topic" }]}
+            title={topic.name}
+            standfirst={topic.description ?? undefined}
+            actions={
+              <FollowButton
+                targetType={FollowTarget.TOPIC}
+                targetId={topic.id}
+                initialState={followState}
+                label={topic.name}
+              />
+            }
+            bordered={false}
+          />
+        </div>
+      </div>
+
+      <SpecStrip
+        ariaLabel={`${topic.name} totals`}
+        cells={[
+          { label: "Posts", value: <span className="tabular">{stats.postCount}</span> },
+          {
+            label: "Contributing entities",
+            value: <span className="tabular">{stats.entityCount}</span>,
+          },
+          { label: "Followers", value: <span className="tabular">{stats.followerCount}</span> },
+          {
+            label: "Avg. read",
+            value: stats.avgReadingMinutes > 0 ? `${stats.avgReadingMinutes} min` : "—",
+          },
+        ]}
+      />
+
+      <div className="mt-10 flex flex-wrap items-end justify-between gap-4">
+        <TextTabs
+          ariaLabel="Sort"
+          items={[
+            { href: hrefFor(slug, 1, "recent"), label: "Recent", isActive: sort === "recent" },
+            { href: hrefFor(slug, 1, "popular"), label: "Popular", isActive: sort === "popular" },
+          ]}
         />
       </div>
-      {topic.description && (
-        <p className="mt-2 max-w-[60ch] text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-          {topic.description}
-        </p>
-      )}
 
       {posts.length === 0 ? (
-        <div className="mx-auto mt-16 flex max-w-sm flex-col items-center gap-6 text-center">
-          <div
-            className="text-[var(--muted-foreground)] opacity-60 animate-float-drift"
-            aria-hidden="true"
-          >
-            <FeedIllustration className="h-auto w-36" />
-          </div>
-          <div className="flex flex-col gap-3">
-            <h2 className="text-[20px] font-bold text-[var(--foreground)]">
-              Nothing tagged {topic.name} yet.
-            </h2>
-            <p className="text-[16px] leading-[1.6] text-[var(--muted-foreground)]">
-              When a post is tagged with this topic, it will appear here.
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          heading={`Nothing tagged ${topic.name} yet.`}
+          body="When a post is tagged with this topic, it will appear here."
+        />
       ) : (
-        <section aria-label={`Posts about ${topic.name}`} className="mt-8">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post) => (
-              <SecondaryPostCard key={post.id} post={post} />
+        <section aria-label={`Posts about ${topic.name}`} className="mt-10">
+          <div className="flex flex-col">
+            {posts.map((post, i) => (
+              <Reveal key={post.id} as="div" y={20} delay={Math.min(i, 8) * 55}>
+                <SidebarPostItem post={post} index={(page - 1) * TOPIC_PAGE_SIZE + i + 1} />
+              </Reveal>
             ))}
           </div>
         </section>
       )}
 
-      {(posts.length > 0 || page > 1) && (
-        <nav aria-label="Topic pagination" className="mt-12 flex items-center justify-center gap-4">
-          {page > 1 && (
-            <a
-              href={page === 2 ? `/topics/${slug}` : `/topics/${slug}?page=${page - 1}`}
-              className="min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              <span aria-hidden>←</span> Newer
-            </a>
-          )}
-          {posts.length > 0 && (
-            <span className="select-none text-[14px] tabular-nums text-[var(--muted-foreground)]">
-              Page {page}
-            </span>
-          )}
-          {hasNext && (
-            <a
-              href={`/topics/${slug}?page=${page + 1}`}
-              className="min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-[15px] font-bold text-[var(--foreground)] transition-colors hover:border-[var(--primary)] hover:text-[var(--primary-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-            >
-              Older <span aria-hidden>→</span>
-            </a>
-          )}
-        </nav>
-      )}
+      <Pagination
+        label="Topic pagination"
+        page={page}
+        hasNext={hasNext}
+        previousHref={page > 1 ? hrefFor(slug, page - 1, sort) : null}
+        nextHref={hrefFor(slug, page + 1, sort)}
+      />
     </main>
   );
 }

@@ -19,11 +19,9 @@ async function targetExists(targetType: FollowTarget, targetId: string): Promise
 export type ToggleFollowResult = { ok: true; state: FollowState } | { ok: false; error: string };
 
 /**
- * Follow and mute share one row — `muted` inverts the signal, per the
- * schema's own comment on Follow. Toggling the state this call doesn't
- * currently hold flips the row to the new polarity rather than requiring a
- * separate unfollow/unmute first; toggling the state it already holds
- * removes the row, back to no explicit preference.
+ * Follow and mute share one row (`muted` inverts it — see Follow in the
+ * schema). Toggling the held state removes the row; toggling the other
+ * flips polarity.
  */
 async function toggle(
   targetType: FollowTarget,
@@ -33,8 +31,6 @@ async function toggle(
   const user = await requireSession();
   const where = { userId_targetType_targetId: { userId: user.id, targetType, targetId } };
 
-  // Independent reads, run concurrently rather than as two sequential round
-  // trips — neither depends on the other's result.
   const [exists, existing] = await Promise.all([
     targetExists(targetType, targetId),
     db.follow.findUnique({ where, select: { muted: true } }),

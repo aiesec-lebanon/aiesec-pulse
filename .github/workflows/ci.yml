@@ -124,10 +124,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    env:
-      # Signals to lib/auth/mock-oauth.ts that the sign-in flow may be stubbed.
-      # Refused outright when NODE_ENV is production — see that file.
-      PULSE_E2E_MOCK_AUTH: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -140,8 +136,12 @@ jobs:
       - run: npm run seed
       - run: npx playwright install --with-deps chromium
       - name: Playwright
+        # Sign-in has no test-only path: playwright.config.ts stubs auth.aiesec.org
+        # and gis-api.aiesec.org and points the app at them, so the OAuth handshake,
+        # code exchange, GIS query, and grant reconciliation all run for real.
+        #
         # Specs assert axe-core has no violations on the feed, post detail,
-        # composer and moderation queue.
+        # composer, and moderation queue.
         run: npm run test:e2e
 
   security:
@@ -163,10 +163,9 @@ jobs:
       - run: npm ci
 
       - name: Dependency audit (production)
-        # Blocks on critical only. Advisories in the transitive dev tree are real
-        # but not exploitable in the deployed artefact, and a gate that fails
-        # every day is a gate people learn to bypass. Weekly patching is handled
-        # by Dependabot.
+        # Blocks on critical only: transitive dev-tree advisories are real but not
+        # exploitable in the deployed artefact, and a gate that fails daily gets
+        # learned around. Dependabot handles weekly patching for the rest.
         run: npm audit --omit=dev --audit-level=critical
 
       - name: Secret scan

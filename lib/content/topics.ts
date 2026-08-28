@@ -1,21 +1,21 @@
 import "server-only";
 
+import type { TopicKind } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
 
-export type TopicOption = { id: string; slug: string; name: string };
+export type TopicOption = { id: string; slug: string; name: string; kind: TopicKind };
 
 export async function listActiveTopics(): Promise<TopicOption[]> {
   return db.topic.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
-    select: { id: true, slug: true, name: true },
+    select: { id: true, slug: true, name: true, kind: true },
   });
 }
 
 /**
- * Silently drops any id that doesn't name a real, active topic, rather than
- * rejecting the submission — a tag carries no authorisation weight (unlike
- * audience targeting), so a stale or tampered id is simply not applied.
+ * Silently drops ids that aren't a real, active topic rather than reject
+ * the submission — tags carry no authorisation weight, unlike targeting.
  */
 export async function resolveValidTopicIds(topicIds: string[]): Promise<string[]> {
   if (topicIds.length === 0) return [];

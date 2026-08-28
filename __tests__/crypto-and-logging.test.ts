@@ -36,7 +36,6 @@ describe("AES-256-GCM token encryption", () => {
   });
 
   it("rejects a tampered ciphertext rather than returning garbage", () => {
-    // GCM is authenticated: this is what makes the column tamper-evident.
     const ciphertext = encryptToBytes("token");
     ciphertext[ciphertext.length - 1] ^= 0xff;
     expect(() => decryptFromBytes(ciphertext)).toThrow();
@@ -106,7 +105,7 @@ describe("PKCE", () => {
     const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     const challenge = pkceChallenge(verifier);
     expect(challenge).toBe(pkceChallenge(verifier));
-    expect(challenge).not.toMatch(/[+/=]/); // base64url, not base64
+    expect(challenge).not.toMatch(/[+/=]/);
   });
 
   it("generates high-entropy, URL-safe tokens", () => {

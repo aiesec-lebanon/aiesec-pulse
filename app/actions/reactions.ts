@@ -4,11 +4,11 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import { PostStatus, ReactionKind } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
+import { scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 
-// Visibility is re-checked because reacting is a write against a caller-supplied
-// post id. reactionCount is maintained in the same transaction as the row.
+// postId is caller-supplied, so visibility is re-checked (bookmarks does the
+// same). reactionCount stays in sync inside this transaction.
 export async function toggleReaction(
   postId: string
 ): Promise<{ ok: true; reacted: boolean; count: number } | { ok: false; error: string }> {
@@ -16,7 +16,7 @@ export async function toggleReaction(
 
   const scope = await scopeSetFor(user);
   const post = await db.post.findFirst({
-    where: { id: postId, status: PostStatus.PUBLISHED, ...audienceFilter(scope) },
+    where: { id: postId, status: PostStatus.PUBLISHED, ...visibilityFilter(scope) },
     select: { id: true, slug: true },
   });
   if (!post) return { ok: false, error: "That post is no longer available." };

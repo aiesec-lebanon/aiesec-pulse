@@ -3,10 +3,8 @@ import Link from "next/link";
 
 import { type BlockNode, sanitiseDocument, type TextNode } from "@/lib/content/document";
 
-// mediaId -> public URL. Sanitisation keeps a document's image blocks even
-// when the id doesn't resolve to anything (resolution is deliberately not
-// sanitisation's job); a caller that hasn't looked up media yet simply
-// passes nothing, and those blocks render as nothing rather than broken img.
+// mediaId -> public URL. An id that fails to resolve renders as nothing,
+// not a broken img — resolution is deliberately not sanitisation's job.
 export type MediaLookup = Record<string, string>;
 
 // Re-sanitised on read as well as write, so a row from an older build or a
@@ -16,18 +14,39 @@ export function DocumentRenderer({ doc, media = {} }: { doc: unknown; media?: Me
 
   if (document.content.length === 0) {
     return (
-      <p className="text-[16px] italic text-[var(--muted-foreground)]">This post has no content.</p>
+      <p className="text-[16px] italic text-[color:var(--muted-foreground)]">
+        This post has no content.
+      </p>
     );
   }
 
-  return <>{document.content.map((node, i) => renderBlock(node, i, media))}</>;
+  let sectionIndex = 0;
+  return (
+    <>
+      {document.content.map((node, i) => {
+        const sectionId =
+          node.type === "heading" && (node.attrs?.level ?? 2) === 2
+            ? `section-${sectionIndex++}`
+            : undefined;
+        return renderBlock(node, i, media, sectionId);
+      })}
+    </>
+  );
 }
 
-function renderBlock(node: BlockNode, key: number, media: MediaLookup): React.ReactNode {
+function renderBlock(
+  node: BlockNode,
+  key: number,
+  media: MediaLookup,
+  sectionId?: string
+): React.ReactNode {
   switch (node.type) {
     case "paragraph":
       return (
-        <p key={key} className="mb-4 text-[18px] leading-[1.7] text-[var(--foreground)] last:mb-0">
+        <p
+          key={key}
+          className="mb-4 text-[18px] leading-[1.7] text-[color:var(--foreground)] last:mb-0"
+        >
           {renderInline(node.content)}
         </p>
       );
@@ -36,13 +55,13 @@ function renderBlock(node: BlockNode, key: number, media: MediaLookup): React.Re
       const level = node.attrs?.level ?? 2;
       const className =
         level === 2
-          ? "mt-8 mb-3 text-[24px] font-bold leading-tight text-[var(--foreground)]"
+          ? "scroll-mt-24 mt-8 mb-3 text-[24px] font-bold leading-tight text-[color:var(--foreground)]"
           : level === 3
-            ? "mt-6 mb-2 text-[20px] font-bold leading-tight text-[var(--foreground)]"
-            : "mt-5 mb-2 text-[18px] font-bold leading-tight text-[var(--foreground)]";
+            ? "scroll-mt-24 mt-6 mb-2 text-[20px] font-bold leading-tight text-[color:var(--foreground)]"
+            : "scroll-mt-24 mt-5 mb-2 text-[18px] font-bold leading-tight text-[color:var(--foreground)]";
       if (level === 2)
         return (
-          <h2 key={key} className={className}>
+          <h2 key={key} id={sectionId} className={className}>
             {renderInline(node.content)}
           </h2>
         );
@@ -63,7 +82,7 @@ function renderBlock(node: BlockNode, key: number, media: MediaLookup): React.Re
       return (
         <blockquote
           key={key}
-          className="my-6 border-l-2 border-[var(--primary)] pl-5 text-[18px] italic leading-[1.7] text-[var(--muted-foreground)]"
+          className="my-6 border-l-2 border-[var(--primary)] pl-5 text-[18px] italic leading-[1.7] text-[color:var(--muted-foreground)]"
         >
           {node.content?.map((child, i) => renderBlock(child, i, media))}
         </blockquote>
@@ -73,7 +92,7 @@ function renderBlock(node: BlockNode, key: number, media: MediaLookup): React.Re
       return (
         <ul
           key={key}
-          className="my-4 list-disc pl-6 text-[18px] leading-[1.7] text-[var(--foreground)]"
+          className="my-4 list-disc pl-6 text-[18px] leading-[1.7] text-[color:var(--foreground)]"
         >
           {node.content?.map((child, i) => renderBlock(child, i, media))}
         </ul>
@@ -83,7 +102,7 @@ function renderBlock(node: BlockNode, key: number, media: MediaLookup): React.Re
       return (
         <ol
           key={key}
-          className="my-4 list-decimal pl-6 text-[18px] leading-[1.7] text-[var(--foreground)]"
+          className="my-4 list-decimal pl-6 text-[18px] leading-[1.7] text-[color:var(--foreground)]"
         >
           {node.content?.map((child, i) => renderBlock(child, i, media))}
         </ol>
@@ -153,7 +172,7 @@ function renderInline(nodes: TextNode[] | undefined): React.ReactNode {
               href={href}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="text-[var(--primary-text)] underline decoration-[var(--primary)]/40 underline-offset-2 hover:decoration-[var(--primary)]"
+              className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             >
               {element}
             </Link>

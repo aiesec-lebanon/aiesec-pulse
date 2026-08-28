@@ -29,7 +29,7 @@ describe("dueScheduledPostsQuery", () => {
   it("moves the boundary forward as the fake clock advances", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-20T09:00:00Z"));
-    vi.advanceTimersByTime(90_000); // 1.5 minutes
+    vi.advanceTimersByTime(90_000);
 
     const query = dueScheduledPostsQuery();
 

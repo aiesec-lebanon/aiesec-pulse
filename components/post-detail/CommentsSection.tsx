@@ -41,8 +41,8 @@ export function CommentsSection({ postId, totalCount, initialComments, currentUs
 
   return (
     <section id="comments" aria-labelledby="comments-heading">
-      <h2 id="comments-heading" className="mb-6 text-[20px] font-bold text-[var(--foreground)]">
-        Comments ({displayedCount})
+      <h2 id="comments-heading" className="pulse-label mb-6">
+        {displayedCount} {displayedCount === 1 ? "comment" : "comments"}
       </h2>
 
       <CommentComposer

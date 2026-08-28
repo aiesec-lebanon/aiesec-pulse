@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
-// Never leave the server. Token material is redacted by field name in the logger.
+// Never leaves the server; token fields are redacted by name in the logger.
 
 export type TokenSet = {
   accessToken: string;
@@ -36,7 +36,7 @@ export async function deleteTokens(userId: string): Promise<void> {
 
 // An undecryptable row means the key changed without a rotation. Treated as
 // "no token" so the user re-authenticates cleanly instead of hitting a 500.
-export async function readTokens(userId: string): Promise<TokenSet | null> {
+async function readTokens(userId: string): Promise<TokenSet | null> {
   const row = await db.oauthToken.findUnique({ where: { userId } });
   if (!row) return null;
 
@@ -67,7 +67,6 @@ type TokenResponse = {
 };
 
 function toTokenSet(payload: TokenResponse): TokenSet {
-  // Fall back to our clock only if `created_at` is missing.
   const createdAtMs = payload.created_at ? payload.created_at * 1000 : Date.now();
   return {
     accessToken: payload.access_token,
@@ -112,7 +111,7 @@ export async function exchangeCode(code: string, codeVerifier?: string): Promise
   });
 }
 
-export async function refreshTokens(refreshToken: string): Promise<TokenSet> {
+async function refreshTokens(refreshToken: string): Promise<TokenSet> {
   return postToken({
     grant_type: "refresh_token",
     client_id: env.AIESEC_OAUTH_CLIENT_ID,

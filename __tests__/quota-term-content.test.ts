@@ -10,7 +10,7 @@ import {
   sanitiseDocument,
 } from "@/lib/content/document";
 import { slugifyTitle } from "@/lib/content/slug";
-import { quotaPeriodFor } from "@/lib/quota";
+import { nearestByScope, quotaPeriodFor } from "@/lib/quota";
 import { termEndsAt, termLabelFor } from "@/lib/term";
 import { currentIsoWeek, isoWeekShortLabel, lastNIsoWeeks } from "@/lib/week";
 
@@ -49,6 +49,50 @@ describe("quota periods", () => {
   it("labels a week for humans", () => {
     expect(isoWeekShortLabel("2026-W21")).toMatch(/^May W\d$/);
     expect(isoWeekShortLabel("nonsense")).toBe("nonsense");
+  });
+});
+
+describe("quota scope precedence", () => {
+  const depths = new Map([
+    ["ai", 1],
+    ["mc", 2],
+    ["lc", 3],
+  ]);
+
+  const global = { id: "global", entityId: null };
+  const ai = { id: "ai-policy", entityId: "ai" };
+  const mc = { id: "mc-policy", entityId: "mc" };
+  const lc = { id: "lc-policy", entityId: "lc" };
+
+  it("falls back to the network-wide default when nothing else applies", () => {
+    expect(nearestByScope([global], depths)).toBe(global);
+  });
+
+  it("prefers the author's own entity over every ancestor", () => {
+    expect(nearestByScope([global, ai, mc, lc], depths)).toBe(lc);
+  });
+
+  it("walks up to the nearest ancestor that has one", () => {
+    expect(nearestByScope([global, ai, mc], depths)).toBe(mc);
+  });
+
+  it("does not depend on the order the database returned the rows in", () => {
+    expect(nearestByScope([lc, global, mc, ai], depths)).toBe(lc);
+    expect(nearestByScope([ai, lc, global], depths)).toBe(lc);
+  });
+
+  it("ranks a GLOBAL row behind every entity-scoped one, however shallow", () => {
+    expect(nearestByScope([global, ai], depths)).toBe(ai);
+  });
+
+  it("keeps the first row on a tie, as the per-scope findFirst did", () => {
+    const weekly = { id: "weekly", entityId: "lc" };
+    const monthly = { id: "monthly", entityId: "lc" };
+    expect(nearestByScope([weekly, monthly], depths)).toBe(weekly);
+  });
+
+  it("has no answer when no policy is configured at all", () => {
+    expect(nearestByScope([], depths)).toBeNull();
   });
 });
 
@@ -259,9 +303,8 @@ describe("slugify", () => {
 });
 
 /**
- * `returnTo` is attacker-influenced input on an unauthenticated endpoint. An
- * open redirect off the sign-in flow is a credible phishing primitive:
- * "aiesec-pulse.org signed me in and then sent me here".
+ * `returnTo` is attacker-controlled on an unauthenticated endpoint — an
+ * open redirect here is a ready-made phishing vector.
  */
 describe("safeReturnTo", () => {
   it("allows internal paths", () => {

@@ -7,8 +7,8 @@ import unusedImports from "eslint-plugin-unused-imports";
 
 import pulse from "./eslint-rules/no-unguarded-server-action.js";
 
-// jsx-a11y rules re-declared by name rather than by re-registering the plugin,
-// which flat config forbids.
+// Re-declared by name: flat config forbids re-registering a plugin like
+// jsx-a11y directly.
 const a11yRules = Object.fromEntries(
   Object.keys(jsxA11y.flatConfigs.recommended.rules ?? {}).map((rule) => [rule, "error"])
 );
@@ -78,6 +78,9 @@ const eslintConfig = defineConfig([
     "app/generated/**",
     "playwright-report/**",
     "test-results/**",
+    // Claude Design canvas export (gitignored) — generated markup nobody
+    // edits, so don't lint it.
+    "UI ref/**",
   ]),
 ]);
 

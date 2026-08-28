@@ -13,32 +13,35 @@ import { db } from "@/lib/db";
 import type { ResolvedQuota } from "@/lib/quota";
 import { usedInPeriod } from "@/lib/quota";
 import { can } from "@/lib/rbac/can";
+import { type PermissionKey, PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
 
-// Shared by every path that turns a submission into a PUBLISHED/IN_REVIEW
-// post — createPost, resubmitPost, and publishDraft. Not exported from a
-// "use server" action module because these aren't themselves guarded
-// entry points: they're internals the caller has already authorised, and
-// guessMimeType/CONTAINER_BLOCK_TYPES walking is plain sync/async utility
-// code that "use server" files aren't allowed to export directly.
+// Shared by createPost/resubmitPost/publishDraft. Not in a "use server"
+// module: these are internals the caller has already authorised, and
+// "use server" files may only export async functions.
 
-export async function publishingRoleFor(
+/**
+ * Widest publishing tier the user holds at `entityId`, provided they may
+ * exercise `permission` there — null is a refusal, not a fallback to the
+ * narrowest tier. Takes `permission` (not just `post.publish`) since
+ * promotion is budgeted the same way against a different capability.
+ */
+export async function quotaRoleFor(
   user: { id: string },
-  entityId: string
-): Promise<string | null> {
-  if (await can(user, "post.publish", { type: "ENTITY", entityId })) {
+  entityId: string,
+  permission: PermissionKey = "post.publish"
+): Promise<RoleKey | null> {
+  if (await can(user, permission, { type: "ENTITY", entityId })) {
     const grants = await db.roleGrant.findMany({
       where: {
         userId: user.id,
         revokedAt: null,
         OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
-        role: {
-          key: { in: ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"] },
-        },
+        role: { key: { in: [...PUBLISHING_TIERS] } },
       },
       select: { role: { select: { key: true } } },
     });
-    // Most permissive first: an editor who also publishes gets the wider allowance.
-    for (const key of ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"]) {
+    // Most permissive first: an MCVP who is also an LCP gets the wider allowance.
+    for (const key of PUBLISHING_TIERS) {
       if (grants.some((g) => g.role.key === key)) return key;
     }
   }
@@ -46,14 +49,10 @@ export async function publishingRoleFor(
 }
 
 /**
- * The rich-text editor's image toolbar uploads directly to storage before a
- * post exists (components/editor/RichTextEditor.tsx), so an inline image
- * block's `mediaId` is actually just the upload's public URL until the post
- * is submitted. This walks the document once at submit time, creates one
- * real Media row per distinct upload URL, and rewrites `mediaId` to the
- * created row's id. A `mediaId` that isn't an http(s) URL already names a
- * real Media row (unchanged content from a prior version, or a resubmit) and
- * is left alone.
+ * Editor image uploads go straight to storage before the post exists, so
+ * `mediaId` is really the upload URL until submit. Walks the doc once,
+ * creates one Media row per distinct URL, and rewrites `mediaId` to it.
+ * Non-URL mediaIds already name a real row (resubmit) and are left alone.
  */
 export async function materializeInlineImages(
   doc: PulseDocument,
@@ -97,14 +96,10 @@ export async function materializeInlineImages(
 }
 
 /**
- * The quota-resolution step duplicated across createPost, resubmitPost, and
- * publishDraft's transactions: whoever submits while under quota publishes
- * immediately (or schedules, if a future `scheduledAt` was given), the rest
- * queue. A scheduled post still consumes quota at submit time
- * (architecture.md §8.2) — `lib/quota.ts`'s `QUOTA_CONSUMING_STATUSES`
- * already counts SCHEDULED alongside PUBLISHED and IN_REVIEW, so nothing
- * here needs to special-case it. Takes a transaction client so the
- * read-then-write stays inside the caller's serializable transaction.
+ * Shared quota-resolution step: under quota publishes (or schedules) now,
+ * else queues. Scheduled posts still consume quota at submit time (see
+ * `QUOTA_CONSUMING_STATUSES`), no special-casing needed here. Takes a tx
+ * client so read-then-write stays inside the caller's transaction.
  */
 export async function decidePublishStatus(
   tx: Prisma.TransactionClient | typeof db,
@@ -119,7 +114,7 @@ export async function decidePublishStatus(
   return scheduledAt ? PostStatus.SCHEDULED : PostStatus.PUBLISHED;
 }
 
-/** Shared by createPost and publishDraft so the same outcome reads the same in the audit log. */
+/** Shared by createPost and publishDraft so audit log outcomes read the same. */
 export function auditActionFor(
   status: typeof PostStatus.PUBLISHED | typeof PostStatus.IN_REVIEW | typeof PostStatus.SCHEDULED
 ): string {

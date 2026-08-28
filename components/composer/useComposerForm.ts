@@ -6,7 +6,10 @@ import { EMPTY_DOCUMENT, plainTextFromDocument, type PulseDocument } from "@/lib
 
 export type ComposerInitialValues = {
   title: string;
+  /** The phrase the author had chosen to accent, when resuming a draft. */
+  titleAccent: string;
   bodyJson: PulseDocument;
+  summary: string;
   linkUrl: string;
   mediaUrl: string | null;
   mediaAlt: string;
@@ -24,16 +27,16 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /**
- * Owns the composer's field state and the cover-image upload flow — identical
- * whether the form is starting fresh (/posts/new) or resuming an
- * already-saved draft (/posts/[slug]/edit), so neither route has to duplicate
- * the state and the drag/drop/upload handling.
+ * Owns the composer's field state and cover-image upload flow, shared by
+ * both /posts/new and /posts/[slug]/edit so neither route duplicates it.
  */
 export function useComposerForm(initialValues?: ComposerInitialValues) {
   const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [titleAccent, setTitleAccent] = useState(initialValues?.titleAccent ?? "");
   const [bodyJson, setBodyJson] = useState<PulseDocument>(
     initialValues?.bodyJson ?? EMPTY_DOCUMENT
   );
+  const [summary, setSummary] = useState(initialValues?.summary ?? "");
   const [linkUrl, setLinkUrl] = useState(initialValues?.linkUrl ?? "");
   const [mediaAlt, setMediaAlt] = useState(initialValues?.mediaAlt ?? "");
 
@@ -50,6 +53,7 @@ export function useComposerForm(initialValues?: ComposerInitialValues) {
   const hasContent =
     title.trim().length > 0 ||
     bodyText.trim().length > 0 ||
+    summary.trim().length > 0 ||
     linkUrl.trim().length > 0 ||
     imagePreview !== null;
 
@@ -120,8 +124,12 @@ export function useComposerForm(initialValues?: ComposerInitialValues) {
   return {
     title,
     setTitle,
+    titleAccent,
+    setTitleAccent,
     bodyJson,
     setBodyJson,
+    summary,
+    setSummary,
     linkUrl,
     setLinkUrl,
     mediaAlt,

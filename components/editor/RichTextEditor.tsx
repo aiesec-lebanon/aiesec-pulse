@@ -22,14 +22,13 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { InsertImageDialog } from "@/components/editor/InsertImageDialog";
+import { InsertLinkDialog } from "@/components/editor/InsertLinkDialog";
 import { PulseImageNode } from "@/components/editor/PulseImageNode";
 import { isSafeHref, type PulseDocument, sanitiseDocument } from "@/lib/content/document";
 
-// The extension list is the enforcement point for §10.1's rule: "the toolbar
-// must never offer something the sanitiser will silently strip on save."
-// Every node/mark lib/content/document.ts doesn't allowlist is switched off
-// here rather than merely left off the toolbar, so a keyboard shortcut or a
-// paste can't smuggle it in either.
+// Extensions here must match lib/content/document.ts's allowlist — a
+// node/mark left enabled but off the toolbar could still slip in via a
+// keyboard shortcut or paste, and get silently stripped on save.
 function editorExtensions() {
   return [
     StarterKit.configure({
@@ -53,9 +52,8 @@ function editorExtensions() {
   ];
 }
 
-// Mirrors the cover-image field's own rule set exactly (components/PostComposer.tsx)
-// — one signed-upload endpoint, one policy, enforced wherever an author attaches
-// an image.
+// Mirrors the cover-image rule set (components/PostComposer.tsx) — one
+// upload policy enforced everywhere an author attaches an image.
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -82,9 +80,8 @@ export function RichTextEditor({
   ariaInvalid,
 }: RichTextEditorProps) {
   const editor = useEditor({
-    // Deferred to after mount: TipTap's own SSR/hydration guidance for
-    // Next.js — creating the editor during the server render produces a
-    // markup mismatch, since ProseMirror needs a real DOM.
+    // immediatelyRender: false — creating the editor during SSR produces a
+    // markup mismatch; ProseMirror needs a real DOM (TipTap's Next.js guidance).
     immediatelyRender: false,
     editable: !disabled,
     content,
@@ -136,7 +133,7 @@ export function RichTextEditor({
         {isEmpty && (
           <p
             aria-hidden
-            className="pointer-events-none absolute left-4 top-3 text-[18px] text-[var(--muted-foreground)]"
+            className="pointer-events-none absolute left-4 top-3 text-[18px] text-[color:var(--muted-foreground)]"
           >
             {placeholder}
           </p>
@@ -169,28 +166,30 @@ function Toolbar({ editor, disabled }: { editor: Editor; disabled: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ publicUrl: string } | null>(null);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [toolbarError, setToolbarError] = useState<string | null>(null);
 
   function toggleLink() {
     if (state.link) {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
-    const url = window.prompt("Link URL")?.trim();
-    if (!url) return;
-    if (!isSafeHref(url)) {
-      window.alert("Links must start with http:// or https://");
-      return;
-    }
+    setLinkDialogOpen(true);
+  }
+
+  function confirmLink(url: string) {
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    setLinkDialogOpen(false);
   }
 
   async function handleImageSelected(file: File) {
+    setToolbarError(null);
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      window.alert("Only JPEG, PNG, and WEBP images are allowed.");
+      setToolbarError("Only JPEG, PNG, and WEBP images are allowed.");
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      window.alert("Image must be 5 MB or smaller.");
+      setToolbarError("Image must be 5 MB or smaller.");
       return;
     }
 
@@ -217,13 +216,12 @@ function Toolbar({ editor, disabled }: { editor: Editor; disabled: boolean }) {
       });
       if (!putRes.ok) throw new Error("Upload to storage failed. Please try again.");
 
-      // mediaId is a placeholder here — the storage URL itself. It becomes a
-      // real Media row (and a real id) at submit time, in
-      // materializeInlineImages (app/actions/posts.ts); sanitiseDocument
-      // treats mediaId as opaque either way (lib/content/document.ts).
+      // mediaId is a placeholder (the storage URL) until submit, when
+      // materializeInlineImages turns it into a real Media id;
+      // sanitiseDocument treats it as opaque either way.
       setPendingImage({ publicUrl });
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Image upload failed.");
+      setToolbarError(err instanceof Error ? err.message : "Image upload failed.");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -241,120 +239,136 @@ function Toolbar({ editor, disabled }: { editor: Editor; disabled: boolean }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--card)] px-2 py-1.5">
-      <ToolbarButton
-        label="Bold"
-        icon={BoldIcon}
-        active={state.bold}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      />
-      <ToolbarButton
-        label="Italic"
-        icon={ItalicIcon}
-        active={state.italic}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      />
-      <ToolbarButton
-        label="Strikethrough"
-        icon={Strikethrough}
-        active={state.strike}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-      />
-      <ToolbarButton
-        label="Code"
-        icon={CodeIcon}
-        active={state.code}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleCode().run()}
-      />
-      <ToolbarButton
-        label={state.link ? "Remove link" : "Add link"}
-        icon={Link2}
-        active={state.link}
-        disabled={disabled || (state.linkDisabled && !state.link)}
-        onClick={toggleLink}
-      />
+    <>
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[var(--card)] px-2 py-1.5">
+        <ToolbarButton
+          label="Bold"
+          icon={BoldIcon}
+          active={state.bold}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        />
+        <ToolbarButton
+          label="Italic"
+          icon={ItalicIcon}
+          active={state.italic}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        />
+        <ToolbarButton
+          label="Strikethrough"
+          icon={Strikethrough}
+          active={state.strike}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+        />
+        <ToolbarButton
+          label="Code"
+          icon={CodeIcon}
+          active={state.code}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleCode().run()}
+        />
+        <ToolbarButton
+          label={state.link ? "Remove link" : "Add link"}
+          icon={Link2}
+          active={state.link}
+          disabled={disabled || (state.linkDisabled && !state.link)}
+          onClick={toggleLink}
+        />
 
-      <Divider />
+        <Divider />
 
-      <ToolbarButton
-        label="Heading 2"
-        icon={Heading2}
-        active={state.h2}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-      />
-      <ToolbarButton
-        label="Heading 3"
-        icon={Heading3}
-        active={state.h3}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-      />
-      <ToolbarButton
-        label="Heading 4"
-        icon={Heading4}
-        active={state.h4}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
-      />
+        <ToolbarButton
+          label="Heading 2"
+          icon={Heading2}
+          active={state.h2}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        />
+        <ToolbarButton
+          label="Heading 3"
+          icon={Heading3}
+          active={state.h3}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        />
+        <ToolbarButton
+          label="Heading 4"
+          icon={Heading4}
+          active={state.h4}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
+        />
 
-      <Divider />
+        <Divider />
 
-      <ToolbarButton
-        label="Quote"
-        icon={Quote}
-        active={state.blockquote}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-      />
-      <ToolbarButton
-        label="Bullet list"
-        icon={List}
-        active={state.bulletList}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      />
-      <ToolbarButton
-        label="Numbered list"
-        icon={ListOrdered}
-        active={state.orderedList}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      />
+        <ToolbarButton
+          label="Quote"
+          icon={Quote}
+          active={state.blockquote}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        />
+        <ToolbarButton
+          label="Bullet list"
+          icon={List}
+          active={state.bulletList}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+        />
+        <ToolbarButton
+          label="Numbered list"
+          icon={ListOrdered}
+          active={state.orderedList}
+          disabled={disabled}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        />
 
-      <Divider />
+        <Divider />
 
-      <ToolbarButton
-        label={isUploading ? "Uploading image…" : "Insert image"}
-        icon={isUploading ? Loader2 : ImagePlus}
-        spinning={isUploading}
-        disabled={disabled || isUploading}
-        onClick={() => fileInputRef.current?.click()}
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="sr-only"
-        aria-hidden
-        tabIndex={-1}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleImageSelected(file);
-        }}
-      />
-      <InsertImageDialog
-        key={pendingImage?.publicUrl ?? "closed"}
-        open={pendingImage !== null}
-        previewUrl={pendingImage?.publicUrl ?? null}
-        onCancel={() => setPendingImage(null)}
-        onConfirm={confirmImageInsert}
-      />
-    </div>
+        <ToolbarButton
+          label={isUploading ? "Uploading image…" : "Insert image"}
+          icon={isUploading ? Loader2 : ImagePlus}
+          spinning={isUploading}
+          disabled={disabled || isUploading}
+          onClick={() => fileInputRef.current?.click()}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          aria-hidden
+          tabIndex={-1}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImageSelected(file);
+          }}
+        />
+        <InsertImageDialog
+          key={pendingImage?.publicUrl ?? "closed"}
+          open={pendingImage !== null}
+          previewUrl={pendingImage?.publicUrl ?? null}
+          onCancel={() => setPendingImage(null)}
+          onConfirm={confirmImageInsert}
+        />
+        <InsertLinkDialog
+          key={linkDialogOpen ? "open" : "closed"}
+          open={linkDialogOpen}
+          onCancel={() => setLinkDialogOpen(false)}
+          onConfirm={confirmLink}
+        />
+      </div>
+      {toolbarError && (
+        <p
+          role="alert"
+          className="border-b border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[13px] text-[color:var(--destructive-text)]"
+        >
+          {toolbarError}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -389,16 +403,16 @@ function ToolbarButton({
         "flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
         disabled
-          ? "cursor-not-allowed text-[var(--muted-foreground)] opacity-40"
+          ? "cursor-not-allowed text-[color:var(--muted-foreground)] opacity-40"
           : active
-            ? "bg-[var(--primary)]/10 text-[var(--primary-text)]"
-            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+            ? "bg-[var(--primary)]/10 text-[color:var(--primary-text)]"
+            : "text-[color:var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[color:var(--foreground)]",
       ].join(" ")}
     >
       <Icon
         size={16}
         strokeWidth={2}
-        className={spinning ? "animate-spin motion-reduce:animate-none" : undefined}
+        className={spinning ? "animate-spin pulse-ambient" : undefined}
         aria-hidden
       />
     </button>

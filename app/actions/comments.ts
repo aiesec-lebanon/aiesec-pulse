@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { CommentStatus, PostStatus } from "@/app/generated/prisma/enums";
 import { userActor, withAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
+import { scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
 import { checkPermission, requireSession } from "@/lib/rbac/guards";
 import { createCommentSchema, hideContentSchema } from "@/lib/zod-schemas";
@@ -17,7 +17,7 @@ const commentSelect = {
   status: true,
   createdAt: true,
   user: {
-    select: { fullName: true, primaryEntity: { select: { name: true } } },
+    select: { fullName: true, primaryEntity: { select: { name: true, kind: true } } },
   },
 } as const;
 
@@ -53,7 +53,7 @@ export async function addComment(
   // away from them by guessing its id.
   const scope = await scopeSetFor(user);
   const post = await db.post.findFirst({
-    where: { id: postId, status: PostStatus.PUBLISHED, ...audienceFilter(scope) },
+    where: { id: postId, status: PostStatus.PUBLISHED, ...visibilityFilter(scope) },
     select: { id: true, slug: true, publisherEntityId: true },
   });
   if (!post) return { ok: false, error: "That post is no longer available." };
@@ -87,7 +87,7 @@ export async function loadMoreComments(
 
   const scope = await scopeSetFor(user);
   const visible = await db.post.findFirst({
-    where: { id: postId, status: PostStatus.PUBLISHED, ...audienceFilter(scope) },
+    where: { id: postId, status: PostStatus.PUBLISHED, ...visibilityFilter(scope) },
     select: { id: true },
   });
   if (!visible) return [];
@@ -186,7 +186,7 @@ export async function hideComment(
         });
       });
       revalidatePath(`/posts/${comment.post.slug}`);
-      revalidatePath("/admin/comments");
+      revalidatePath("/moderation/comments");
       return { ok: true as const };
     }
   );
@@ -231,7 +231,7 @@ export async function restoreComment(
         });
       });
       revalidatePath(`/posts/${comment.post.slug}`);
-      revalidatePath("/admin/comments");
+      revalidatePath("/moderation/comments");
       return { ok: true as const };
     }
   );

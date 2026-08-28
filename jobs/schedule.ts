@@ -7,14 +7,12 @@ import { recordAudit, systemActor } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
-// architecture.md §8.3 / §5.4's `Post_due_idx`: due posts, oldest first, one
-// page per run. A single minute realistically never queues more than this,
-// but the cap keeps one very late catch-up run bounded.
+// Served by `Post_due_idx`; caps a page so one very late catch-up run
+// stays bounded.
 export const SCHEDULE_BATCH_LIMIT = 200;
 
 export type DuePost = { id: string; title: string; publisherEntityId: string };
 
-/** Exported standalone so it's testable under a fake clock without touching Postgres. */
 export function dueScheduledPostsQuery(now: Date = new Date()) {
   return {
     where: { status: PostStatus.SCHEDULED, scheduledAt: { lte: now } },
@@ -26,10 +24,7 @@ export function dueScheduledPostsQuery(now: Date = new Date()) {
 
 /**
  * Publishes one due post. Guarded by `status: SCHEDULED` in the update's
- * `where`, so a retried Inngest step or an overlapping run can never
- * double-publish or clobber a post the author has since pulled into another
- * state — a re-run of an already-published post is a no-op, exactly as
- * architecture.md §8.3 requires.
+ * where clause, so a retried or overlapping run can't double-publish.
  */
 export async function publishDuePost(post: DuePost): Promise<boolean> {
   const updated = await db.post.updateMany({

@@ -7,8 +7,6 @@ vi.mock("@/lib/db", () => ({
   db: { featureFlag: { findUnique: vi.fn() } },
 }));
 
-// No UPSTASH_* env is set in vitest.config.ts, so lib/redis.ts's cache falls
-// back to its process-local Map — real caching behaviour, no Redis needed.
 import { db } from "@/lib/db";
 
 const findUnique = vi.mocked(db.featureFlag.findUnique);

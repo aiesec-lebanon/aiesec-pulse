@@ -1,7 +1,7 @@
 import type { Instrumentation } from "next";
 
-// Lazy imports throughout: register() must finish before the first request, and
-// an unconfigured integration should cost nothing.
+// Lazy imports: register() must finish before the first request, and an
+// unconfigured integration should cost nothing.
 
 export async function register(): Promise<void> {
   const { assertProductionEnv } = await import("@/lib/env");
@@ -49,8 +49,8 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
     method: request.method,
     routeType: context.routeType,
     routePath: context.routePath,
-    // `digest` is the id surfaced to the user by app/error.tsx — it is the only
-    // thing they can quote, so it has to be in the log to be worth anything.
+    // `digest` is the id surfaced to the user by app/error.tsx — it's the only
+    // thing they can quote, so it must be logged to be useful.
     digest: (error as { digest?: string }).digest,
     error,
   });

@@ -54,7 +54,7 @@ export async function createSession(
 }
 
 /** Signature and expiry only. Never the only check — it cannot see revocation. */
-export async function verifySessionToken(token: string): Promise<SessionClaims | null> {
+async function verifySessionToken(token: string): Promise<SessionClaims | null> {
   try {
     const { payload } = await jwtVerify(token, secret(), {
       issuer: "aiesec-pulse",
@@ -165,8 +165,8 @@ const COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: "lax" as const,
   path: "/",
-  // Lax rather than Strict: the OAuth callback is a cross-site top-level
-  // navigation, and Strict would drop the cookie on the redirect back.
+  // Lax, not Strict: the OAuth callback is a cross-site navigation that
+  // Strict would break.
 };
 
 export function sessionCookieAttributes(expiresAt: Date) {
@@ -175,11 +175,6 @@ export function sessionCookieAttributes(expiresAt: Date) {
     secure: process.env.NODE_ENV === "production",
     expires: expiresAt,
   };
-}
-
-export async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
-  const store = await cookies();
-  store.set(SESSION_COOKIE, token, sessionCookieAttributes(expiresAt));
 }
 
 export async function clearSessionCookie(): Promise<void> {

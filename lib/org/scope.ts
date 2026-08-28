@@ -1,16 +1,21 @@
 import "server-only";
 
-import { ScopeType } from "@/app/generated/prisma/enums";
+import type { Prisma } from "@/app/generated/prisma/client";
+import { EntityKind, PostLevel, ScopeType } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { ancestorChain } from "@/lib/org/entities";
+import { ancestorChain, subtreeEntityIds } from "@/lib/org/entities";
 import { can } from "@/lib/rbac/can";
+import { NARROWEST_PUBLISHING_TIER, PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
 import { cached, cacheKeys } from "@/lib/redis";
 
 // A relevance filter, not a confidentiality boundary — the content policy says
 // as much to members.
 
 export type ScopeSet = {
+  /** LOCAL posts visible to this viewer: MC subtree + region. Empty when `unrestricted`. */
   entityIds: string[];
+  /** The viewer sits at the global root, so every entity is already beneath them. */
+  unrestricted: boolean;
   primaryEntityId: string | null;
   primaryEntityPath: string | null;
   regionEntityId: string | null;
@@ -18,45 +23,83 @@ export type ScopeSet = {
 
 const TTL_SECONDS = 5 * 60;
 
+const NO_SCOPE: ScopeSet = {
+  entityIds: [],
+  unrestricted: false,
+  primaryEntityId: null,
+  primaryEntityPath: null,
+  regionEntityId: null,
+};
+
+type EntityRef = { id: string; kind: EntityKind; path: string };
+
+/**
+ * Local reach roots at the viewer's MC, not their ancestor chain — the
+ * chain missed sibling LCs under the same MC. Above MC tier, roots at the
+ * viewer's own entity instead (the whole tree, at the global root).
+ */
+export function localRootOf(
+  chain: readonly EntityRef[],
+  primaryEntityId: string
+): EntityRef | null {
+  const primary = chain.find((e) => e.id === primaryEntityId) ?? null;
+  return chain.find((e) => e.kind === EntityKind.MC) ?? primary;
+}
+
 export async function scopeSetFor(user: {
   id: string;
   primaryEntityId: string | null;
 }): Promise<ScopeSet> {
   return cached<ScopeSet>(cacheKeys.scopeSet(user.id), TTL_SECONDS, async () => {
-    if (!user.primaryEntityId) {
-      return {
-        entityIds: [],
-        primaryEntityId: null,
-        primaryEntityPath: null,
-        regionEntityId: null,
-      };
-    }
+    if (!user.primaryEntityId) return NO_SCOPE;
 
     const chain = await ancestorChain(user.primaryEntityId);
     const primary = chain.find((e) => e.id === user.primaryEntityId) ?? null;
-    const region = chain.find((e) => e.kind === "REGION") ?? null;
+    const region = chain.find((e) => e.kind === EntityKind.REGION) ?? null;
+    const localRoot = localRootOf(chain, user.primaryEntityId);
+    if (!primary || !localRoot) return NO_SCOPE;
 
-    return {
-      entityIds: chain.map((e) => e.id),
-      primaryEntityId: primary?.id ?? null,
-      primaryEntityPath: primary?.path ?? null,
+    const anchors = {
+      primaryEntityId: primary.id,
+      primaryEntityPath: primary.path,
       regionEntityId: region?.id ?? null,
+    };
+
+    if (localRoot.kind === EntityKind.GLOBAL) {
+      return { entityIds: [], unrestricted: true, ...anchors };
+    }
+
+    const subtree = await subtreeEntityIds(localRoot.id);
+    return {
+      entityIds: region ? [...subtree, region.id] : subtree,
+      unrestricted: false,
+      ...anchors,
     };
   });
 }
 
-// Filtering in the query, not in application code, so a missing guard cannot
-// leak rows through a list endpoint.
-export function audienceFilter(scope: ScopeSet) {
+/**
+ * Visible = NETWORK OR audience within viewer's scope, filtered in the
+ * query so no code path can leak rows. Returns a top-level `OR` — a
+ * caller with its own `OR` must nest both under `AND`.
+ */
+export function visibilityFilter(scope: ScopeSet): Prisma.PostWhereInput {
+  if (scope.unrestricted) return {};
+
   return {
-    audiences: {
-      some: {
-        OR: [
-          { scopeType: ScopeType.GLOBAL },
-          ...(scope.entityIds.length > 0 ? [{ entityId: { in: scope.entityIds } }] : []),
-        ],
+    OR: [
+      { level: PostLevel.NETWORK },
+      {
+        audiences: {
+          some: {
+            OR: [
+              { scopeType: ScopeType.GLOBAL },
+              ...(scope.entityIds.length > 0 ? [{ entityId: { in: scope.entityIds } }] : []),
+            ],
+          },
+        },
       },
-    },
+    ],
   };
 }
 
@@ -64,11 +107,10 @@ export function defaultAudience(): Array<{ scopeType: ScopeType; entityId: strin
   return [{ scopeType: ScopeType.GLOBAL, entityId: null }];
 }
 
-// Shared by every page that needs to show a publisher their effective quota
-// tier before they submit (most permissive grant wins) — currently
-// /posts/new and /posts/[slug]/edit. Server Actions resolve their own,
-// entity-scoped version of this at write time; this is the display-only read.
-export async function publishingRoleKeyFor(userId: string): Promise<string> {
+// Display-only preview of a publisher's quota tier (most permissive grant
+// wins). Server Actions resolve their own entity-scoped version at write
+// time — this isn't what's actually enforced.
+export async function publishingRoleKeyFor(userId: string): Promise<RoleKey> {
   const grants = await db.roleGrant.findMany({
     where: {
       userId,
@@ -77,10 +119,10 @@ export async function publishingRoleKeyFor(userId: string): Promise<string> {
     },
     select: { role: { select: { key: true } } },
   });
-  for (const key of ["platform_admin", "global_publisher", "entity_editor", "entity_publisher"]) {
+  for (const key of PUBLISHING_TIERS) {
     if (grants.some((g) => g.role.key === key)) return key;
   }
-  return "entity_publisher";
+  return NARROWEST_PUBLISHING_TIER;
 }
 
 export async function resolveAudienceSize(
@@ -110,11 +152,9 @@ export async function resolveAudienceSize(
 }
 
 /**
- * What a publisher may choose as their post's audience. `fixed` means there
- * is no real choice to offer — context.md §7.2's "target audience beyond own
- * scope: ❌" for entity_publisher/entity_editor — so the composer shows
- * their entity as information, not a control. `open` (post.target_beyond)
- * gets the full picker: GLOBAL, any region, or any entity via typeahead.
+ * `fixed`: no real choice — MC/LC can't target beyond their own scope, so
+ * the composer shows it as information, not a control. `open`
+ * (post.target_beyond): full picker — GLOBAL, any region, any entity.
  */
 export type AudienceOptions =
   | { kind: "fixed"; entityId: string; label: string }
@@ -143,14 +183,9 @@ export type AudienceDecision =
   | { ok: false; error: string };
 
 /**
- * The RBAC boundary itself, isolated from any DB lookup so it's unit-testable
- * under a fake clock-free, DB-free harness: given what a publisher is allowed
- * to target and what they submitted, decide accept/reject. A `fixed` result
- * only ever accepts an absent submission or one that already names their own
- * entity — anything else (a REGION/GLOBAL audience from a client that skipped
- * or tampered with the picker) is rejected outright, not silently narrowed to
- * their entity, so a bypassed client fails loudly rather than appearing to
- * succeed while quietly doing something different from what it asked for.
+ * Pure RBAC decision, DB-free for unit testing. `fixed` only accepts an
+ * absent submission or one naming the publisher's own entity — anything
+ * else (a tampered client) is rejected outright, never silently narrowed.
  */
 export function decideAudienceForSubmission(
   options: AudienceOptions,
@@ -176,10 +211,9 @@ export function decideAudienceForSubmission(
 }
 
 /**
- * The DB-touching wrapper `createPost`/`publishDraft` actually call: runs the
- * pure decision above, then — only for a REGION/ENTITY result — confirms the
- * named entity is real, active, and (for REGION) actually a region. The scope
- * boundary is never trusted from the client, only re-derived server-side.
+ * DB-touching wrapper used by createPost/publishDraft: runs the pure
+ * decision above, then verifies a REGION/ENTITY result is real, active,
+ * and the right kind. Never trusts the client's scope boundary.
  */
 export async function resolveSubmittedAudience(
   options: AudienceOptions,

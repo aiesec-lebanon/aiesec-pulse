@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import type { Prisma } from "@/app/generated/prisma/client";
-import { PostStatus } from "@/app/generated/prisma/enums";
+import { PostLevel, PostStatus, ScopeType } from "@/app/generated/prisma/enums";
 import { userActor, withAudit } from "@/lib/audit";
 import {
   excerptFrom,
@@ -11,11 +11,12 @@ import {
   plainTextFromDocument,
   readingMinutes,
 } from "@/lib/content/document";
+import { decideReach, reachContextFor } from "@/lib/content/level";
 import {
   auditActionFor,
   decidePublishStatus,
   materializeInlineImages,
-  publishingRoleFor,
+  quotaRoleFor,
 } from "@/lib/content/publish";
 import { uniqueSlug } from "@/lib/content/slug";
 import { resolveValidTopicIds } from "@/lib/content/topics";
@@ -29,6 +30,7 @@ import {
 } from "@/lib/org/scope";
 import { resolveQuotaPolicy } from "@/lib/quota";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
+import { NARROWEST_PUBLISHING_TIER } from "@/lib/rbac/catalogue";
 import { checkPermission, requireSession } from "@/lib/rbac/guards";
 import { currentTermLabel } from "@/lib/term";
 import {
@@ -44,16 +46,11 @@ export type SaveDraftResult =
   | { ok: false; errors: Record<string, string> };
 
 /**
- * Create-or-update a `Post{status: DRAFT}` + a `PostVersion` snapshot.
- * Inline images inside `bodyJson` are deliberately left as the raw upload URL
- * here (not run through materialisation) — this is called on a 5-second
- * autosave cadence, and there is no channel to hand a rewritten mediaId back
- * to an actively-typing TipTap instance without disturbing it. Materialising
- * to a real Media row happens once, at actual publish time (see
- * `lib/content/publish.ts`). The cover image has no such constraint (it's a
- * plain `useState`, not an uncontrolled editor), so it's resolved eagerly
- * below, idempotently, so re-saving the same attached image on every tick
- * doesn't mint a new Media row each time.
+ * Inline images stay as raw URLs — this runs on a 5s autosave cadence with
+ * no way to hand a rewritten mediaId back to an actively-typing TipTap
+ * instance. Materialisation happens once, at publish (lib/content/publish.ts).
+ * Cover resolution is idempotent: re-saving the same image must not mint a
+ * new Media row each tick.
  */
 export async function saveDraft(input: SaveDraftInput, postId?: string): Promise<SaveDraftResult> {
   const user = await requireSession();
@@ -75,7 +72,7 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
   const parsed = saveDraftSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
+  const { title, titleAccent, bodyJson, summary, linkUrl, mediaUrl, mediaAlt } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
   const summaryValue = summary?.trim() || (bodyText ? excerptFrom(bodyText) : null);
 
@@ -139,6 +136,9 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
         where: { id: existing.id },
         data: {
           title,
+          // Sent in full, not merged — clearing the highlight must stay
+          // expressible, and `undefined` in Prisma `data` means "leave alone".
+          titleAccent: titleAccent || null,
           summary: summaryValue,
           bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
           bodyText,
@@ -166,6 +166,7 @@ export async function saveDraft(input: SaveDraftInput, postId?: string): Promise
         publisherEntityId: entityId,
         termLabel: currentTermLabel(),
         title,
+        titleAccent: titleAccent || null,
         summary: summaryValue,
         bodyJson: bodyJson as unknown as Prisma.InputJsonValue,
         bodyText,
@@ -207,12 +208,9 @@ export type PublishDraftResult =
   | { ok: false; errors: Record<string, string> };
 
 /**
- * The draft equivalent of createPost: transitions an existing DRAFT to
- * PUBLISHED/IN_REVIEW rather than creating a new row, sharing the same
- * quota-resolution and image-materialisation logic (lib/content/publish.ts)
- * instead of duplicating it. Re-validated with the strict createPostSchema —
- * saveDraft's lenient schema was only ever a "leave and return" convenience,
- * not a lower publish bar.
+ * Draft equivalent of createPost (shares its quota + materialisation logic).
+ * Re-validated with the strict createPostSchema — saveDraft's lenient schema
+ * is a "leave and return" convenience, not a lower publishing bar.
  */
 export async function publishDraft(
   postId: string,
@@ -266,12 +264,24 @@ export async function publishDraft(
   const parsed = createPostSchema.safeParse(input);
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const { title, bodyJson, summary, linkUrl, mediaUrl, mediaAlt, scheduledAt, audience, topicIds } =
-    parsed.data;
+  const {
+    title,
+    bodyJson,
+    summary,
+    linkUrl,
+    mediaUrl,
+    mediaAlt,
+    scheduledAt,
+    audience,
+    topicIds,
+    promoteToNetwork,
+    promotionNote,
+  } = parsed.data;
   const bodyText = plainTextFromDocument(bodyJson);
+  const accent = parsed.data.titleAccent || null;
 
-  const roleKey = (await publishingRoleFor(user, post.publisherEntityId)) ?? "entity_publisher";
-  const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey);
+  const roleKey = (await quotaRoleFor(user, post.publisherEntityId)) ?? NARROWEST_PUBLISHING_TIER;
+  const policy = await resolveQuotaPolicy(post.publisherEntityId, roleKey, PostLevel.LOCAL);
   if (!policy) {
     return { ok: false, errors: { _form: "No publishing quota is configured for your role." } };
   }
@@ -310,8 +320,21 @@ export async function publishDraft(
   const audienceSize = await resolveAudienceSize(audiences);
   const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
-  const { status, slug } = await serializableTransaction(async (tx) => {
+  const reach = await reachContextFor(
+    user,
+    post.publisherEntityId,
+    roleKey,
+    audiences.some((a) => a.scopeType === ScopeType.GLOBAL)
+  );
+
+  const outcome = await serializableTransaction(async (tx) => {
     const status = await decidePublishStatus(tx, user.id, policy, scheduledAt);
+
+    const decision = await decideReach(tx, reach, user.id, status, {
+      promoteToNetwork: promoteToNetwork ?? false,
+      note: promotionNote,
+    });
+    if (!decision.ok) return { refused: decision, status, slug: null, decision: null };
 
     const latest = await tx.postVersion.findFirst({
       where: { postId },
@@ -323,6 +346,7 @@ export async function publishDraft(
       where: { id: postId },
       data: {
         title,
+        titleAccent: accent,
         summary: summary?.trim() || excerptFrom(bodyText),
         bodyJson: materializedBodyJson as unknown as Prisma.InputJsonValue,
         bodyText,
@@ -333,11 +357,11 @@ export async function publishDraft(
         scheduledAt: status === PostStatus.SCHEDULED ? scheduledAt : null,
         quotaPeriod: policy.periodLabel,
         publishedAt: status === PostStatus.PUBLISHED ? new Date() : null,
+        level: decision.level,
+        ...(decision.stamp ?? {}),
         audienceSize,
-        // The draft was created with saveDraft's placeholder GLOBAL audience
-        // (lib/zod-schemas.ts has no audience field on the draft path, only
-        // on publish) — replace it wholesale with what was actually decided
-        // above rather than leaving the placeholder rows in place alongside it.
+        // Drafts start with saveDraft's placeholder GLOBAL audience (no
+        // audience field on the draft schema) — replaced wholesale here.
         audiences: { deleteMany: {}, create: audiences },
         topics: {
           deleteMany: {},
@@ -356,8 +380,13 @@ export async function publishDraft(
       select: { slug: true },
     });
 
-    return { status, slug: updated.slug };
+    return { refused: null, status, slug: updated.slug, decision };
   });
+
+  if (outcome.refused) {
+    return { ok: false, errors: { [outcome.refused.field]: outcome.refused.error } };
+  }
+  const { status, slug, decision } = outcome;
 
   await withAudit(
     userActor(user),
@@ -365,6 +394,7 @@ export async function publishDraft(
     { type: "post", id: postId, entityId: post.publisherEntityId },
     {
       title,
+      level: decision.level,
       quotaPeriod: policy.periodLabel,
       quotaMax: policy.maxPosts,
       ...(status === PostStatus.SCHEDULED ? { scheduledAt: scheduledAt!.toISOString() } : {}),
@@ -372,16 +402,31 @@ export async function publishDraft(
     async () => undefined
   );
 
+  if (decision.stamp) {
+    await withAudit(
+      userActor(user),
+      "post.promote",
+      { type: "post", id: postId, entityId: post.publisherEntityId },
+      {
+        title,
+        note: decision.stamp.promotionNote,
+        from: PostLevel.LOCAL,
+        at: "publication",
+        quotaPeriod: decision.stamp.promotionPeriod,
+      },
+      async () => undefined
+    );
+  }
+
   revalidateTag("feed", "max");
   revalidatePath("/feed");
   revalidatePath("/profile");
   revalidatePath("/drafts");
-  if (status === PostStatus.IN_REVIEW) revalidatePath("/admin/queue");
+  if (status === PostStatus.IN_REVIEW) revalidatePath("/review");
 
   return { ok: true, postId, slug, status };
 }
 
-/** Author-only, DRAFT-only — matches deleteOwnComment's ownership-only gate. */
 export async function deleteDraft(
   postId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -402,10 +447,8 @@ export async function deleteDraft(
     { type: "post", id: postId, entityId: post.publisherEntityId },
     { title: post.title },
     async () => {
-      // Hard delete, not hidden/archived: an unpublished draft was never seen
-      // by anyone but its author, so the reversible-moderation principle
-      // (architecture.md §1.8) doesn't apply — retention.ts already
-      // hard-deletes stale drafts the same way.
+      // Hard delete — an unpublished draft was seen only by its author, so
+      // moderation reversibility doesn't apply (retention.ts does the same).
       await db.post.delete({ where: { id: postId } });
       revalidatePath("/drafts");
       return { ok: true as const };
@@ -415,11 +458,6 @@ export async function deleteDraft(
 
 export type RestoreVersionResult = { ok: true } | { ok: false; error: string };
 
-/**
- * Appends a new PostVersion copying an older one's content rather than
- * mutating history, consistent with the append-only pattern every other
- * version-creating action already uses.
- */
 export async function restorePostVersion(
   postId: string,
   version: number

@@ -1,17 +1,17 @@
 import Link from "next/link";
 
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
+
 export const metadata = {
   title: "Cookies · AIESEC Pulse",
   description: "Every cookie AIESEC Pulse sets, and why.",
 };
 
-// No consent banner: strictly necessary cookies do not need one, and asking
-// for consent that is not required trains people to click through the ones
-// that matter. The table must stay exhaustive and match the code.
+// The table must stay exhaustive and match the code.
 export default function CookiesPage() {
   return (
     <>
-      <h1>Cookies</h1>
+      <DisplayTitle as="h1" size="lg" title="Cookies" />
       <p className="lead">
         Pulse sets no advertising cookies, no third-party cookies, and no cross-site trackers. There
         is no consent banner because there is nothing here that needs consent — every item below is
@@ -67,16 +67,6 @@ export default function CookiesPage() {
           </tr>
           <tr>
             <td>
-              <code>pulse_break_glass</code>
-            </td>
-            <td>
-              Emergency administration session. Only ever set for the two or three named people who
-              hold emergency credentials.
-            </td>
-            <td>60 minutes, no renewal</td>
-          </tr>
-          <tr>
-            <td>
               <code>theme</code> (local storage)
             </td>
             <td>
@@ -107,12 +97,24 @@ export default function CookiesPage() {
       <p>
         You can clear or block cookies in your browser, but blocking <code>pulse_session</code> will
         sign you out and prevent you signing back in. To end all your sessions deliberately, use{" "}
-        <Link href="/settings/privacy">Privacy &amp; your data</Link>.
+        <Link
+          href="/settings/privacy"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          Privacy &amp; your data
+        </Link>
+        .
       </p>
 
       <p>
-        See the <Link href="/legal/privacy">privacy notice</Link> for what we do with data once you
-        are signed in.
+        See the{" "}
+        <Link
+          href="/legal/privacy"
+          className="pulse-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          privacy notice
+        </Link>{" "}
+        for what we do with data once you are signed in.
       </p>
     </>
   );

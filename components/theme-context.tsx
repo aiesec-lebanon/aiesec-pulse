@@ -41,9 +41,9 @@ function applyClass(resolved: Resolved) {
   document.documentElement.classList.toggle("dark", resolved === "dark");
 }
 
-// useSyncExternalStore rather than mirroring into useState: both sources of
-// truth live outside React, and copying them in an effect renders twice.
-// First paint is set by ThemeScript before hydration, which prevents the flash.
+// useSyncExternalStore, not useState — both sources of truth live outside
+// React and mirroring via an effect double-renders. BootScript sets the
+// first paint pre-hydration to avoid a flash.
 function subscribeToStored(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
   window.addEventListener(LOCAL_CHANGE_EVENT, onChange);

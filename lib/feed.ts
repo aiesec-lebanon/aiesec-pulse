@@ -1,9 +1,17 @@
 import "server-only";
 
 import type { FollowState } from "@/app/actions/follows";
-import { FollowTarget, PostStatus } from "@/app/generated/prisma/enums";
+import type { Prisma } from "@/app/generated/prisma/client";
+import {
+  type EntityKind,
+  FollowTarget,
+  type PostLevel,
+  PostStatus,
+  type TopicKind,
+} from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { audienceFilter, type ScopeSet, scopeSetFor } from "@/lib/org/scope";
+import { entityDisplayName } from "@/lib/org/display";
+import { type ScopeSet, scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { cached, cacheKeys } from "@/lib/redis";
 import type { FeedPost } from "@/types/feed";
@@ -11,15 +19,17 @@ import type { FeedPost } from "@/types/feed";
 // Scope filtering lives in the query, not in application code, so a missing
 // guard cannot leak rows through this path.
 
-const POSTS_PER_PAGE = 7; // 1 hero + 3 sidebar + 3 secondary
+const POSTS_PER_PAGE = 8; // 1 hero + 4 "also today" (rotating) + 3 "elsewhere"
 
 const feedSelect = {
   id: true,
   slug: true,
   title: true,
+  titleAccent: true,
   summary: true,
   bodyText: true,
   readingMinutes: true,
+  level: true,
   publishedAt: true,
   createdAt: true,
   reactionCount: true,
@@ -28,30 +38,31 @@ const feedSelect = {
   author: {
     select: { id: true, fullName: true, avatarUrl: true },
   },
-  publisher: { select: { id: true, name: true, tag: true } },
-  topics: { select: { topic: { select: { slug: true, name: true } } } },
+  publisher: { select: { id: true, name: true, tag: true, kind: true } },
+  topics: { select: { topic: { select: { slug: true, name: true, kind: true } } } },
 } as const;
 
 type FeedRow = {
   id: string;
   slug: string;
   title: string;
+  titleAccent: string | null;
   summary: string | null;
   bodyText: string;
   readingMinutes: number;
+  level: PostLevel;
   publishedAt: Date | null;
   createdAt: Date;
   reactionCount: number;
   commentCount: number;
   cover: { path: string; altText: string | null; bucket: string } | null;
   author: { id: string; fullName: string; avatarUrl: string | null };
-  publisher: { id: string; name: string; tag: string | null };
-  topics: Array<{ topic: { slug: string; name: string } }>;
+  publisher: { id: string; name: string; tag: string | null; kind: EntityKind };
+  topics: Array<{ topic: { slug: string; name: string; kind: TopicKind } }>;
 };
 
-// SUPABASE_URL is the S3 endpoint used for uploads; public objects are served
-// from a different host and path, so concatenating onto it 404s every image.
-// SUPABASE_PUBLIC_URL overrides the derivation for a custom domain.
+// SUPABASE_URL is the S3 endpoint for uploads; public objects live on a
+// different host/path, so concatenating onto it 404s every image.
 export function publicStorageBase(): string | null {
   const explicit = process.env.SUPABASE_PUBLIC_URL?.replace(/\/+$/, "");
   if (explicit) return `${explicit}/storage/v1/object/public`;
@@ -66,7 +77,7 @@ export function publicStorageBase(): string | null {
   return `${projectOrigin}/storage/v1/object/public`;
 }
 
-// A row whose key could not be parsed during the M6 backfill still holds a
+// A row whose key could not be parsed during the backfill still holds a
 // full URL, and is returned untouched.
 export function mediaUrl(cover: { bucket: string; path: string } | null): string | null {
   if (!cover) return null;
@@ -77,20 +88,23 @@ export function mediaUrl(cover: { bucket: string; path: string } | null): string
   return `${base}/${cover.bucket}/${cover.path}`;
 }
 
-export function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>): FeedPost {
+function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>): FeedPost {
   return {
     id: row.id,
     slug: row.slug,
     title: row.title,
+    titleAccent: row.titleAccent,
     excerpt: row.summary ?? row.bodyText.slice(0, 200),
     readingMinutes: row.readingMinutes,
+    level: row.level,
     mediaUrl: mediaUrl(row.cover),
     mediaAlt: row.cover?.altText ?? null,
     author: {
       id: row.author.id,
       fullName: row.author.fullName,
       avatarUrl: row.author.avatarUrl,
-      entityName: row.publisher.name,
+      // Resolved once here, not separately by every surface that names a publisher.
+      entityName: entityDisplayName(row.publisher.name, row.publisher.kind),
     },
     publisherEntityId: row.publisher.id,
     entityFollowState: entityFollowStates.get(row.publisher.id) ?? "none",
@@ -101,14 +115,15 @@ export function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowS
   };
 }
 
-// Shared by getFeedPage and getTopicFeed so "what counts as visible" can
-// never drift between the main feed and a topic archive.
-function visiblePublishedWhere(scope: Parameters<typeof audienceFilter>[0]) {
+// Shared so "visible" never drifts between callers. Both conditions nest
+// under AND — each is itself an OR, so flattening would silently drop the
+// expiry check.
+function visiblePublishedWhere(scope: ScopeSet): Prisma.PostWhereInput {
+  const now = new Date();
   return {
     status: PostStatus.PUBLISHED,
-    publishedAt: { lte: new Date() },
-    OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    ...audienceFilter(scope),
+    publishedAt: { lte: now },
+    AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }, visibilityFilter(scope)],
   };
 }
 
@@ -126,9 +141,8 @@ async function followStatesFor(
   return new Map(follows.map((f) => [f.targetId, f.muted ? "muted" : "following"]));
 }
 
-// One extra indexed query (Follow's own @@unique([userId, targetType,
-// targetId]) covers this lookup) per feed page, batched across every
-// distinct publisher entity shown rather than resolved per card.
+// One extra indexed query per feed page (Follow's own unique index covers
+// it), batched across distinct publishers rather than resolved per card.
 function entityFollowStatesFor(
   userId: string,
   entityIds: string[]
@@ -136,7 +150,7 @@ function entityFollowStatesFor(
   return followStatesFor(userId, FollowTarget.ENTITY, entityIds);
 }
 
-// Same shape, for the ranking affinity term (M12) below.
+// Same shape, for the ranking affinity term below.
 function topicFollowStatesFor(
   userId: string,
   topicIds: string[]
@@ -166,21 +180,28 @@ export async function getFeedPage(page: number): Promise<{ posts: FeedPost[]; ha
   };
 }
 
-const TOPIC_PAGE_SIZE = 12;
+export const TOPIC_PAGE_SIZE = 12;
 
 // Same audience-scoping as the main feed — a topic archive is never a way
-// around targeting (context.md §8.3: audience is a distribution control the
-// reader-facing surfaces must all honour identically).
+// around targeting.
+export type TopicSort = "recent" | "popular";
+
+const TOPIC_SORT_ORDER: Record<TopicSort, Prisma.PostOrderByWithRelationInput[]> = {
+  recent: [{ publishedAt: "desc" }, { id: "desc" }],
+  popular: [{ reactionCount: "desc" }, { publishedAt: "desc" }, { id: "desc" }],
+};
+
 export async function getTopicFeed(
   topicId: string,
-  page: number
+  page: number,
+  sort: TopicSort = "recent"
 ): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
 
   const rows = await db.post.findMany({
     where: { ...visiblePublishedWhere(scope), topics: { some: { topicId } } },
-    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    orderBy: TOPIC_SORT_ORDER[sort],
     skip: (page - 1) * TOPIC_PAGE_SIZE,
     take: TOPIC_PAGE_SIZE + 1,
     select: feedSelect,
@@ -196,26 +217,66 @@ export async function getTopicFeed(
   };
 }
 
-const BOOKMARKS_PAGE_SIZE = 12;
+export type TopicStats = {
+  postCount: number;
+  entityCount: number;
+  followerCount: number;
+  avgReadingMinutes: number;
+};
 
-// Ordered by when the viewer bookmarked the post, not when it was published
-// — starting the query from Bookmark rather than Post is what gives that
-// ordering for free. visiblePublishedWhere on the nested post relation drops
-// a bookmark whose post has since been unpublished or fallen outside the
-// viewer's audience, same "never a way around targeting" rule getTopicFeed
-// already follows.
-export async function getBookmarkedPosts(
-  page: number
-): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
+// Every figure here is a real aggregate over the same visibility-scoped
+// rows the list shows, never a stand-in — no "engagement" figure, since
+// nothing upstream derives one honestly for a topic as a whole.
+export async function getTopicStats(topicId: string): Promise<TopicStats> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
+  const where = { ...visiblePublishedWhere(scope), topics: { some: { topicId } } };
+
+  const [postCount, entities, followerCount, avg] = await Promise.all([
+    db.post.count({ where }),
+    db.post.findMany({
+      where,
+      distinct: ["publisherEntityId"],
+      select: { publisherEntityId: true },
+    }),
+    db.follow.count({ where: { targetType: FollowTarget.TOPIC, targetId: topicId, muted: false } }),
+    db.post.aggregate({ where, _avg: { readingMinutes: true } }),
+  ]);
+
+  return {
+    postCount,
+    entityCount: entities.length,
+    followerCount,
+    avgReadingMinutes: Math.round(avg._avg.readingMinutes ?? 0),
+  };
+}
+
+const BOOKMARKS_PAGE_SIZE = 12;
+
+// Ordered by when bookmarked, not published — starting from Bookmark
+// gives that for free. visiblePublishedWhere on the nested post drops a
+// bookmark whose post was since unpublished or fell outside audience.
+/** A bookmarked post plus when this reader saved it — "Saved 3 days ago"
+ *  uses real `Bookmark.createdAt`, not the post's publish date. */
+export type BookmarkedPost = FeedPost & { savedAt: Date };
+
+export async function getBookmarkedPosts(
+  page: number,
+  topicId?: string
+): Promise<{ posts: BookmarkedPost[]; hasNext: boolean }> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  const postWhere = {
+    ...visiblePublishedWhere(scope),
+    ...(topicId ? { topics: { some: { topicId } } } : {}),
+  };
 
   const rows = await db.bookmark.findMany({
-    where: { userId: user.id, post: visiblePublishedWhere(scope) },
+    where: { userId: user.id, post: postWhere },
     orderBy: { createdAt: "desc" },
     skip: (page - 1) * BOOKMARKS_PAGE_SIZE,
     take: BOOKMARKS_PAGE_SIZE + 1,
-    select: { post: { select: feedSelect } },
+    select: { createdAt: true, post: { select: feedSelect } },
   });
   const page1 = rows.slice(0, BOOKMARKS_PAGE_SIZE);
   const entityFollowStates = await entityFollowStatesFor(user.id, [
@@ -223,17 +284,122 @@ export async function getBookmarkedPosts(
   ]);
 
   return {
-    posts: page1.map((r) => toFeedPost(r.post, entityFollowStates)),
+    posts: page1.map((r) => ({
+      ...toFeedPost(r.post, entityFollowStates),
+      savedAt: r.createdAt,
+    })),
     hasNext: rows.length > BOOKMARKS_PAGE_SIZE,
   };
 }
 
+export type BookmarkTopic = { id: string; name: string; kind: TopicKind };
+
+// Only topics the viewer's bookmarks carry, not every topic in the system
+// — a chip with nothing behind it is a dead end, not a filter.
+export async function getBookmarkTopics(): Promise<BookmarkTopic[]> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+
+  const rows = await db.postTopic.findMany({
+    where: { post: { bookmarks: { some: { userId: user.id } }, ...visiblePublishedWhere(scope) } },
+    distinct: ["topicId"],
+    select: { topic: { select: { id: true, name: true, kind: true } } },
+    orderBy: { topic: { name: "asc" } },
+  });
+
+  return rows.map((r) => r.topic);
+}
+
+export async function getBookmarksCount(): Promise<number> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  return db.bookmark.count({ where: { userId: user.id, post: visiblePublishedWhere(scope) } });
+}
+
+/** Exported so a profile's numbered index can continue its own numbering
+ *  across pages rather than restarting at 01 on page two. */
+export const PROFILE_PAGE_SIZE = 12;
+
+// Author/entity profiles page through the same visibility-scoped list the
+// feed enforces — a profile isn't a second way around scope.
+export async function getAuthorPosts(
+  authorId: string,
+  page: number
+): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+
+  const rows = await db.post.findMany({
+    where: { ...visiblePublishedWhere(scope), authorId },
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * PROFILE_PAGE_SIZE,
+    take: PROFILE_PAGE_SIZE + 1,
+    select: feedSelect,
+  });
+  const page1 = rows.slice(0, PROFILE_PAGE_SIZE);
+  const entityFollowStates = await entityFollowStatesFor(user.id, [
+    ...new Set(page1.map((r) => r.publisher.id)),
+  ]);
+
+  return {
+    posts: page1.map((r) => toFeedPost(r, entityFollowStates)),
+    hasNext: rows.length > PROFILE_PAGE_SIZE,
+  };
+}
+
+export async function getEntityPosts(
+  entityId: string,
+  page: number
+): Promise<{ posts: FeedPost[]; hasNext: boolean }> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+
+  const rows = await db.post.findMany({
+    where: { ...visiblePublishedWhere(scope), publisherEntityId: entityId },
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * PROFILE_PAGE_SIZE,
+    take: PROFILE_PAGE_SIZE + 1,
+    select: feedSelect,
+  });
+  const page1 = rows.slice(0, PROFILE_PAGE_SIZE);
+  const entityFollowStates = await entityFollowStatesFor(user.id, [
+    ...new Set(page1.map((r) => r.publisher.id)),
+  ]);
+
+  return {
+    posts: page1.map((r) => toFeedPost(r, entityFollowStates)),
+    hasNext: rows.length > PROFILE_PAGE_SIZE,
+  };
+}
+
+export async function getAuthorPostCount(authorId: string): Promise<number> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  return db.post.count({ where: { ...visiblePublishedWhere(scope), authorId } });
+}
+
+export async function getEntityPostCount(entityId: string): Promise<number> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  return db.post.count({ where: { ...visiblePublishedWhere(scope), publisherEntityId: entityId } });
+}
+
+// A raw sum rather than PROFILE_PAGE_SIZE-limited: the profile's stat strip
+// states this author's total reach, not a per-page figure.
+export async function getAuthorReactionTotal(authorId: string): Promise<number> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  const result = await db.post.aggregate({
+    where: { ...visiblePublishedWhere(scope), authorId },
+    _sum: { reactionCount: true },
+  });
+  return result._sum.reactionCount ?? 0;
+}
+
 const RELATED_POSTS_LIMIT = 4;
 
-// Story 20: shared-topic posts first, then same-publisher-entity, excluding
-// self — no new query infrastructure, just visiblePublishedWhere (the same
-// "never a way around targeting" rule getTopicFeed/getBookmarkedPosts
-// already follow) sliced two ways and merged.
+// Shared-topic posts first, then same-publisher-entity, both under
+// visiblePublishedWhere — same "never a way around targeting" rule.
 export async function getRelatedPosts(
   excludePostId: string,
   publisherEntityId: string,
@@ -281,31 +447,16 @@ export async function getRelatedPosts(
 }
 
 // ---------------------------------------------------------------------------
-// Ranking (story 16, M12) — architecture.md §11. Deterministic and weighted,
-// no learned model; every term below is inspectable per-post via
-// getPostRankingBreakdown, which backs the "why this appeared" disclosure.
+// Ranking: deterministic and weighted, no learned model — every term is
+// inspectable via getPostRankingBreakdown.
 //
-// Deliberate reading of §11's "computation happens in SQL over a bounded
-// candidate set": the *bounding* — visiblePublishedWhere + ORDER BY + LIMIT
-// 500, so this never scans the full archive — is SQL, in rankingCandidatesFor
-// below. The score arithmetic itself runs in JS over that already-bounded set
-// (≤500 rows of plain numbers), the same call M10 made choosing EXISTS/CROSS
-// JOIN over the doc's illustrated SQL: it keeps the formula a plain,
-// unit-testable function — this repo's established pattern for business
-// logic (dueScheduledPostsQuery, decideAudienceForSubmission both work the
-// same way) — and it's what lets a single post's breakdown share the exact
-// code path that ranked the feed, rather than a second, raw-SQL formula that
-// could silently drift from it.
+// SQL bounds the candidates (visiblePublishedWhere + LIMIT 500, in
+// rankingCandidatesFor); JS scores them, keeping the formula plain and
+// testable, and shared by the feed and the per-post breakdown.
 //
-// Caching: §17 keys the feed candidate cache by "scope set", but the formula
-// itself defines affinity (Follow) and seen (PostRead) as per-viewer terms —
-// two members of the same entity can have different follows and read
-// history, so flattening those into a shared cache entry would silently
-// undo the personalisation story 16 asks for. Resolved by caching only the
-// scope-shared half (which posts are candidates, and every term that only
-// depends on the entity tree — see cacheKeys.feedRanked) and layering the
-// two genuinely personal terms on top at request time, cheaply, since they're
-// bounded lookups against the already-cached candidate ids.
+// Caching is keyed by scope set only — affinity/seen are per-viewer, so
+// they're layered on at request time, never cached, or personalisation
+// would flatten across viewers.
 // ---------------------------------------------------------------------------
 
 export type RankingWeights = {
@@ -330,9 +481,8 @@ const RANKING_WEIGHT_DEFAULTS: RankingWeights = {
   normaliser: 50,
 };
 
-// A missing or unreadable row falls back to the seeded default rather than
-// zeroing the term out — a DB hiccup should degrade ranking quality, not
-// silently flatten a term to nothing.
+// Falls back to the seeded default, not zero — a DB hiccup should degrade
+// ranking quality, not silently flatten a term to nothing.
 async function loadRankingWeights(): Promise<RankingWeights> {
   const rows = await db.rankingWeight.findMany({ select: { key: true, weight: true } });
   const byKey = new Map(rows.map((r) => [r.key, r.weight]));
@@ -355,13 +505,9 @@ const PROXIMITY_BY_TIER: Record<ProximityTier, number> = {
 };
 
 /**
- * architecture.md §11: "same LC = 1.0, same MC = 0.8, same region = 0.5,
- * global = 0.3" — read as tiers of shared ancestry between the viewer's own
- * entity and the post's publisher entity (Entity.path, e.g.
- * "/ai/mena/lb/aub"), not a literal equality check: a post published by the
- * viewer's own MC (an ancestor of the viewer's LC, not the same node) is
- * "same MC", not "global". A viewer with no primary entity has no home base
- * to be close to anything, so every post lands at the global floor.
+ * Tiers of shared ancestry (Entity.path), not literal equality: a post
+ * from an ancestor MC counts as "same MC", not "global". No primary
+ * entity means no home base, so everything lands at the global floor.
  */
 export function proximityTier(viewerPath: string | null, publisherPath: string): ProximityTier {
   if (!viewerPath) return "global";
@@ -384,11 +530,6 @@ export function proximityTier(viewerPath: string | null, publisherPath: string):
   return "global";
 }
 
-/**
- * Every DB lookup already resolved, so the formula itself stays a pure
- * function of primitives — unit-testable with hand-built fixtures, no
- * database, no mocking.
- */
 export type RankingCandidateInput = {
   publishedAt: Date;
   publisherEntityPath: string;
@@ -413,11 +554,8 @@ export type RankingTerms = {
 export type ScoredPost = { score: number; terms: RankingTerms };
 
 /**
- * architecture.md §11's formula, verbatim. `terms[*].weighted` always sums to
- * `score` (seen's `weighted` is pre-negated) — that invariant is what makes
- * the per-post breakdown (getPostRankingBreakdown) a projection of the exact
- * numbers that ranked the feed, not a second computation that could drift
- * from it.
+ * `terms[*].weighted` always sums to `score` (seen's is pre-negated), so
+ * the breakdown UI projects the exact numbers that ranked the feed.
  */
 export function scorePost(
   candidate: RankingCandidateInput,
@@ -474,9 +612,8 @@ export function scorePost(
         pinned: candidate.pinned,
         needsAck: candidate.needsAck,
       },
-      // 0 - seenWeighted, not unary negation: negating a zero seenWeighted
-      // would produce -0, which is arithmetically harmless but an odd value
-      // to hand back to a caller (e.g. Object.is-based test assertions).
+      // 0 - seenWeighted, not unary negation: negating zero yields -0,
+      // which is harmless but odd for Object.is-based test assertions.
       seen: { value: seenValue, weighted: 0 - seenWeighted, alreadyRead: candidate.alreadyRead },
     },
   };
@@ -510,11 +647,9 @@ type RankingRow = {
   requiresAck: boolean;
 };
 
-// Redis round-trips everything through JSON, so Dates would come back as
-// strings on a cache hit while staying Date instances on a miss (or under
-// the process-local fallback) — a divergence that would only surface once
-// Redis is actually configured. Converting explicitly at both ends keeps the
-// shape identical regardless of which backing store served it.
+// Redis round-trips through JSON, so Dates come back as strings on a hit
+// but stay Date instances on a miss — converting explicitly at both ends
+// keeps the shape identical regardless of backing store.
 type CachedRankingRow = Omit<RankingRow, "publishedAt" | "createdAt" | "pinnedUntil"> & {
   publishedAt: string | null;
   createdAt: string;
@@ -522,10 +657,9 @@ type CachedRankingRow = Omit<RankingRow, "publishedAt" | "createdAt" | "pinnedUn
 };
 
 /**
- * The expensive, shared half of ranking: cached per scope set, per
- * architecture.md §11/§17 (see cacheKeys.feedRanked for why that's sound
- * even though affinity/seen are personal). Personal terms are layered on by
- * the caller — never cached here.
+ * The expensive, shared half of ranking, cached per scope set
+ * (cacheKeys.feedRanked explains why that's sound despite affinity/seen
+ * being personal). The caller layers on personal terms — never cached here.
  */
 async function rankingCandidatesFor(scope: ScopeSet): Promise<RankingRow[]> {
   const key = cacheKeys.feedRanked(scope.primaryEntityId ?? "none");
@@ -645,9 +779,8 @@ export async function getForYouFeedPage(
   const hasNext = scored.length > start + POSTS_PER_PAGE;
   if (pageIds.length === 0) return { posts: [], hasNext: false };
 
-  // Re-filtered by visibility, not just id: the candidate window can be up
-  // to 60s stale (rankingCandidatesFor's cache TTL), and a post hidden by
-  // moderation in that window must not still render.
+  // Re-filtered by visibility, not just id: the cached candidate window
+  // can be up to 60s stale, and a post hidden meanwhile must not render.
   const rows = await db.post.findMany({
     where: { id: { in: pageIds }, ...visiblePublishedWhere(scope) },
     select: feedSelect,
@@ -664,11 +797,9 @@ export async function getForYouFeedPage(
 }
 
 /**
- * The single-post equivalent of getForYouFeedPage's scoring, for the "why
- * this appeared" disclosure (post detail, For You mode only). Independent of
- * the cached candidate window — a linked post outside the top 500 still gets
- * an accurate breakdown — but shares scorePost, so the numbers shown can
- * never drift from what actually ranked the feed.
+ * Single-post scoring for the "why this appeared" disclosure (For You
+ * mode). Independent of the cached 500-row window — a linked post outside
+ * it still gets an accurate breakdown — but shares scorePost with the feed.
  */
 export async function getPostRankingBreakdown(postId: string): Promise<ScoredPost | null> {
   const user = await requireSession();
@@ -711,16 +842,86 @@ export type TrendingAuthor = {
   postCount: number;
 };
 
-export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
+/**
+ * "Elsewhere in the network": one query set, not two — the headline's
+ * entity count and the list below must describe the same time window, or
+ * the number becomes a lie the rows don't back up. The window widens
+ * (week -> month -> all) until something is found, and is returned so the
+ * caller's copy never claims a period the rows don't come from.
+ */
+export type ElsewhereWindow = "week" | "month" | "all";
+
+export type ElsewhereDigest = {
+  posts: FeedPost[];
+  /** Distinct publishing entities visible to this viewer, within `window`. */
+  entityCount: number;
+  window: ElsewhereWindow;
+};
+
+const ELSEWHERE_TAKE = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const ELSEWHERE_WINDOWS: Array<{ key: ElsewhereWindow; days: number | null }> = [
+  { key: "week", days: 7 },
+  { key: "month", days: 30 },
+  { key: "all", days: null },
+];
+
+export async function getElsewhereDigest(excludePostIds: string[]): Promise<ElsewhereDigest> {
   const user = await requireSession();
   const scope = await scopeSetFor(user);
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const now = Date.now();
 
+  for (const { key, days } of ELSEWHERE_WINDOWS) {
+    const since = days === null ? undefined : new Date(now - days * DAY_MS);
+    const where: Prisma.PostWhereInput = {
+      ...visiblePublishedWhere(scope),
+      ...(since ? { publishedAt: { gte: since, lte: new Date(now) } } : {}),
+      // The lead complex already has these five on screen. Repeating one in
+      // the closing index makes the page look shorter than it is.
+      ...(excludePostIds.length > 0 ? { id: { notIn: excludePostIds } } : {}),
+    };
+
+    const [rows, publishers] = await Promise.all([
+      db.post.findMany({
+        where,
+        orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+        take: ELSEWHERE_TAKE,
+        select: feedSelect,
+      }),
+      db.post.findMany({
+        where,
+        distinct: ["publisherEntityId"],
+        select: { publisherEntityId: true },
+      }),
+    ]);
+
+    if (rows.length === 0 && key !== "all") continue;
+
+    const entityFollowStates = await entityFollowStatesFor(user.id, [
+      ...new Set(rows.map((r) => r.publisher.id)),
+    ]);
+
+    return {
+      posts: rows.map((r) => toFeedPost(r, entityFollowStates)),
+      entityCount: publishers.length,
+      window: key,
+    };
+  }
+
+  // Unreachable: the "all" window always returns.
+  return { posts: [], entityCount: 0, window: "all" };
+}
+
+async function topAuthorsBy(
+  scope: ScopeSet,
+  publishedAt?: { gte: Date }
+): Promise<TrendingAuthor[]> {
   const visible = await db.post.findMany({
     where: {
       status: PostStatus.PUBLISHED,
-      publishedAt: { gte: since },
-      ...audienceFilter(scope),
+      ...(publishedAt ? { publishedAt } : {}),
+      ...visibilityFilter(scope),
     },
     select: { authorId: true },
   });
@@ -733,7 +934,11 @@ export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
 
   const authors = await db.user.findMany({
     where: { id: { in: top.map(([id]) => id) } },
-    select: { id: true, fullName: true, primaryEntity: { select: { name: true } } },
+    select: {
+      id: true,
+      fullName: true,
+      primaryEntity: { select: { name: true, kind: true } },
+    },
   });
 
   return top
@@ -743,7 +948,7 @@ export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
         ? {
             id,
             fullName: author.fullName,
-            entityName: author.primaryEntity?.name ?? null,
+            entityName: entityDisplayName(author.primaryEntity?.name, author.primaryEntity?.kind),
             postCount,
           }
         : null;
@@ -751,4 +956,18 @@ export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
     .filter((a): a is TrendingAuthor => a !== null);
 }
 
-export const FEED_PAGE_SIZE = POSTS_PER_PAGE;
+/**
+ * Falls back to all-time top publishers when nothing's gone out in 30
+ * days, rather than rendering nothing — a quiet month should show who
+ * publishes most, period, not disappear.
+ */
+export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const recent = await topAuthorsBy(scope, { gte: since });
+  if (recent.length > 0) return recent;
+
+  return topAuthorsBy(scope);
+}

@@ -5,12 +5,9 @@ import { cookies } from "next/headers";
 import { pkceChallenge, randomToken, safeEqual } from "@/lib/crypto";
 import { env } from "@/lib/env";
 
-// `state` is unconditional: without it the callback accepts any code
-// presented to it, which is a login-CSRF.
-//
-// PKCE is opt-in behind AIESEC_OAUTH_PKCE_S256 because the authorization
-// server must accept S256, and codes are single-use — a speculatively sent
-// challenge that gets rejected breaks every login with no code left to retry.
+// `state` is unconditional — without it the callback accepts any code
+// (login-CSRF). PKCE is opt-in behind AIESEC_OAUTH_PKCE_S256 since codes
+// are single-use: a rejected challenge would break login with no retry.
 
 const STATE_COOKIE = "pulse_oauth_state";
 const VERIFIER_COOKIE = "pulse_oauth_verifier";
@@ -18,15 +15,15 @@ const RETURN_TO_COOKIE = "pulse_oauth_return_to";
 
 const HANDSHAKE_TTL_SECONDS = 10 * 60;
 
-export function pkceEnabled(): boolean {
+function pkceEnabled(): boolean {
   return process.env.AIESEC_OAUTH_PKCE_S256 === "true";
 }
 
 const handshakeCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  // Lax, not Strict: the callback is a cross-site top-level navigation and
-  // Strict would withhold the cookie exactly when it is needed.
+  // Lax, not Strict: the callback is a cross-site navigation that Strict
+  // would break.
   sameSite: "lax" as const,
   path: "/",
   maxAge: HANDSHAKE_TTL_SECONDS,
@@ -50,8 +47,8 @@ export type HandshakeResult =
   | { ok: true; codeVerifier: string | null; returnTo: string }
   | { ok: false; reason: "missing_state" | "state_mismatch" };
 
-// Cookies are cleared whatever the outcome — a handshake is single-use, and a
-// surviving `state` could be replayed against an attacker-supplied code.
+// Cleared regardless of outcome: a handshake is single-use, and a leftover
+// `state` could be replayed against an attacker-supplied code.
 export async function completeHandshake(returnedState: string | null): Promise<HandshakeResult> {
   const store = await cookies();
   const expected = store.get(STATE_COOKIE)?.value ?? null;
@@ -66,15 +63,15 @@ export async function completeHandshake(returnedState: string | null): Promise<H
   return { ok: true, codeVerifier, returnTo: safeReturnTo(returnTo) };
 }
 
-export async function clearHandshake(): Promise<void> {
+async function clearHandshake(): Promise<void> {
   const store = await cookies();
   for (const name of [STATE_COOKIE, VERIFIER_COOKIE, RETURN_TO_COOKIE]) {
     store.set(name, "", { ...handshakeCookieOptions(), maxAge: 0 });
   }
 }
 
-// `//evil.example` is protocol-relative and treated as absolute by browsers —
-// the usual way an open-redirect check gets bypassed.
+// `//evil.example` is protocol-relative — browsers treat it as absolute,
+// the usual open-redirect bypass.
 export function safeReturnTo(candidate: string | null | undefined): string {
   if (!candidate) return "/feed";
   if (!candidate.startsWith("/")) return "/feed";

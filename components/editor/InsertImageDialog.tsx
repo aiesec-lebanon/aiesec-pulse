@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Same focus-trap / Escape-to-close / focus-return shape as HideContentModal
-// (design system §9.4, §10.6) — the reference implementation, not RejectModal's.
-// Like that component, state is never reset in an effect — the caller keys
-// this by the pending upload so a new image gets a fresh instance instead.
+// State is never reset in an effect; the caller keys this by the pending
+// upload, so a new image gets a fresh instance.
 export function InsertImageDialog({
   open,
   previewUrl,
@@ -75,7 +73,10 @@ export function InsertImageDialog({
         aria-labelledby="insert-image-title"
         className="w-full max-w-md rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] p-6"
       >
-        <h2 id="insert-image-title" className="text-[18px] font-bold text-[var(--foreground)]">
+        <h2
+          id="insert-image-title"
+          className="text-[18px] font-bold text-[color:var(--foreground)]"
+        >
           Describe this image
         </h2>
 
@@ -88,16 +89,16 @@ export function InsertImageDialog({
           />
         )}
 
-        {/* A <form> here would nest inside the composer's own outer <form> —
-            invalid HTML that silently corrupts the outer form's submission.
-            Enter-to-confirm and the buttons are wired by hand instead. */}
+        {/* No <form> here — it would nest inside the composer's outer
+            <form> and corrupt its submission. Enter-to-confirm and the
+            buttons are wired by hand instead. */}
         <div className="mt-4">
           <label
             htmlFor="insert-image-alt"
-            className="mb-1.5 block text-[14px] font-medium text-[var(--foreground)]"
+            className="mb-1.5 block text-[14px] font-medium text-[color:var(--foreground)]"
           >
             Alt text{" "}
-            <span aria-hidden className="text-[var(--destructive-text)]">
+            <span aria-hidden className="text-[color:var(--destructive-text)]">
               *
             </span>
           </label>
@@ -118,7 +119,7 @@ export function InsertImageDialog({
             aria-invalid={error ? true : undefined}
             placeholder="e.g. Delegates on stage at the closing plenary"
             className={[
-              "w-full rounded-[var(--radius-md)] border bg-[var(--card)] px-3 py-2 text-[15px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none",
+              "w-full rounded-[var(--radius-md)] border bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none",
               error ? "border-[var(--destructive)]" : "border-[var(--border)]",
             ].join(" ")}
           />
@@ -126,14 +127,14 @@ export function InsertImageDialog({
             <p
               id="insert-image-alt-error"
               role="alert"
-              className="mt-1 text-[13px] text-[var(--destructive-text)]"
+              className="mt-1 text-[13px] text-[color:var(--destructive-text)]"
             >
               {error}
             </p>
           ) : (
             <p
               id="insert-image-alt-hint"
-              className="mt-1 text-[13px] text-[var(--muted-foreground)]"
+              className="mt-1 text-[13px] text-[color:var(--muted-foreground)]"
             >
               Read aloud to members using a screen reader. Say what the image shows, not that it is
               an image.
@@ -144,14 +145,14 @@ export function InsertImageDialog({
             <button
               type="button"
               onClick={onCancel}
-              className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-[14px] font-bold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              className="min-h-[36px] rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-[14px] font-bold text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={confirm}
-              className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-4 py-2 text-[14px] font-bold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              className="min-h-[36px] rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-4 py-2 text-[14px] font-bold text-[color:var(--primary-foreground)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             >
               Insert
             </button>

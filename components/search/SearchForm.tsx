@@ -17,9 +17,9 @@ const DATE_PRESETS = [
 ] as const;
 
 const selectClass =
-  "h-9 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-2 text-[14px] text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none";
+  "h-9 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--card)] px-2 text-[14px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus:outline-none";
 const labelClass = "flex flex-col gap-1";
-const labelTextClass = "text-[13px] font-medium text-[var(--muted-foreground)]";
+const labelTextClass = "text-[13px] font-medium text-[color:var(--muted-foreground)]";
 
 export type SearchFormInitial = {
   query: string;
@@ -35,12 +35,6 @@ type Props = {
   initial: SearchFormInitial;
 };
 
-// Search Bar + Filter Bar (design system §10.2/§10.3): topics stay chips in
-// selector mode (§7.4); entity/kind/date all use the plain <select> pattern
-// PageSizeSelect already established — no typeahead here, unlike the
-// composer's AudiencePicker, and no native date-range input either. One
-// explicit submit rather than navigating on every change, matching how the
-// rest of the app treats a filter set as something you commit to.
 export function SearchForm({ topics, entities, initial }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState(initial.query);
@@ -70,7 +64,7 @@ export function SearchForm({ topics, entities, initial }: Props) {
           size={18}
           strokeWidth={2}
           aria-hidden
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--muted-foreground)]"
         />
         <input
           type="search"
@@ -78,7 +72,7 @@ export function SearchForm({ topics, entities, initial }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search posts…"
           aria-label="Search posts"
-          className="h-11 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] pl-10 pr-4 text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
+          className="h-11 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] pl-10 pr-4 text-[16px] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
         />
       </div>
 

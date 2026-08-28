@@ -3,6 +3,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../app/generated/prisma/client";
+import type { PostLevel } from "../app/generated/prisma/enums";
 import {
   PERMISSION_KEYS,
   PERMISSION_NAMES,
@@ -19,7 +20,7 @@ if (!connectionString) throw new Error("DATABASE_URL (or DIRECT_URL) is not set"
 
 const db = new PrismaClient({ adapter: new PrismaPg(connectionString) });
 
-// Deterministic ids, matching the M2 migration so the two never fork.
+// Deterministic ids, matching the migration so the two never fork.
 const roleId = (key: RoleKey) => `role_${key}`;
 const permissionId = (key: PermissionKey) => `perm_${key.replace(/\./g, "_")}`;
 
@@ -73,7 +74,6 @@ async function seedRootEntity() {
   console.log("  root entity: /ai");
 }
 
-// Topics rather than org units: interest crosses entity boundaries.
 const TOPICS: Array<{ slug: string; name: string; kind: "FUNCTION" | "PROGRAMME" | "GENERAL" }> = [
   { slug: "igv", name: "Incoming Global Volunteer", kind: "PROGRAMME" },
   { slug: "ogv", name: "Outgoing Global Volunteer", kind: "PROGRAMME" },
@@ -101,21 +101,44 @@ async function seedTopics() {
   console.log(`  topics: ${TOPICS.length}`);
 }
 
-const QUOTAS: Array<{ id: string; roleKey: string; maxPosts: number }> = [
-  { id: "quota_default_entity_publisher", roleKey: "entity_publisher", maxPosts: 2 },
-  { id: "quota_default_entity_editor", roleKey: "entity_editor", maxPosts: 2 },
-  { id: "quota_default_global_publisher", roleKey: "global_publisher", maxPosts: 20 },
-  { id: "quota_default_platform_admin", roleKey: "platform_admin", maxPosts: 100 },
+// Two budgets by post level: LOCAL is the per-author publishing allowance.
+// NETWORK is the promotion allowance, counted per MC (not per officer),
+// seeded only for roles holding `post.promote`.
+const QUOTAS: Array<{
+  id: string;
+  roleKey: RoleKey;
+  postLevel: PostLevel;
+  maxPosts: number;
+}> = [
+  { id: "quota_default_lc_vp", roleKey: "lc_vp", postLevel: "LOCAL", maxPosts: 2 },
+  { id: "quota_default_lc_president", roleKey: "lc_president", postLevel: "LOCAL", maxPosts: 2 },
+  { id: "quota_default_mc_vp", roleKey: "mc_vp", postLevel: "LOCAL", maxPosts: 2 },
+  { id: "quota_default_mc_president", roleKey: "mc_president", postLevel: "LOCAL", maxPosts: 2 },
+  { id: "quota_default_ai_manager", roleKey: "ai_manager", postLevel: "LOCAL", maxPosts: 20 },
+  { id: "quota_default_ai_vp", roleKey: "ai_vp", postLevel: "LOCAL", maxPosts: 100 },
+  { id: "quota_default_pai", roleKey: "pai", postLevel: "LOCAL", maxPosts: 100 },
+
+  // One promotion/week by default — starts tight; an admin widens it per
+  // MC rather than starting wide.
+  { id: "quota_network_mc_president", roleKey: "mc_president", postLevel: "NETWORK", maxPosts: 1 },
+  { id: "quota_network_ai_manager", roleKey: "ai_manager", postLevel: "NETWORK", maxPosts: 20 },
+  { id: "quota_network_ai_vp", roleKey: "ai_vp", postLevel: "NETWORK", maxPosts: 100 },
+  { id: "quota_network_pai", roleKey: "pai", postLevel: "NETWORK", maxPosts: 100 },
 ];
 
 async function seedQuotas() {
-  // `QuotaPolicy` is uniquely keyed on [scopeType, entityId, roleKey, period],
-  // and `entityId` is NULL for every network-wide default. Postgres treats NULLs
-  // as distinct inside a unique index, so upserting on that constraint would
-  // insert a duplicate default on every run — find-then-write instead.
+  // entityId is NULL for network-wide defaults, and Postgres treats NULLs
+  // as distinct in a unique index — upsert would duplicate on every run,
+  // so this finds-then-writes instead.
   for (const quota of QUOTAS) {
     const existing = await db.quotaPolicy.findFirst({
-      where: { scopeType: "GLOBAL", entityId: null, roleKey: quota.roleKey, period: "ISO_WEEK" },
+      where: {
+        scopeType: "GLOBAL",
+        entityId: null,
+        roleKey: quota.roleKey,
+        postLevel: quota.postLevel,
+        period: "ISO_WEEK",
+      },
       select: { id: true },
     });
 
@@ -131,6 +154,7 @@ async function seedQuotas() {
           scopeType: "GLOBAL",
           entityId: null,
           roleKey: quota.roleKey,
+          postLevel: quota.postLevel,
           period: "ISO_WEEK",
           maxPosts: quota.maxPosts,
         },
@@ -148,10 +172,6 @@ const RANKING_WEIGHTS: Array<{ key: string; weight: number }> = [
   { key: "priority", weight: 0.8 },
   { key: "seen", weight: 0.5 },
   { key: "halfLifeHours", weight: 36 },
-  // architecture.md §11's signal term divides by log1p(normaliser) but the
-  // doc never names a value for it — 50 saturates the signal term around a
-  // post with ~10 reactions + 5 comments, a reasonable "trending" bar at
-  // this org's scale. Tunable at runtime like every other weight.
   { key: "normaliser", weight: 50 },
 ];
 

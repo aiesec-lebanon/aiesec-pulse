@@ -1,7 +1,12 @@
 import type { RoleKey } from "@/lib/rbac/catalogue";
 
-// role.name is free text, so matching is on a normalised prefix from a
-// controlled vocabulary. The office is carried through so grants stay scoped.
+// Authority requires both axes to agree: `office.tag` says the level,
+// `role.name` says the position. A mismatch denies rather than guesses —
+// guessing risks a silent over-grant. (Matching role-name substrings
+// alone, e.g. "MC" inside "MCPartner", let a renamed position silently
+// widen someone's reach.)
+
+export type OfficeTag = "AI" | "MC" | "LC";
 
 export type PositionInput = {
   positionId: string | null;
@@ -9,137 +14,174 @@ export type PositionInput = {
   officeId: string | null;
   officeName: string | null;
   officeTag: string | null;
-  officeDepth?: number;
 };
+
+export type PositionClass = {
+  role: RoleKey;
+  /** The GIS `role.name`, already normalised. Compared for equality, never for containment. */
+  title: string;
+  /** The `office.tag` this class must sit at. `null` accepts any level. */
+  requiredTag: OfficeTag | null;
+  /** Global authority holds everywhere; office authority holds over its own subtree. */
+  authority: "GLOBAL" | "OFFICE";
+};
+
+export const POSITION_CLASSES: readonly PositionClass[] = [
+  { role: "pai", title: "pai", requiredTag: "AI", authority: "GLOBAL" },
+  { role: "ai_vp", title: "aivp", requiredTag: "AI", authority: "GLOBAL" },
+  { role: "ai_manager", title: "ai manager", requiredTag: "AI", authority: "GLOBAL" },
+  { role: "mc_president", title: "mcp", requiredTag: "MC", authority: "OFFICE" },
+  { role: "mc_vp", title: "mcvp", requiredTag: "MC", authority: "OFFICE" },
+  { role: "lc_president", title: "lcp", requiredTag: "LC", authority: "OFFICE" },
+  { role: "lc_vp", title: "lcvp", requiredTag: "LC", authority: "OFFICE" },
+  { role: "member", title: "member", requiredTag: null, authority: "OFFICE" },
+];
 
 export type DerivedGrant = {
   role: RoleKey;
-  officeId: string | null;
   positionId: string | null;
+  /** The office the position sits at. Always present — it is what a grant is scoped from. */
+  officeId: string;
+  /** The office the grant covers, or `null` for a class whose authority is global. */
+  scopeOfficeId: string | null;
   matchedTitle: string;
 };
 
-export function normaliseTitle(raw: string): string {
-  return raw
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
+export type DenialReason =
+  | "no_office"
+  | "no_title"
+  | "unknown_office_tag"
+  | "unrecognised_title"
+  | "tag_mismatch";
 
-// Most specific first, matched on whole leading words so "mcp" matches "mcp"
-// and "mcp elect" but not "mcpartner". `rank` picks the primary position.
-const PUBLISHER_TITLES: ReadonlyArray<{ prefix: string; rank: number }> = [
-  { prefix: "mcp", rank: 100 },
-  { prefix: "mcvp", rank: 90 },
-  { prefix: "member committee president", rank: 100 },
-  { prefix: "member committee vice president", rank: 90 },
-  { prefix: "lcp", rank: 70 },
-  { prefix: "lcvp", rank: 60 },
-  { prefix: "local committee president", rank: 70 },
-  { prefix: "local committee vice president", rank: 60 },
-  { prefix: "national director", rank: 80 },
-  { prefix: "national manager", rank: 50 },
-  { prefix: "regional director", rank: 85 },
-  { prefix: "regional manager", rank: 55 },
-];
-
-const GLOBAL_PUBLISHER_TITLES: ReadonlyArray<{ prefix: string; rank: number }> = [
-  { prefix: "president", rank: 110 },
-  { prefix: "vice president", rank: 105 },
-  { prefix: "global vice president", rank: 105 },
-  { prefix: "ai vp", rank: 105 },
-  { prefix: "director", rank: 95 },
-  { prefix: "manager", rank: 65 },
-];
-
-function matchPrefix(
-  title: string,
-  table: ReadonlyArray<{ prefix: string; rank: number }>
-): { prefix: string; rank: number } | null {
-  for (const entry of table) {
-    if (title === entry.prefix || title.startsWith(`${entry.prefix} `)) return entry;
-  }
-  return null;
-}
-
-export const GLOBAL_OFFICE_ID = "1";
+export type PositionDenial = {
+  positionId: string | null;
+  roleName: string | null;
+  officeId: string | null;
+  officeName: string | null;
+  officeTag: string | null;
+  reason: DenialReason;
+  /** The tag the matched class required, when the two axes disagreed. */
+  expectedTag?: OfficeTag;
+};
 
 export type MappingOutcome = {
   grants: DerivedGrant[];
-  unmatched: Array<{ positionId: string | null; roleName: string; officeId: string | null }>;
+  denied: PositionDenial[];
 };
 
-export function derivePublishingGrants(positions: readonly PositionInput[]): MappingOutcome {
+/**
+ * Trim, case-fold, collapse whitespace — nothing more. Stripping
+ * punctuation or diacritics would widen an authorisation match for no
+ * real title: `MCVP-Marketing` matching `mcvp` would be a bug, not help.
+ */
+export function normaliseTitle(raw: string): string {
+  return raw.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+export function normaliseTag(raw: string): OfficeTag | null {
+  const tag = raw.normalize("NFKC").toUpperCase().replace(/\s+/g, "").trim();
+  return tag === "AI" || tag === "MC" || tag === "LC" ? tag : null;
+}
+
+export function classForTitle(normalisedTitle: string): PositionClass | null {
+  return POSITION_CLASSES.find((c) => c.title === normalisedTitle) ?? null;
+}
+
+function denial(
+  position: PositionInput,
+  reason: DenialReason,
+  expectedTag?: OfficeTag
+): PositionDenial {
+  return {
+    positionId: position.positionId,
+    roleName: position.roleName,
+    officeId: position.officeId,
+    officeName: position.officeName,
+    officeTag: position.officeTag,
+    reason,
+    ...(expectedTag ? { expectedTag } : {}),
+  };
+}
+
+/**
+ * Denial is per-position, never per-user — one unrecognised position
+ * doesn't cost a recognised one. Whether zero grants blocks sign-in is
+ * `lib/auth/identity.ts`'s call; staying pure keeps this testable DB-free.
+ */
+export function derivePositionGrants(positions: readonly PositionInput[]): MappingOutcome {
   const grants: DerivedGrant[] = [];
-  const unmatched: MappingOutcome["unmatched"] = [];
+  const denied: PositionDenial[] = [];
 
   for (const position of positions) {
-    if (!position.roleName) continue;
-    const title = normaliseTitle(position.roleName);
-    if (!title) continue;
+    if (!position.officeId) {
+      denied.push(denial(position, "no_office"));
+      continue;
+    }
+    if (!position.roleName?.trim()) {
+      denied.push(denial(position, "no_title"));
+      continue;
+    }
 
-    const isGlobalOffice = position.officeId === GLOBAL_OFFICE_ID || position.officeDepth === 1;
+    const matched = classForTitle(normaliseTitle(position.roleName));
+    if (!matched) {
+      denied.push(denial(position, "unrecognised_title"));
+      continue;
+    }
 
-    if (isGlobalOffice) {
-      const hit = matchPrefix(title, GLOBAL_PUBLISHER_TITLES);
-      if (hit) {
-        grants.push({
-          role: "global_publisher",
-          officeId: null,
-          positionId: position.positionId,
-          matchedTitle: hit.prefix,
-        });
+    if (matched.requiredTag !== null) {
+      const tag = position.officeTag ? normaliseTag(position.officeTag) : null;
+      if (!tag) {
+        denied.push(denial(position, "unknown_office_tag", matched.requiredTag));
+        continue;
+      }
+      if (tag !== matched.requiredTag) {
+        denied.push(denial(position, "tag_mismatch", matched.requiredTag));
         continue;
       }
     }
 
-    const hit = matchPrefix(title, PUBLISHER_TITLES);
-    if (hit && position.officeId) {
-      grants.push({
-        role: "entity_publisher",
-        officeId: position.officeId,
-        positionId: position.positionId,
-        matchedTitle: hit.prefix,
-      });
-      continue;
-    }
-
-    unmatched.push({
+    grants.push({
+      role: matched.role,
       positionId: position.positionId,
-      roleName: position.roleName,
       officeId: position.officeId,
+      scopeOfficeId: matched.authority === "GLOBAL" ? null : position.officeId,
+      matchedTitle: matched.title,
     });
   }
 
-  const seen = new Set<string>();
-  const deduped = grants.filter((g) => {
-    const key = `${g.role}:${g.officeId ?? "GLOBAL"}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  // Same class+scope collapses to one grant. Which survives isn't cosmetic
+  // — for a global class like `member` it decides the office the person is
+  // attributed to — so it's the lowest office id, not GIS's listing order.
+  const byKey = new Map<string, DerivedGrant>();
+  for (const grant of grants) {
+    const key = `${grant.role}:${grant.scopeOfficeId ?? "GLOBAL"}`;
+    const existing = byKey.get(key);
+    if (!existing || grant.officeId.localeCompare(existing.officeId) < 0) {
+      byKey.set(key, grant);
+    }
+  }
 
-  return { grants: deduped, unmatched };
+  return { grants: [...byKey.values()], denied };
 }
 
-// Ranked deterministically rather than taking whichever GIS returned first.
-export function choosePrimaryPosition(positions: readonly PositionInput[]): PositionInput | null {
-  const candidates = positions.filter((p) => p.officeId);
-  if (candidates.length === 0) return null;
+const CLASS_PRECEDENCE = new Map(POSITION_CLASSES.map((c, index) => [c.role, index]));
 
-  const scored = candidates.map((position) => {
-    const title = position.roleName ? normaliseTitle(position.roleName) : "";
-    const hit = matchPrefix(title, GLOBAL_PUBLISHER_TITLES) ?? matchPrefix(title, PUBLISHER_TITLES);
-    return { position, rank: hit?.rank ?? 0, depth: position.officeDepth ?? 0 };
+/**
+ * The office a member is attributed to. `current_positions[0]` made this
+ * depend on GIS response ordering; this instead ranks by class seniority
+ * then lowest office id, so the answer is stable across logins.
+ */
+export function choosePrimaryOfficeId(grants: readonly DerivedGrant[]): string | null {
+  if (grants.length === 0) return null;
+
+  const ranked = [...grants].sort((a, b) => {
+    const byClass =
+      (CLASS_PRECEDENCE.get(a.role) ?? Number.MAX_SAFE_INTEGER) -
+      (CLASS_PRECEDENCE.get(b.role) ?? Number.MAX_SAFE_INTEGER);
+    if (byClass !== 0) return byClass;
+    return a.officeId.localeCompare(b.officeId);
   });
 
-  scored.sort((a, b) => {
-    if (b.rank !== a.rank) return b.rank - a.rank;
-    if (b.depth !== a.depth) return b.depth - a.depth;
-    return (a.position.officeId ?? "").localeCompare(b.position.officeId ?? "");
-  });
-
-  return scored[0].position;
+  return ranked[0].officeId;
 }

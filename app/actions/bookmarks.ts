@@ -4,11 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { PostStatus } from "@/app/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { audienceFilter, scopeSetFor } from "@/lib/org/scope";
+import { scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 
-// Visibility is re-checked because bookmarking is a write against a
-// caller-supplied post id, same rule toggleReaction already applies.
+// Re-checked because postId is caller-supplied — same rule as toggleReaction.
 export async function toggleBookmark(
   postId: string
 ): Promise<{ ok: true; bookmarked: boolean } | { ok: false; error: string }> {
@@ -16,7 +15,7 @@ export async function toggleBookmark(
 
   const scope = await scopeSetFor(user);
   const post = await db.post.findFirst({
-    where: { id: postId, status: PostStatus.PUBLISHED, ...audienceFilter(scope) },
+    where: { id: postId, status: PostStatus.PUBLISHED, ...visibilityFilter(scope) },
     select: { id: true, slug: true },
   });
   if (!post) return { ok: false, error: "That post is no longer available." };

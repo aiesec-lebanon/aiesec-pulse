@@ -4,14 +4,13 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { setFlagEnabled } from "@/app/actions/flags";
+import { Pill } from "@/components/ui/Pill";
 
 export type FlagRow = { key: string; enabled: boolean; updatedAt: string };
 
-// Status-pill treatment (§10.7a) generalized to a two-state on/off badge —
-// no new badge shape invented for this.
-const STATE_PILL: Record<"on" | "off", string> = {
-  on: "bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[var(--success-text)]",
-  off: "bg-[var(--muted)] text-[var(--muted-foreground)]",
+const STATE_TINT: Record<"on" | "off", { tint: string; text: string }> = {
+  on: { tint: "color-mix(in srgb, var(--success) 10%, transparent)", text: "var(--success-text)" },
+  off: { tint: "var(--muted)", text: "var(--muted-foreground)" },
 };
 
 function formatDate(iso: string): string {
@@ -44,7 +43,7 @@ export function FlagsTable({ rows }: { rows: FlagRow[] }) {
   return (
     <div className="flex flex-col gap-2" role="list" aria-label="Feature flags">
       {error && (
-        <p role="alert" className="text-[14px] text-[var(--destructive-text)]">
+        <p role="alert" className="text-[14px] text-[color:var(--destructive-text)]">
           {error}
         </p>
       )}
@@ -57,17 +56,18 @@ export function FlagsTable({ rows }: { rows: FlagRow[] }) {
             role="listitem"
             className="aiesec-card flex flex-wrap items-center gap-3 p-4"
           >
-            <span
-              className={`shrink-0 rounded-[var(--radius-md)] px-2 py-0.5 text-[12px] font-medium ${
-                STATE_PILL[row.enabled ? "on" : "off"]
-              }`}
-            >
-              {row.enabled ? "On" : "Off"}
-            </span>
+            <Pill
+              className="shrink-0"
+              label={row.enabled ? "On" : "Off"}
+              tint={STATE_TINT[row.enabled ? "on" : "off"].tint}
+              text={STATE_TINT[row.enabled ? "on" : "off"].text}
+            />
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-bold text-[var(--foreground)]">{row.key}</p>
-              <p className="text-[13px] text-[var(--muted-foreground)]">
+              <p className="truncate text-[15px] font-bold text-[color:var(--foreground)]">
+                {row.key}
+              </p>
+              <p className="text-[13px] text-[color:var(--muted-foreground)]">
                 Last changed {formatDate(row.updatedAt)}
               </p>
             </div>
