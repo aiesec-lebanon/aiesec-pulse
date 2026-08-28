@@ -2,11 +2,10 @@ import Link from "next/link";
 
 export const metadata = { title: "Access not allowed · AIESEC Pulse" };
 
-// Two audiences share this page. Someone signed in who hit a page their
-// positions do not cover, and someone whose sign-in was refused outright
-// because GIS returned no position Pulse recognises. The second is not a
-// permission problem they can navigate around, so it gets its own copy and no
-// link back into the app.
+// Two audiences share this page: someone signed in whose positions don't
+// cover this route, and someone whose sign-in was refused outright (no
+// recognised position). The second has no session to sign out of and no
+// feed to return to, so it gets its own copy with no link back into the app.
 export default async function UnauthorizedPage({
   searchParams,
 }: {

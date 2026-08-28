@@ -22,8 +22,6 @@ function initials(name: string): string {
 export function TrendingAuthorCard({ author }: TrendingAuthorCardProps) {
   return (
     <div className="pulse-plate group relative flex w-[280px] shrink-0 snap-start items-center gap-4 overflow-hidden p-5">
-      {/* A soft field keyed to the count, so a strip of cards has visible
-          variation rather than reading as one repeated tile. */}
       <span
         aria-hidden
         className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-[var(--glow-primary)] blur-2xl transition-opacity duration-[calc(var(--dur-element)*var(--motion-scale))] group-hover:opacity-100"

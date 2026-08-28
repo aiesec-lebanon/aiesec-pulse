@@ -142,8 +142,6 @@ function SecondaryRail({ posts, revision }: { posts: FeedPost[]; revision: numbe
   return (
     <section aria-label="More top stories" className="mt-12 sm:-mt-[96px] lg:-mt-[124px]">
       <div className="mb-5 flex items-end justify-between gap-4">
-        {/* Over the hero from `sm:` up, on the page ground below it — so the
-            label has to change register with the ground it lands on. */}
         <p className="pulse-label pulse-label-wide sm:text-white/70">More top stories</p>
 
         {scrollable && (

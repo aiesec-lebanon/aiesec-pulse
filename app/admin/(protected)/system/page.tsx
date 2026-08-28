@@ -12,14 +12,8 @@ import { requireAdmin } from "@/lib/rbac/guards";
 
 export const dynamic = "force-dynamic";
 
-/**
- * The design system, rendered rather than described.
- *
- * A written specification drifts from the code the week after it is written;
- * this page cannot, because it is built out of the same components every other
- * screen uses. Look at it in both themes before starting a refactor, and again
- * after — anything that changed here changed everywhere.
- */
+/** Rendered from the same components every other screen uses — check both
+ * themes when one of them changes. */
 export default async function AdminSystemPage() {
   await requireAdmin();
 

@@ -15,11 +15,9 @@ const SLIDE_DURATION_MS = 8000;
 /**
  * The story page's closing rail — UI ref 2a's "Next in today's index": one
  * related story at a time, auto-advancing through up to four, with a dot
- * index and a dwell-time bar. Timer/pause-on-hover/keyboard shape copied
- * verbatim from `FeedLead`/`HeroRotator` (remaining-time-preserving pause,
- * roving-tabindex tablist, Reduced motion stops the loop outright) — the
- * same device laid out horizontally instead of full-bleed, not one invented
- * new for this surface.
+ * index and a dwell-time bar. Timer/pause-on-hover/keyboard behaviour mirrors
+ * `FeedLead`/`HeroRotator` exactly (remaining-time-preserving pause,
+ * roving-tabindex tablist, Reduced motion stops the loop outright).
  */
 export function UpNextRotator({ posts }: { posts: FeedPost[] }) {
   const { motion } = useMotion();

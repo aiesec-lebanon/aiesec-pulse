@@ -22,7 +22,6 @@ const VALID = {
   ADMIN_SESSION_SECRET: "c".repeat(32),
 };
 
-/** Every optional variable, written the way a `.env` template writes them. */
 const BLANK_OPTIONALS = {
   DIRECT_URL: "",
   SUPABASE_URL: "",

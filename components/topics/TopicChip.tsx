@@ -4,12 +4,9 @@ import type { TopicKind } from "@/app/generated/prisma/enums";
 import { tokensForKind } from "@/lib/topics-shared";
 
 /**
- * Filter chip in display mode: compact, read-only, always the inactive
- * visual — a displayed topic isn't "on" or "off." Links to the topic's
- * archive page, so it gets ordinary link hover/focus treatment on the text
- * rather than the chip's active-state color shift on the container. Coloured
- * by the topic's own kind, like every other topic label in the system —
- * never a hard-coded accent.
+ * Read-only display of a topic, not a toggleable filter like `TopicPicker`'s
+ * chip — no active/pressed state or `aria-pressed`. Coloured by the topic's
+ * own kind, never a hard-coded accent.
  */
 export function TopicChip({ slug, name, kind }: { slug: string; name: string; kind: TopicKind }) {
   return (

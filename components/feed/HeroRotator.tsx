@@ -35,12 +35,10 @@ const TITLE_ID = "hero-rotator-title";
  * component's old behaviour — makes all of that impossible: there's nothing
  * to dissolve *from*.
  *
- * No `border-radius` on the frame, deliberately: a full-bleed section
- * spanning edge to edge reads as a rendering fault if its corners are
- * rounded. Height is aspect-ratio-driven up to a capped `max-h`, so a very
- * tall (or ultrawide) viewport never turns the hero into something a reader
- * has to scroll past. The extra bottom padding at `lg:` is room for the
- * "more top stories" rail to overlap into.
+ * Height is aspect-ratio-driven up to a capped `max-h`, so a very tall (or
+ * ultrawide) viewport never turns the hero into something a reader has to
+ * scroll past. The extra bottom padding at `lg:` is room for the "more top
+ * stories" rail to overlap into.
  */
 export function HeroRotator({
   slides,

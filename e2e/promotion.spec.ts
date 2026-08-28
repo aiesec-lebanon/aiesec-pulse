@@ -107,7 +107,6 @@ test.describe("post level", () => {
     await signInAs("lc_vp", "/feed", isolate);
     const path = await publish(page, title);
 
-    // The MCP's own page, with a working control on it.
     await signInAs("mc_president", "/feed", isolate);
     await page.goto(path);
     await expect(promotionPanel(page)).toBeVisible();
@@ -143,7 +142,6 @@ test.describe("post level", () => {
     const isolate = isolationId(testInfo);
     const title = uniqueTitle("E2E promoted story");
 
-    // Published in Testville, an LC of Testonia.
     await signInAs("lc_vp", "/feed", isolate);
     const path = await publish(page, title);
 
@@ -154,7 +152,6 @@ test.describe("post level", () => {
     await signInAs("lc_president", "/feed", isolate);
     expect(await canSee(page, path, title)).toBe(true);
 
-    // A member of Fartown, in the other MC, does not.
     await signInAs("far_member", "/feed", isolate);
     expect(await canSee(page, path, title)).toBe(false);
 

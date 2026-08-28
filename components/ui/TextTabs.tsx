@@ -1,17 +1,11 @@
 import Link from "next/link";
 
 /**
- * A filter set that reads as text with a 2px rule under the active one, not as
- * a row of boxed chips.
+ * A filter set that reads as text with a 2px rule under the active one, not a
+ * row of boxed chips.
  *
- * The rule the reference file settled on: a row of five filters is a
- * navigation, and navigations do not need boxes. Reserve the boxed treatment
- * for a genuinely standalone action — a Follow button — where the box is what
- * makes it look pressable in the first place.
- *
- * These are links because each state is addressable: a filtered archive has a
- * URL, so it can be shared, bookmarked and reached by the back button. A
- * button that only mutates client state would take all of that away.
+ * These are links, not buttons with client state: each filtered view has a
+ * URL, so it can be shared, bookmarked, and reached by the back button.
  */
 export function TextTabs({
   items,

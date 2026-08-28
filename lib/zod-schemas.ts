@@ -60,8 +60,6 @@ const topicIdsField = z.array(z.string().trim().min(1)).max(20).optional();
 
 // Sanitised here too, not just on read — a document arriving as a Server
 // Action argument is untrusted input like any other (lib/content/document.ts).
-// Length limits are enforced against the flattened text, matching what the
-// composer's own character counter shows the author.
 const bodyJsonField = z
   .unknown()
   .transform((value): PulseDocument => sanitiseDocument(value))
@@ -182,10 +180,8 @@ export const promotePostSchema = z.object({
 });
 
 /**
- * A member's own standfirst — 280 characters because it's a standfirst, not
- * an essay: the profile hero gives it a 46ch measure and three lines, and
- * anything longer stops being something a reader takes in at a glance. Empty
- * clears it — "remove my bio" must be expressible.
+ * A member's own standfirst. Empty clears it — "remove my bio" must be
+ * expressible, so no minimum length.
  */
 export const updateBioSchema = z.object({
   bio: z.string().trim().max(280, "Keep your bio to 280 characters or fewer"),

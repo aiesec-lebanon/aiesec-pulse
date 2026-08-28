@@ -16,10 +16,9 @@ export type MatrixCell = `${RoleKey}:${PermissionKey}`;
 
 const cellKey = (role: RoleKey, permission: PermissionKey): MatrixCell => `${role}:${permission}`;
 
-// The catalogue is already ordered by domain; this labels the runs so rows
-// read as short lists, not one long one. An empty band is dropped rather
-// than shown as a heading — administration left the catalogue when it
-// moved to a credential login, outliving its permissions.
+// Empty groups are dropped rather than shown as a heading with no rows — a
+// domain can lose every permission (as Administration did after admin auth
+// moved off this catalogue) without this file changing.
 const GROUPS: ReadonlyArray<{ label: string; prefix: string }> = [
   { label: "Posts", prefix: "post." },
   { label: "Comments", prefix: "comment." },
@@ -43,8 +42,6 @@ export function PermissionMatrix({ allowed }: { allowed: MatrixCell[] }) {
     const key = cellKey(role, permission);
     const next = !granted.has(key);
 
-    // The checkbox moves on click and moves back if the write is refused —
-    // a control that waits on a round trip before responding reads as broken.
     setGranted((current) => {
       const updated = new Set(current);
       if (next) updated.add(key);

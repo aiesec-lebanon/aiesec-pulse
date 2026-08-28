@@ -5,16 +5,9 @@ import { useEffect, useRef } from "react";
 import { motionEnabled } from "@/components/motion/motion-context";
 
 /**
- * The network, drawn.
- *
- * A point cloud distributed evenly over a sphere (Fibonacci lattice), rotated
- * in three dimensions and projected to 2-D with real perspective divide,
- * chords drawn between points close in 3-D space. It's the product's own
- * thesis as an image: ~110 member committees on one globe, connected, near
- * face lit, far face receding.
- *
- * Deliberately 2-D canvas rather than WebGL: a few hundred projected points
- * cost far less than a GL context for the same read. The projection maths is the 3-D part; the renderer is not.
+ * The network, drawn: a point cloud distributed evenly over a sphere
+ * (Fibonacci lattice), rotated in three dimensions and projected to 2-D with
+ * real perspective divide, chords drawn between points close in 3-D space.
  *
  * Behaviour under the motion preference: Reduced draws exactly one frame and
  * stops. The image stays — it is composition, not decoration — but nothing
@@ -157,8 +150,6 @@ export function NetworkField({
       }
 
       for (const p of projected) {
-        // Depth drives size, opacity and hue together — one cue read three
-        // ways is what makes a flat canvas look volumetric.
         context.globalAlpha = Math.min(1, (0.12 + p.depth * 0.75) * intensity * ink);
         context.fillStyle = p.depth > 0.82 ? success : primary;
         context.beginPath();

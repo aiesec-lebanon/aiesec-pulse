@@ -5,16 +5,6 @@ import { EntityName } from "@/components/ui/EntityName";
 import { relativeTime } from "@/lib/relative-time";
 import type { FeedPost } from "@/types/feed";
 
-/**
- * The quiet register — the "Elsewhere in the network" row from 1b: a
- * hairline rule, a mono index number, the headline, and a trailing age. The
- * cover thumbnail is kept even though the reference's row has none — dropping
- * it would be a real loss for a row that otherwise carries no image — but
- * everything else matches 1b's leading-number/trailing-metadata shape.
- *
- * The hover moment is the rule itself, which wipes to brand blue from the left
- * as the pointer arrives.
- */
 export function SidebarPostItem({ post, index }: { post: FeedPost; index?: number }) {
   return (
     <Link

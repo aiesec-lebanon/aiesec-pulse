@@ -6,8 +6,7 @@
  * drift silently — the teardown would keep "succeeding" while leaving stale
  * entries behind.
  *
- * Re-exported from `lib/redis.ts` so application code keeps importing from
- * there — server-side call sites don't change.
+ * Re-exported from `lib/redis.ts` for server-side call sites.
  */
 export const cacheKeys = {
   // Which classes a person holds and where — not what those classes may do.

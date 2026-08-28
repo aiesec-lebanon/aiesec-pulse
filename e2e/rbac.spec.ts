@@ -200,8 +200,6 @@ test.describe("the platform administrator", () => {
     });
     await expect(overrides.getByRole("spinbutton", { name: /budget for MCVP/i })).toHaveValue("7");
 
-    // The default is what an MC returns to, so removing the override has to be
-    // as reachable as setting it.
     await overrides.getByRole("button", { name: /remove the MCVP override/i }).click();
     await expect(overrides.getByText(/no MC has a bespoke allowance/i)).toBeVisible({
       timeout: 15_000,

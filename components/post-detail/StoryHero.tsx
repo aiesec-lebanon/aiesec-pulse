@@ -22,11 +22,10 @@ export type StoryHeroProps = {
 };
 
 /**
- * Decorative four-column rules across a hero, matching the reference file's own
- * overlay — drawn inside the *content column* so its rules land on the same
- * four columns the spec strip below divides into. Full-frame rules plus
- * contained cells gave a hero two grids at once, three pixels apart — worse
- * than either alone.
+ * Decorative four-column rules across a hero — drawn inside the *content
+ * column* so its rules land on the same four columns the spec strip below
+ * divides into. Full-frame rules plus contained cells gave a hero two grids
+ * at once, three pixels apart — worse than either alone.
  *
  * `pointer-events-none` on the wrapper as well as the grid: the wrapper spans
  * the whole frame at a higher z-index than the cover, and without it every
@@ -42,8 +41,7 @@ const GRID_OVERLAY = (
   </div>
 );
 
-/** The shell's content column — every hero's type aligns to it, so the page
- *  lines up with the header wordmark on a wide screen. */
+/** The shell's content column. */
 const COLUMN = "mx-auto w-full max-w-[1240px] px-6";
 
 /**
@@ -176,19 +174,13 @@ export function StoryHero({
 
   return (
     <>
-      {/* 2b, lg: only — no cover, the typographic hero. Full-bleed, so the
-          topic-coloured field bands across the whole frame instead of a blob
-          starting mid-page. */}
+      {/* 2b, lg: only — no cover, the typographic hero. */}
       <div className="hidden lg:flex lg:h-[calc(100svh-var(--rail-h))] lg:min-h-[520px] lg:flex-col">
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <div aria-hidden className="pointer-events-none absolute inset-0">
             {GRID_OVERLAY}
           </div>
 
-          {/* Two very wide, soft fields anchored off-canvas — the same device
-              `.pulse-stage` uses on the page ground, in the topic's colour and
-              scoped to this frame. Replaces the single right-hand radial,
-              which read as an unexplained blob at the halfway mark. */}
           <Parallax depth={-40} className="pointer-events-none absolute inset-0">
             <div
               aria-hidden

@@ -59,8 +59,6 @@ export default async function AdminQuotasPage() {
     }),
   }));
 
-  // Overrides list only what exists: a row per class per level per MC would be
-  // sixteen empty rows for every MC that has no bespoke allowance at all.
   const overrides = new Map<
     string,
     { name: string; tag: string | null; groups: Map<PostLevel, QuotaGroup> }

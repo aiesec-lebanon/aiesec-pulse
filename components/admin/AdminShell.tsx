@@ -6,13 +6,6 @@ import { useEffect, useState } from "react";
 
 import { adminLogout } from "@/app/actions/admin-auth";
 
-/**
- * Every destination here belongs to the platform credential — position-held
- * surfaces (approval queue, all posts, comments) moved to member routes
- * (`/review`, `/moderation/posts`, `/moderation/comments`) under the app
- * shell's Governance group, so a `sections` map splitting nav by identity is
- * no longer needed.
- */
 const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/admin/activity", label: "Publishing activity" },
   { href: "/admin/audit", label: "Audit log" },
@@ -61,8 +54,6 @@ export function AdminShell({ adminEmail, children }: AdminShellProps) {
             aria-label={sidebarOpen ? "Close menu" : "Open menu"}
             aria-expanded={sidebarOpen}
           >
-            {/* Three rules that fold into a cross. The transform is the state
-                change — an icon swap would read as a different button. */}
             {[0, 1, 2].map((i) => (
               <span
                 key={i}

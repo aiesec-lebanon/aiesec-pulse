@@ -11,14 +11,13 @@ const SEARCH_DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 
 /**
- * Name lookahead over the office tree, once.
+ * Name lookahead over the office tree, once — used by both the composer's
+ * audience picker and the quota administration form against different
+ * search functions, so `search` is a prop rather than an import.
  *
- * Written inside the composer's audience picker; the quota administration
- * form needed the same control against a different search and guard, so the
- * search itself is a prop rather than an import. The two callers differ in
- * what they are allowed to look up, not how looking up behaves. `search`
- * should be a stable reference — both callers pass a server action imported
- * at module scope — since only the query re-runs it.
+ * `search` must be a stable reference (a module-level server action, not an
+ * inline closure): the debounce effect below only watches `query`, so an
+ * unstable `search` can be called with a stale closure.
  */
 export function EntityTypeahead({
   id,
@@ -51,14 +50,10 @@ export function EntityTypeahead({
   const [isSearching, setIsSearching] = useState(false);
   const requestIdRef = useRef(0);
 
-  // Once an entity is picked, the input shows its name rather than a live
-  // query — typing again clears the pick, the same escape hatch a browser's
-  // own autocomplete gives you.
+  // Skips re-searching once `query` matches the picked value's name; typing
+  // again clears the pick (onChange(null) below) and resumes search.
   useEffect(() => {
     if (value && query === value.name) return;
-    // A short or just-selected query does nothing here — stale `results` from
-    // a longer query are simply not rendered below rather than cleared via a
-    // synchronous setState in the effect body.
     if (query.trim().length < MIN_QUERY_LENGTH) return;
 
     const requestId = ++requestIdRef.current;

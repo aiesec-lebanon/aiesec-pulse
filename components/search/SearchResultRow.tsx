@@ -6,16 +6,6 @@ import { TopicLabel } from "@/components/ui/TopicPill";
 import { relativeTime } from "@/lib/relative-time";
 import { KIND_LABELS, type SearchHit } from "@/lib/search";
 
-/**
- * A search result's reason for being shown is the matched text, not the cover
- * image — so this stays a text-first row rather than reusing
- * `SecondaryPostCard`.
- *
- * Rendered as a ruled index row instead of a bordered card: a stack of cards
- * gives every result the same weight and the same eight edges, which is what
- * made the old results list read as a wall. The rule wipes to brand blue on
- * hover, the same moment the feed's index rows use.
- */
 export function SearchResultRow({ hit }: { hit: SearchHit }) {
   return (
     <article

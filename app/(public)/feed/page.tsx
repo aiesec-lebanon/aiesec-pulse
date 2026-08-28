@@ -21,8 +21,8 @@ export default async function FeedPage({
   const { page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  // Latest-only, no toggle, when the flag is off — matches how /drafts,
-  // /search etc. gate their own entry points (courtesy, not a boundary).
+  // Latest-only when the flag is off — a courtesy default, not a permission
+  // boundary.
   const rankedAvailable = await isEnabled("feed.ranked");
   const cookieStore = await cookies();
   const mode = rankedAvailable ? parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value) : "latest";
@@ -32,20 +32,16 @@ export default async function FeedPage({
     page === 1 ? getTrendingAuthors() : Promise.resolve([]),
   ]);
 
-  // One shared pool of up to five posts feeds the whole lead complex: one is
-  // in the hero at a time, the rest fill the "more top stories" rail —
-  // FeedLead owns which is which and re-shuffles the rail as the hero
-  // rotates, so a quiet day (fewer than five posts) never leaves the rail
-  // empty the way two disjoint slices used to.
+  // One shared pool feeds both the hero and the "more top stories" rail —
+  // FeedLead decides which post is which, so a quiet day (fewer than five
+  // posts) never leaves the rail empty the way two disjoint slices used to.
   const leadPool = posts.slice(0, 5);
 
   const heading = mode === "for-you" ? "For you" : "Latest";
 
-  // The page's h1 — visually hidden. The reference file's header is the
-  // shell's nav bar; there's no separate "For you" title-and-standfirst block
-  // beneath it — the rotator is the page's visual lead. A heading still has
-  // to exist for a screen-reader user landing on the route, and for the
-  // one-h1-per-page contract e2e/accessibility.spec.ts checks.
+  // Visually hidden, but a heading still has to exist for a screen-reader
+  // user landing on the route, and for the one-h1-per-page contract
+  // e2e/accessibility.spec.ts checks.
   const pageHeading = <h1 className="sr-only">{heading}</h1>;
 
   if (leadPool.length === 0) {
@@ -65,19 +61,16 @@ export default async function FeedPage({
     );
   }
 
-  // The closing index is its own query, not the next slice of this page, so
-  // its headline count and rows describe the same time window — see
-  // `getElsewhereDigest`. It excludes what the lead already shows, and runs
-  // only when there's a lead at all: an empty feed has nothing to be
-  // "elsewhere" from.
+  // Its own query, not the next slice of this page — see `getElsewhereDigest`
+  // — so its headline count and rows describe the same time window.
   const elsewhere = await getElsewhereDigest(leadPool.map((post) => post.id));
 
   return (
     <main className="flex-1 pb-24">
       {pageHeading}
 
-      {/* Full-bleed hero, then the secondary rail overlapping its bottom edge —
-          FeedLead splits the two internally since they share `active`. */}
+      {/* FeedLead renders the hero and the overlapping rail together — they
+          share `active` state. */}
       <FeedLead posts={leadPool} />
 
       <div className="mx-auto w-full max-w-[1240px] px-6">

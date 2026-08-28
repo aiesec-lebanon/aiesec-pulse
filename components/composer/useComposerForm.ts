@@ -27,10 +27,8 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /**
- * Owns the composer's field state and cover-image upload flow — identical
- * whether starting fresh (/posts/new) or resuming a saved draft
- * (/posts/[slug]/edit), so neither route duplicates state or
- * drag/drop/upload handling.
+ * Owns the composer's field state and cover-image upload flow, shared by
+ * both /posts/new and /posts/[slug]/edit so neither route duplicates it.
  */
 export function useComposerForm(initialValues?: ComposerInitialValues) {
   const [title, setTitle] = useState(initialValues?.title ?? "");

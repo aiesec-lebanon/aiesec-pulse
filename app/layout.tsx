@@ -7,8 +7,6 @@ import { headers } from "next/headers";
 import { BootScript } from "@/components/boot-script";
 import { Providers } from "@/components/providers";
 
-// Three faces, three jobs. Lato speaks as the product, Instrument Serif as the
-// journalism, IBM Plex Mono as the instrumentation around it.
 const lato = Lato({
   variable: "--font-lato",
   subsets: ["latin"],
@@ -45,8 +43,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Reading the nonce makes every page dynamic — the documented cost of a
-  // nonce-based CSP, accepted because the feed is per-viewer anyway.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (

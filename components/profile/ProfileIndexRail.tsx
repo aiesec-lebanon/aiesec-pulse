@@ -7,13 +7,9 @@ export type ProfileSection = { id: string; label: string };
 /**
  * The sticky "on this profile" rail — 4a's left column.
  *
- * Deliberately the same device as the story page's `ReadingIndex` (down to the
- * growing tick), so the two rails read as one product. A separate component
- * because it tracks named sections, not headings, and has no read-percentage —
- * a profile isn't something a reader finishes.
- *
- * Real `<a href="#id">` anchors for addressability and keyboard operation;
- * `scroll-mt-*` on each target clears the sticky header.
+ * Real `<a href="#id">` anchors, not buttons, so each section is addressable
+ * and keyboard-operable; `scroll-mt-*` on each target clears the sticky
+ * header, or the anchor scroll lands underneath it.
  */
 export function ProfileIndexRail({
   sections,

@@ -23,9 +23,7 @@ type Props = {
  * and the shell now animates the whole content column on every route change
  * (`RouteTransition`) — a fixed bar inside it would resolve against the column
  * and vanish off the bottom of the page for the transition's duration. Sticky
- * is unaffected, and arguably the better behaviour anyway: the bar rides the
- * bottom edge while the reader is in the story and releases at the end,
- * instead of permanently covering the last line of every page.
+ * is unaffected.
  */
 export function EngagementBar({
   postId,
@@ -42,9 +40,7 @@ export function EngagementBar({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard denied (an insecure context, or a refused permission). The
-      // URL is in the address bar either way, so there is nothing useful to
-      // say that the reader cannot already see.
+      // Clipboard denied (an insecure context, or a refused permission).
     }
   }
 

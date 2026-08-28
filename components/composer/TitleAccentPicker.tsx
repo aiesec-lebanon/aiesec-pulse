@@ -7,23 +7,13 @@ import { tokensForKind } from "@/lib/topics-shared";
 
 /**
  * Choosing the phrase in a headline that goes italic in the topic's colour.
- *
- * The design system's signature device (§0.3) is one accented phrase per
- * headline, and the choice must be editorial, never inferred — "an algorithm
- * reaching for 'the' would make every headline look accidental." It has to
- * be asked for, without turning a one-second decision into a form.
+ * The choice must be editorial, never inferred — an algorithm picking the
+ * phrase would make every headline look accidental.
  *
  * **Not** a text input for retyping part of the headline: it can be
- * misspelled, go stale when the title changes, and forces a diff. Instead
- * the headline is dealt out as words — tapping one selects it, tapping next
- * to the selection extends it, tapping either end trims it, and tapping the
- * middle clears it. Contiguity is enforced by construction — no gesture
- * produces "volunteers … town", which the renderer couldn't express anyway.
- *
- * Each chip shows what it will look like, in the topic's colour, so the
- * decision is made by looking, not imagining. The control disappears when
- * there's no headline yet: an empty row of chips inviting a choice about
- * nothing is worse than no control.
+ * misspelled, go stale when the title changes, and forces a diff. Selection
+ * is enforced contiguous by construction — no gesture produces
+ * "volunteers … town", which the renderer couldn't express anyway.
  *
  * Storage is the substring, not an index pair — see `Post.titleAccent`.
  * That lets an accent survive an edit elsewhere in the headline, and fail
@@ -66,16 +56,13 @@ export function TitleAccentPicker({
     }
     const { start, end } = selected;
 
-    // Trim from either end. Clicking the only selected word clears it.
     if (index === start && index === end) return apply(null);
     if (index === start) return apply({ start: start + 1, end });
     if (index === end) return apply({ start, end: end - 1 });
-
-    // Inside the selection: the author is starting again from this word.
     if (index > start && index < end) return apply({ start: index, end: index });
 
-    // Adjacent: extend. Anything further away starts a fresh selection, because
-    // the accent has to be one contiguous phrase.
+    // Non-adjacent clicks start fresh — the accent must stay one contiguous
+    // phrase, or the renderer can't express it.
     if (index === start - 1) return apply({ start: index, end });
     if (index === end + 1) return apply({ start, end: index });
     return apply({ start: index, end: index });

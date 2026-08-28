@@ -23,9 +23,9 @@ export type QueueStats = {
   avgReviewMinutes: number | null;
 };
 
-// UI ref 8a's stat strip, scoped to what the approval flow actually audits
-// (app/actions/posts.ts's `withAudit` calls) — not a "reason" taxonomy, since
-// this workflow has no such field, so reason chips are deliberately absent.
+// UI ref 8a's stat strip. Scoped to what the approval flow actually audits
+// (app/actions/posts.ts's `withAudit` calls) — there is no "reason" field,
+// so reason chips are deliberately absent.
 export async function getQueueStats(scope: ScopeFilter): Promise<QueueStats> {
   const entityIds = await scopeEntityIds(scope);
   const startOfDay = new Date();

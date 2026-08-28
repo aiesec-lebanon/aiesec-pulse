@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { buildExportBundle } from "@/lib/privacy/dsr";
 
-// A schedule that exists only in a document is a policy, not a control.
 // Published posts, comments and AuditEvent are never swept.
 
 const DAY_MS = 24 * 60 * 60 * 1000;

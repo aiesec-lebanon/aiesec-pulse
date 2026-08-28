@@ -12,15 +12,12 @@ const OPTIONS: Array<{ key: FeedMode; label: string }> = [
 ];
 
 /**
- * The feed's order switch, living in the shell's nav — beside the "Feed" link
- * itself, rather than as a second tab-shaped control on the feed page. Only
- * ever rendered while the pathname is under /feed (see `NavRail`).
+ * The feed's order switch, living in the shell's nav. Only ever rendered
+ * while the pathname is under /feed (see `NavRail`).
  *
- * `open` is controlled from outside on desktop, because the surface a reader
- * points at is the whole "Feed" nav item — link and chevron together — not the
- * 24px chevron alone. `NavRail` owns the hover intent for that region and
- * passes the result down; when no `open` prop arrives (the mobile drawer) the
- * component falls back to its own click-driven state.
+ * `open` is controlled from outside on desktop (`NavRail` owns hover intent
+ * for the item); with no `open` prop (the mobile drawer) it falls back to
+ * its own click-driven state.
  *
  * Hover is an addition, never the only way in: the chevron is still a real
  * button that toggles on click and on Enter, and Escape still closes and
@@ -29,8 +26,8 @@ const OPTIONS: Array<{ key: FeedMode; label: string }> = [
  *
  * `mode` is a prop, not local state: `setFeedMode` refreshes the current route
  * on completion, so the server-computed value flows back down through the
- * layout rather than being mirrored here — the one piece of local state is
- * `isPending`, purely to disable the trigger mid-write.
+ * layout rather than being mirrored here — `isPending` is the only local
+ * state, purely to disable the trigger mid-write.
  */
 export function FeedModeMenu({
   mode,

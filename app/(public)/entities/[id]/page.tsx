@@ -28,15 +28,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 /**
- * An office's page — UI ref **4b**, same composition as 4a and `/profile`:
- * angled initials hero, stat strip, sticky section index, numbered
- * "Published" index.
+ * An office's page.
  *
  * `entity.name` already arrives as the brand lockup (`lib/profile.ts` via
- * `entityDisplayName`), so nothing here concatenates "AIESEC in" itself. 4b's
- * overview paragraph and MC-president pull-quote are dropped — `Entity` has no
- * field for either. The standfirst is the office's tier and local-committee
- * count, both real.
+ * `entityDisplayName`) — do not prepend "AIESEC in" again here.
+ *
+ * `Entity` has no field for an overview paragraph or MC-president pull-quote,
+ * so both are dropped rather than faked.
  */
 export default async function EntityProfilePage({
   params,
@@ -100,10 +98,6 @@ export default async function EntityProfilePage({
         }
       />
 
-      {/* The rail only earns its column with more than one section to track
-          (`ProfileIndexRail` renders nothing below that) — without the
-          condition, a single-section profile left a blank 230px gutter,
-          pushing its only content a third of the way across the page. */}
       <div
         className={[
           "mx-auto w-full max-w-[1240px] px-6 pt-14",

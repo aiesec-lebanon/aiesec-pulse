@@ -1,11 +1,8 @@
 /**
- * The metadata rule: entity, reading time, age, count — set in the instrument
- * register and separated by a dot.
+ * The metadata rule — entity, reading time, age, count — separated by a dot.
  *
- * Every surface that lists a post carries one of these, and before this they
- * were hand-assembled per surface with three different separators and two
- * different type sizes. Falsy items are dropped, so a caller can pass an
- * optional field without composing the separators itself.
+ * Falsy items are dropped, so a caller can pass an optional field without
+ * composing the separators itself.
  */
 export function MetaLine({
   items,
@@ -14,7 +11,6 @@ export function MetaLine({
 }: {
   items: Array<React.ReactNode | null | undefined | false>;
   className?: string;
-  /** A slash reads as a path (breadcrumbs); the default dot reads as a list. */
   separator?: string;
 }) {
   const shown = items.filter(Boolean);

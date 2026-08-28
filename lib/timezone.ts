@@ -1,8 +1,3 @@
-// No date/timezone library is a project dependency, so converting a
-// `datetime-local` picker's wall-clock value into the correct UTC instant
-// for an arbitrary IANA zone uses plain Intl — the standard "format, diff,
-// correct" technique.
-
 function offsetParts(instant: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,

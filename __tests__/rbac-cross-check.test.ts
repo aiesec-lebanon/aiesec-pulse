@@ -124,9 +124,6 @@ describe("denial is per-position, not per-user", () => {
 });
 
 // ── Sign-in refusal ─────────────────────────────────────────────────────────
-// The pure mapping above cannot express "and therefore they cannot sign in" —
-// that decision lives in reconciliation, so it is exercised against a mocked
-// database rather than left to an e2e run.
 
 const dbMock = {
   user: { findUnique: vi.fn(), upsert: vi.fn() },

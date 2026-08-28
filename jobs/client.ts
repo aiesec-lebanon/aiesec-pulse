@@ -1,8 +1,7 @@
 import { EventSchemas, Inngest } from "inngest";
 
-// Cron only triggers a job, never does the work — a serverless request timeout
-// is not a job runtime. Jobs that do not exist yet are absent rather than
-// stubbed: a registered no-op reports green.
+// Jobs that do not exist yet are absent rather than stubbed: a registered
+// no-op reports green.
 
 type Events = {
   "org/entities.sync.requested": { data: { trigger: "cron" | "manual" } };

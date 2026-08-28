@@ -49,8 +49,7 @@ export function ElsewhereSection({
       aria-labelledby="feed-elsewhere-heading"
       className="relative mt-24 overflow-hidden border-t border-[var(--hairline)] pb-4 pt-16"
     >
-      {/* Decorative — z-indexed under the type, over nothing but the page
-          ground, matching the reference file's 4-col overlay device. */}
+      {/* Decorative. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 grid grid-cols-4">
         <span className="border-r border-[var(--hairline)]" />
         <span className="border-r border-[var(--hairline)]" />
@@ -78,9 +77,6 @@ export function ElsewhereSection({
         </div>
       </div>
 
-      {/* Pulled out to the container's own edges: a marquee that stops short
-          of the page margin reads as a broken element rather than as a rule
-          running under the section. */}
       <div
         aria-hidden
         className="relative -mx-6 mt-14 overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_10%,#000_90%,transparent)]"

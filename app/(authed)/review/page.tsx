@@ -16,15 +16,6 @@ export const metadata = { title: "Review queue · AIESEC Pulse" };
 
 /**
  * The approval queue, at `/review`.
- *
- * It used to live at `/admin/queue`, wrong on both counts: this is editorial
- * work by an AIESEC position inside its own entity, not administration, and
- * it was never reachable by a platform administrator anyway —
- * `requirePermission("post.approve")` requires a *member* session, so a
- * credential admin opening `/admin/queue` was redirected straight back to
- * member sign-in. A URL promising administration but gating a different
- * identity broke its promise to both audiences; `/admin/*` now is what it
- * says it is.
  */
 export default async function ReviewQueuePage() {
   const user = await requirePermission("post.approve");
@@ -33,7 +24,7 @@ export default async function ReviewQueuePage() {
   const [posts, stats] = await Promise.all([
     db.post.findMany({
       where: { status: PostStatus.IN_REVIEW, ...postScopeWhere(scope) },
-      orderBy: { createdAt: "asc" }, // oldest first — the queue is a queue
+      orderBy: { createdAt: "asc" },
       take: 100,
       select: {
         id: true,

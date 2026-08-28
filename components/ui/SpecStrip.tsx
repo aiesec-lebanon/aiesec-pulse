@@ -1,21 +1,13 @@
 /**
- * A row of measurements under a hero or page intro: entity, date, reading
- * time, count — labels in the instrument register over values in the display
- * serif, divided by hairlines rather than cards.
- *
- * Cards would make four facts look like four things to click. The strip reads
- * as one instrument panel — the same shape carries a story's provenance, a
- * topic's totals, and a moderation queue's counters without redesign each time.
- *
- * On a narrow viewport the cells stack two-up rather than scrolling: four
- * numbers squeezed onto one line stop being readable before they stop
- * fitting.
+ * A row of measurements under a hero or page intro — labels over values,
+ * divided by hairlines rather than cards.
  *
  * `contained` aligns the strip with the rest of the app: under a full-bleed
- * hero, the *rules* must reach both page edges while the first cell must start
- * where every other page's content does — the shell's own `max-w-[1240px]`
- * column. Without it, the strip started at the page margin while the header
- * wordmark sat in a centred container: 300px out of step on a 1920px screen.
+ * hero, the *rules* must reach both page edges while the first cell must
+ * start where every other page's content does — the shell's own
+ * `max-w-[1240px]` column. Without it, the strip started at the page margin
+ * while the header wordmark sat in a centred container: 300px out of step on
+ * a 1920px screen.
  */
 export function SpecStrip({
   cells,

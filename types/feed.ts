@@ -5,11 +5,9 @@ export type FeedPost = {
   id: string;
   slug: string;
   title: string;
-  /** The phrase inside `title` the author set italic in the topic's colour. */
   titleAccent: string | null;
   excerpt: string;
   readingMinutes: number;
-  /** How far the post reaches. Surfaced as a badge on the card. */
   level: PostLevel;
   mediaUrl: string | null;
   mediaAlt: string | null;

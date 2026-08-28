@@ -1,17 +1,5 @@
-// Split out for the same reason as lib/search-shared.ts: the topic colour is
-// needed by client components, and lib/content/topics.ts is "server-only".
-
 import type { TopicKind } from "@/app/generated/prisma/enums";
 
-/**
- * Three accents, three kinds. The design system carries one colour per topic;
- * `Topic` carries no colour column, and adding one would put a design decision
- * in a migration and leave thirteen topics competing for three accents.
- *
- * Keying on `kind` means the code is learnable rather than arbitrary — blue is
- * a programme, teal is a function, orange is what the network decides
- * together — and it holds however many topics are seeded.
- */
 export type TopicTone = "programme" | "function" | "general";
 
 export const TOPIC_TONE: Record<TopicKind, TopicTone> = {

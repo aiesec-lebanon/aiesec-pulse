@@ -1,18 +1,7 @@
 /**
  * A headline in the display serif, with one word — or one phrase — set italic
- * in an accent colour.
- *
- * The accent is the system's signature device: it names what a story is
- * about from inside the sentence rather than beside it. Deliberately opt-in,
- * since which word carries a headline is an editorial judgement — an
- * algorithm reaching for "the" or "a" would make every headline look
- * accidental. A caller *may* pass a phrase the story is already filed under;
- * see `lib/content/accent.ts`.
- *
- * Multi-word accents are supported — 2a's own headline uses one ("nine
- * weeks", "rebuilt"), and topic names are rarely one word — so whitespace in
- * the target is matched loosely: a phrase still matches a title whose words
- * wrap differently.
+ * in an accent colour. A caller may pass a phrase the story is already filed
+ * under; see `lib/content/accent.ts`.
  *
  * Colour is never the only cue: the accent is italic as well as coloured, so
  * the emphasis survives for a reader who cannot see the hue.
@@ -60,8 +49,8 @@ type Split = { before: string; accent: string | null; after: string };
 
 /**
  * Matches whole words only, so accenting "on" cannot italicise the middle of
- * "long". Returns the title unchanged when the word is absent, which is what
- * makes a stale accent harmless after an edit.
+ * "long". Returns the title unchanged when the word is absent, so a stale
+ * accent stays harmless after an edit.
  *
  * A multi-word target is matched with `\s+` between its words rather than a
  * literal space, so "AIESEC  in Brazil" in a pasted headline still matches

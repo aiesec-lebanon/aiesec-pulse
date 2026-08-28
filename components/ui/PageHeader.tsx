@@ -2,22 +2,7 @@ import Link from "next/link";
 
 import { Reveal } from "@/components/motion/Reveal";
 
-/**
- * The page header, once.
- *
- * Eight pages had each grown their own: a back link at 14px muted, then an
- * `h1` at 24, 32 or 34px depending on the page, sometimes with a count beside
- * it and sometimes with buttons below. No two surfaces announced themselves
- * the same way, which is most of why the app read as assembled rather than
- * designed.
- *
- * One shape: a breadcrumb in the instrument register, the title in the display
- * serif, an optional standfirst at lead-body size, and actions pinned to the
- * baseline of the title on wide viewports. The count sits in the mono register
- * beside the breadcrumb rather than trailing the title — a serif title with a
- * sans numeral hung off it was the one thing in the old header that never
- * looked deliberate.
- */
+/** The page header, once. */
 export function PageHeader({
   title,
   standfirst,

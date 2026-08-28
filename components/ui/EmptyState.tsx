@@ -4,18 +4,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { DisplayTitle } from "@/components/ui/DisplayTitle";
 
 /**
- * Empty and error states, as one component and as type rather than as
- * illustration.
- *
- * The floating glow-orb graphic went with the redesign — a drawing in an
- * empty state is decoration standing where an explanation should be. It says
- * "nothing here" in a language the rest of the product doesn't speak, and
- * looks identical whether the feed is empty, the search found nothing, or
- * the network is down. A sentence set in the display serif says which.
- *
- * `tone` switches the accent from brand blue to the warning colour — the one
- * variation any caller has needed, and never the only cue, since the sentence
- * itself says what happened.
+ * Empty and error states, as one component, in type rather than illustration.
  */
 export function EmptyState({
   heading,
@@ -42,10 +31,6 @@ export function EmptyState({
 }) {
   const accentColor = tone === "error" ? "var(--destructive-text)" : "var(--primary-text)";
 
-  // Left at the page margin rather than centred: a centred column of
-  // left-aligned text floats, and the states this replaces are the ones a
-  // reader lands on by accident — they should start where every other line on
-  // the page starts.
   return (
     <div className="flex w-full max-w-[52ch] flex-col items-start gap-6 py-24">
       {eyebrow && (

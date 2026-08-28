@@ -9,11 +9,6 @@ import { useMotion } from "@/components/motion/motion-context";
  * names the action the click performs, 44px hit area, and a visually-hidden
  * `aria-live` region announcing the result — the state change is not conveyed
  * by the icon alone.
- *
- * The two icons cross-fade and counter-rotate rather than swapping, so the
- * control demonstrates the thing it controls. Under Reduced, that animation
- * collapses with everything else — the honest behaviour: the control should
- * look the way it's about to make the rest of the app look.
  */
 export function MotionToggle() {
   const { motion, setMotion } = useMotion();
@@ -58,15 +53,12 @@ export function MotionToggle() {
 }
 
 /**
- * The same preference as a menu row rather than an icon button — the form it
- * takes inside the shell's account menu and mobile drawer, now that the header
- * rail no longer carries a standalone Motion control.
+ * The same preference as a menu row rather than an icon button.
  *
- * A row, not an icon: in a list of named destinations an unlabelled glyph is
- * the one item a reader has to guess at. `role="menuitemcheckbox"` states what
- * it is and what it currently is, the label names the setting rather than the
- * action, and the trailing word names the value — so the control reads
- * correctly whether it is announced or looked at.
+ * `role="menuitemcheckbox"` states what it is and what it currently is, the
+ * label names the setting rather than the action, and the trailing word names
+ * the value — so the control reads correctly whether it is announced or
+ * looked at.
  */
 export function MotionMenuItem({
   className,

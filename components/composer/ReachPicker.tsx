@@ -19,15 +19,11 @@ type Props = {
 /**
  * How far this post will travel, chosen at publication.
  *
- * Two shapes, matching `AudiencePicker`'s fixed/open split, so the composer
- * has one grammar for "reach," not two:
- *
  * - **network** — an AI-level office publishes to the network by position:
  *   nothing to decide, so this is a sentence, not a control.
  * - **choice** — the publisher may spend one of their MC's promotions now,
- *   rather than later. Same permission, budget, and mandatory note as post
- *   detail's promotion panel; the budget shows before the choice, since a
- *   promotion should be deliberate.
+ *   rather than later. Same permission and budget check as post detail's
+ *   promotion panel, and the note is mandatory.
  */
 export function ReachPicker({
   options,
@@ -82,8 +78,6 @@ export function ReachPicker({
         <ReachOption
           label="The whole network"
           active={networkChosen}
-          // Disabled rather than hidden: an MCP who cannot promote this week
-          // should still see that the choice exists and why it is unavailable.
           disabled={disabled || exhausted}
           onClick={() => onChange("network")}
         />

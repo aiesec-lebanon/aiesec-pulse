@@ -14,11 +14,9 @@ export const metadata = { title: "Search · AIESEC Pulse" };
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-// Best-effort only: reconstructs which preset the form should show selected
-// after reload, by checking whether "from" nears one of SearchForm's fixed
-// day-counts. A "from" the presets couldn't have produced (a hand-edited URL,
-// or a future preset added there but not here) just shows as "Any time" —
-// the results still honour the real value.
+// Best-effort: infers which preset SearchForm should show selected after
+// reload. A "from" that doesn't match a known preset just shows as "Any
+// time" — the results still honour the real value.
 function inferDaysPreset(dateFrom: Date | null): string {
   if (!dateFrom) return "";
   const diffDays = Math.round((Date.now() - dateFrom.getTime()) / ONE_DAY_MS);

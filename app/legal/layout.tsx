@@ -42,9 +42,8 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         </div>
       </header>
 
-      {/* The prose sits on --card rather than --background: secondary copy at
-          --muted-foreground has more contrast headroom on white, and a policy
-          document is exactly the content nobody should have to squint at. */}
+      {/* --card, not --background: --muted-foreground has more contrast
+          headroom there, and this page is mostly muted-foreground prose. */}
       <main id="main-content" className="mx-auto w-full max-w-[820px] flex-1 px-6 py-10">
         <article className="legal-prose rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--card)] px-6 py-8 sm:px-10 sm:py-10">
           {children}

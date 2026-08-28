@@ -9,11 +9,10 @@ export type AuthorProfile = {
   id: string;
   fullName: string;
   avatarUrl: string | null;
-  /** The member's own standfirst, when they have written one. */
   bio: string | null;
   onPulseSince: Date;
-  /** The entity the member is currently placed at, if any. Name is already
-   *  the reader-facing brand lockup — see lib/org/display.ts. */
+  /** Name has already been through entityDisplayName (lib/org/display.ts) —
+   *  don't reformat it again. */
   primaryEntity: { id: string; name: string } | null;
   /** The current AIESEC position title (e.g. "MCVP"), if the grant is active. */
   positionTitle: string | null;
@@ -21,10 +20,9 @@ export type AuthorProfile = {
   viewerFollowState: "none" | "following" | "muted";
 };
 
-// `User.bio` is the one narrative field on a profile, because a member wrote
-// it — see M21. UI ref 4a's quote and "recognition" list have nothing behind
-// them and stay dropped rather than invented: this profile carries what a
-// real query can answer, plus what its subject chose to say.
+// See M21. UI ref 4a's quote and "recognition" list have no backing field and
+// stay dropped rather than invented — this profile surfaces only what a real
+// query can answer, plus what the subject actually wrote.
 export async function getAuthorProfile(userId: string): Promise<AuthorProfile | null> {
   const viewer = await requireSession();
   const now = new Date();
@@ -99,9 +97,9 @@ export type EntityProfile = {
   viewerFollowState: "none" | "following" | "muted";
 };
 
-// Same rule as the author profile: name, kind, member counts and real posts
-// only. UI ref 4b's overview paragraph and MC-president pull-quote have no
-// backing field on Entity and are dropped rather than invented.
+// Same rule as the author profile (see above). UI ref 4b's overview
+// paragraph and MC-president pull-quote have no backing field on Entity and
+// are dropped rather than invented.
 export async function getEntityProfile(entityId: string): Promise<EntityProfile | null> {
   const viewer = await requireSession();
 

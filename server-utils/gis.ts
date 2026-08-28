@@ -185,8 +185,6 @@ export async function fetchOfficePage(
   return { offices: result.data, totalPages: result.paging?.total_pages ?? null };
 }
 
-// Empty means no restriction. Kept as configuration because an entity-scoped
-// pilot is plausible and reinstating one should not mean rewriting the callback.
 const ALLOWED_OFFICE_IDS: readonly string[] = [];
 const ALLOWED_ROLE_NAMES: readonly string[] = [];
 

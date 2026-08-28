@@ -5,10 +5,7 @@
 // parses every one of them through the live Zod schema in `server-utils/gis.ts`,
 // so a GIS shape change that would break production fails CI instead.
 //
-// Nothing here is imported by application code. The e2e suite reaches these
-// through a stub server that answers as GIS (see ./server.ts); the app under
-// test is pointed at that server by environment variable and is unaware it is
-// talking to anything other than the real thing.
+// Nothing here is imported by application code — see ./server.ts.
 
 /** The GIS office shape, as the `currentPerson` query selects it. */
 export type StubOffice = {

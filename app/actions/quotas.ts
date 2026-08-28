@@ -10,11 +10,6 @@ import { parseBudget } from "@/lib/quota-shared";
 import { ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { checkAdmin } from "@/lib/rbac/guards";
 
-// The lever the promotion design gives an administrator: how many posts a
-// class may publish into its own MC, and how many of those an MC may put
-// before the whole network. Both use the same table and precedence rule —
-// nearest scope wins — so both are administered here.
-//
 // Nothing caches a quota policy: resolveQuotaPolicy reads the table on every
 // publish, so a saved budget is live on the next post rather than after a TTL.
 
@@ -53,8 +48,6 @@ export async function setQuotaPolicy(input: QuotaInput): Promise<QuotaResult> {
   const authorised = await checkAdmin();
   if (!authorised.ok) return { ok: false, error: authorised.error };
 
-  // Read off the input once: narrowing a parameter's property is lost again
-  // inside the transaction closure below.
   const { roleKey, postLevel, period, entityId } = input;
   if (!isRoleKey(roleKey)) return { ok: false, error: "Unknown position class." };
   if (!isPostLevel(postLevel)) return { ok: false, error: "Unknown post level." };

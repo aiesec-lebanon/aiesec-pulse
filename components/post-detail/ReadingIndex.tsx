@@ -14,8 +14,7 @@ import type { DocumentSection } from "@/lib/content/document";
  *     cleared of the sticky header via `scroll-mt-24` on each target heading.
  *   - **The read percentage, always.** It used to render *inside* the index
  *     and inherit its gate, so a story with one heading or none — most short
- *     updates — showed no progress at all. Progress isn't a table of
- *     contents; every article has it.
+ *     updates — showed no progress at all.
  *
  * Getting there took two wrong versions, both worth recording:
  *
@@ -136,9 +135,6 @@ export function ReadingIndex({
         </>
       )}
 
-      {/* Always. A rule that fills as the reader descends, and the figure
-          beside it — the same information twice, because the rule is read at a
-          glance and the figure is read when you look. */}
       <p className="pulse-label">
         <span ref={percentRef}>0</span>% read
       </p>

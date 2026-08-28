@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import { splitOnWord } from "@/components/ui/DisplayTitle";
 import { initialsOf, tokensForKind, TOPIC_TONE } from "@/lib/topics-shared";
 
-// Two pure decisions the editorial register rests on: which word of a headline
-// takes the accent, and which colour a topic speaks in. Both are the kind of
-// thing that looks right on one example and wrong on the next.
-
 describe("splitOnWord", () => {
   it("accents a whole word and keeps the rest of the headline intact", () => {
     const parts = splitOnWord("Four hundred volunteers rebuilt a river town", "rebuilt");

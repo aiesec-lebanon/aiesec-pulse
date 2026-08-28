@@ -1,28 +1,15 @@
 import { splitBrandLockup } from "@/lib/org/display";
 
 /**
- * An office's name.
+ * An office's name. Defaults to one colour, the ambient text colour: an
+ * earlier version coloured the wordmark everywhere an entity appeared,
+ * spending the system's strongest signal on repeated subtext instead of the
+ * headline.
  *
- * By default it is **one colour** — the ambient text colour, whatever that is.
- * That's the important part of this component, and it's a correction: the
- * first version painted the wordmark half in brand blue *everywhere* an entity
- * appeared, putting a saturated accent into every card footer, byline,
- * comment, and metadata rule on the page. Colour is the system's strongest
- * signal; spending it on the same repeated subtext everywhere spends it on
- * nothing, and pulls the eye from the headline the reader is actually there
- * for.
- *
- * The two-tone lockup is a **title** treatment, and only that — the reference
- * file uses it once per screen, on the `h1` of an entity's own page, where the
- * name *is* the subject. It accents the other half: the place name goes
- * italic in the accent colour ("AIESEC *in Brazil*"), while the wordmark
- * stays in the foreground colour — the constant, with the place as the
- * variable an accent is for.
- *
- * On a page that renders its title through `DisplayTitle`, prefer passing
- * `accentWord={brandPlaceAccent(name)}` — same result, one type register, and
- * the headline keeps its balance and clamp behaviour. `tone="title"` exists for
- * the cases that are not a `DisplayTitle`.
+ * `tone="title"` is the two-tone lockup (place name italic in the accent
+ * colour), meant for a single per-screen `h1`. Prefer
+ * `accentWord={brandPlaceAccent(name)}` on a `DisplayTitle` heading instead —
+ * using `tone="title"` there loses `DisplayTitle`'s balance/clamp behaviour.
  */
 export function EntityName({
   name,

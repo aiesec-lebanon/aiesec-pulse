@@ -78,8 +78,6 @@ export function documentFromPlainText(text: string): PulseDocument {
   return { type: "doc", content: paragraphs };
 }
 
-// Blocks separated by a blank line so search snippets and digest excerpts break
-// at sensible boundaries.
 export function plainTextFromDocument(doc: unknown): string {
   const parsed = sanitiseDocument(doc);
   return parsed.content.map(blockToText).filter(Boolean).join("\n\n");
@@ -114,8 +112,6 @@ function sanitiseMarks(marks: unknown): TextNode["marks"] {
       continue;
     }
 
-    // Anything that is not http(s) is dropped entirely rather than kept with a
-    // neutered href — a link that silently goes nowhere is more confusing.
     const href = typeof mark.attrs?.href === "string" ? mark.attrs.href : "";
     if (isSafeHref(href)) kept.push({ type: "link", attrs: { href } });
   }
@@ -161,10 +157,9 @@ function sanitiseBlock(node: unknown): BlockNode | null {
     case "paragraph":
       return { type: "paragraph", content: sanitiseInline(candidate.content) };
     case "image": {
-      // The id is kept opaque here — whether it names a real Media row is
-      // resolved at render time, not during sanitisation. Alt text is
-      // mandatory, same rule the cover-image field already enforces, so a
-      // block that omits it is dropped rather than kept without one.
+      // Alt text is mandatory, same rule the cover-image field already
+      // enforces, so a block that omits it is dropped rather than kept
+      // without one.
       const attrs = candidate.attrs as { mediaId?: unknown; alt?: unknown } | undefined;
       const mediaId = typeof attrs?.mediaId === "string" ? attrs.mediaId.trim() : "";
       const alt = typeof attrs?.alt === "string" ? attrs.alt.trim() : "";

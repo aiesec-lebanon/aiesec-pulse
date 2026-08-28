@@ -13,7 +13,6 @@ export const SCHEDULE_BATCH_LIMIT = 200;
 
 export type DuePost = { id: string; title: string; publisherEntityId: string };
 
-/** Exported standalone so it's testable under a fake clock without touching Postgres. */
 export function dueScheduledPostsQuery(now: Date = new Date()) {
   return {
     where: { status: PostStatus.SCHEDULED, scheduledAt: { lte: now } },

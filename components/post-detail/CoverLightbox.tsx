@@ -6,12 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /**
- * The cover photograph, openable.
- *
- * A story's cover is cropped hard by the hero — an angled clip on wide
- * viewports, a 16:9 band on narrow ones — so a reader wanting to actually
- * *look* at the photograph currently can't. This makes the frame a control
- * that opens it at full size, crop removed.
+ * The cover photograph, openable — a control that opens it at full size, crop
+ * removed.
  *
  * It renders as a transparent button laid over the image rather than wrapping
  * it: the hero's cover lives inside a `clip-path` container with a parallax
@@ -30,13 +26,11 @@ import { createPortal } from "react-dom";
  * sits inside the hero's `clip-path` container on wide viewports and an
  * `overflow: hidden` media frame on narrow ones. Both clip their descendants,
  * `position: fixed` included, so a dialog rendered in place would open as an
- * angled sliver of itself. It renders only while `open` — necessarily after
- * mount — so there's no server-render branch to guard.
+ * angled sliver of itself.
  */
 export function CoverLightbox({
   src,
   alt,
-  /** Extra classes for the overlay button — usually a rounding to match its frame. */
   className,
 }: {
   src: string;

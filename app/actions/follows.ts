@@ -32,8 +32,6 @@ async function toggle(
   const user = await requireSession();
   const where = { userId_targetType_targetId: { userId: user.id, targetType, targetId } };
 
-  // Independent reads, run concurrently rather than as two sequential round
-  // trips — neither depends on the other's result.
   const [exists, existing] = await Promise.all([
     targetExists(targetType, targetId),
     db.follow.findUnique({ where, select: { muted: true } }),

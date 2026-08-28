@@ -8,15 +8,10 @@ import { scopeSetFor } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
 import { type FilterableEntity, KIND_LABELS } from "@/lib/search-shared";
 
-// websearch_to_tsquery over the generated searchVector column, ranked with
-// ts_rank, snippeted with ts_headline. The audience check uses EXISTS —
-// matching lib/org/scope.ts's visibilityFilter() Prisma semantics exactly —
-// so a post targeted at several of the viewer's entities can't produce
-// duplicate rows.
+// The audience check uses EXISTS — matching lib/org/scope.ts's
+// visibilityFilter() Prisma semantics exactly — so a post targeted at several
+// of the viewer's entities can't produce duplicate rows.
 
-// Re-exported so server-side callers (the search page, SearchResultRow) can
-// keep importing everything from this one module — only the client-side
-// SearchForm needs lib/search-shared directly.
 export { type FilterableEntity, KIND_LABELS };
 
 export type SnippetPart = { text: string; highlighted: boolean };
@@ -24,8 +19,7 @@ export type SnippetPart = { text: string; highlighted: boolean };
 // ts_headline is asked (via chr(1)/chr(2) below) to wrap matches in charCode
 // 1/2 rather than HTML, so the snippet renders as plain React text nodes —
 // never dangerouslySetInnerHTML — with no risk that a post body's literal
-// "<mark>"-like text gets read as markup. fromCharCode, not a raw control
-// character, keeps this source file plain, diffable ASCII.
+// "<mark>"-like text gets read as markup.
 const SNIPPET_START = String.fromCharCode(1);
 const SNIPPET_STOP = String.fromCharCode(2);
 
@@ -83,9 +77,8 @@ function parseDate(value: string | undefined): Date | null {
 
 /**
  * Pure param parsing, independent of any request or database — an
- * unresolvable topic id or kind is dropped, not rejected. Same "silently
- * ignore a stale filter" call as topics.ts's resolveValidTopicIds, since a
- * filter carries no authorisation weight the way audience targeting does.
+ * unresolvable topic id or kind is dropped, not rejected: a filter carries no
+ * authorisation weight the way audience targeting does.
  */
 export function parseSearchFilters(params: RawSearchParams): SearchFilters {
   const query = (firstValue(params.q) ?? "").trim();
@@ -241,8 +234,6 @@ export async function searchPosts(
   return {
     results: page1.map((row) => ({
       ...row,
-      // Same boundary rule as the feed: the brand lockup is resolved once,
-      // here, not remembered by each row component.
       entityName: entityDisplayName(row.entityName, row.entityKind) ?? row.entityName,
       snippet: parseSnippet(row.snippet),
     })),
@@ -251,9 +242,8 @@ export async function searchPosts(
 }
 
 // A flat, alphabetised list for the filter bar's plain <select> — no
-// typeahead, unlike the composer's AudiencePicker. Small enough to list in
-// full at this org's actual scale; escalate to the trigram search the
-// audience picker already uses if that changes.
+// typeahead, unlike the composer's AudiencePicker; escalate to the trigram
+// search the audience picker already uses if the entity count outgrows this.
 export async function listFilterableEntities(): Promise<FilterableEntity[]> {
   const rows = await db.entity.findMany({
     where: { isActive: true },

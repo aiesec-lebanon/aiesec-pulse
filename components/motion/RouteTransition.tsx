@@ -3,14 +3,8 @@
 import { usePathname } from "next/navigation";
 
 /**
- * The move between two pages.
- *
- * Without this, a navigation is the one place the whole system still cut hard:
- * an entire screen replaced between two frames, with the reader left to work
- * out what changed. Keying a wrapper on the pathname gives every route change
- * a single authored arrival — the new page rises the last 18px into place and
- * resolves out of a short blur, over `--dur-scene`, on the same easing curve
- * everything else in the app moves on.
+ * The move between two pages. Keying a wrapper on the pathname gives every
+ * route change a single authored arrival.
  *
  * What is deliberately *outside* this wrapper: the header rail, the lit stage
  * behind the page, and the scroll container. A rail that re-enters with its

@@ -7,9 +7,8 @@ import { resolve } from "node:path";
  * The indirection is not a preference. Playwright transpiles globalSetup and
  * globalTeardown to CommonJS, and the generated Prisma client is ESM that uses
  * `import.meta` — importing it from a Playwright hook fails at load with
- * "Cannot use 'import.meta' outside a module". Running the cleanup under `tsx`,
- * the same way `npm run seed` runs the seed, sidesteps the loader entirely and
- * has the side benefit of making the cleanup runnable by hand.
+ * "Cannot use 'import.meta' outside a module". Running the cleanup under `tsx`
+ * sidesteps the loader entirely.
  */
 
 export type CleanupMode = "prepare" | "clean";

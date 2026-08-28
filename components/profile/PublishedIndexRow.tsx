@@ -5,16 +5,6 @@ import type { TopicKind } from "@/app/generated/prisma/enums";
 import { relativeTime } from "@/lib/relative-time";
 import { tokensForKind } from "@/lib/topics-shared";
 
-/**
- * One row of 4a's "Published" index: a serif ordinal, the headline in the
- * editorial serif with an arrow that arrives on hover, the topic in its own
- * colour underneath, and the age hard right.
- *
- * The rule at the bottom wipes to brand blue from the left as the pointer
- * lands — the same hover moment the feed's index rows, the search results and
- * the bookmarks list use. One gesture for "this row is a destination", used
- * everywhere a row is one.
- */
 export function PublishedIndexRow({
   index,
   href,

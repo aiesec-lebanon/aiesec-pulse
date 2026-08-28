@@ -17,13 +17,10 @@ const DEBOUNCE_MS = 300;
  * Debounced because a double-tap would fire two round-trips whose responses
  * can arrive out of order.
  *
- * The press is *felt*: the heart overshoots and settles, a ring of the
- * reaction colour throws off the control and dissolves, and the new figure
- * rolls up from the old one's place inside a clipped window. All three are
- * one-shot animations on keyed elements — they play once per press, never
- * loop, and collapse to nothing under Reduced via `--motion-scale` /
- * `--motion-travel`. A reaction stays confirmed by colour, fill, and the
- * live region — the parts that carry meaning.
+ * Press animations are one-shot on keyed elements and collapse to nothing
+ * under Reduced via `--motion-scale`/`--motion-travel`; a reaction stays
+ * confirmed by colour, fill, and the live region regardless, since those are
+ * what carry the meaning.
  *
  * `pressKey`, not a boolean "animating" flag: remounting the animated
  * elements restarts a CSS animation, while a flag would need a timer to
@@ -92,7 +89,6 @@ export function ReactionButton({ postId, initialReacted, initialCount }: Props) 
         ].join(" ")}
       >
         <span className="relative flex h-[18px] w-[18px] items-center justify-center">
-          {/* The ring only exists for the press that produced it. */}
           {pressKey > 0 && reacted && (
             <span
               key={`burst-${pressKey}`}
@@ -116,7 +112,6 @@ export function ReactionButton({ postId, initialReacted, initialCount }: Props) 
           />
         </span>
 
-        {/* A counter that changes should not merely become a different number. */}
         <span aria-hidden className="pulse-roll-window">
           <span key={count} className="pulse-roll">
             {count}

@@ -8,26 +8,14 @@ import { createContext, useContext, useEffect, useSyncExternalStore } from "reac
  * Motion is a first-class part of this interface, and "full" is the default —
  * but only for a reader who hasn't already told their OS otherwise.
  * `prefers-reduced-motion: reduce` is honoured as the *starting* value, and an
- * explicit choice inside Pulse overrides it either way. This is a deliberate
- * change from the previous position ("an OS preference set years ago for a
- * different device shouldn't silently decide what this product looks like"):
- * the header no longer carries a standalone Motion button, so the OS signal
- * is the only thing standing between a motion-sensitive reader and a page
- * full of parallax. The explicit control moved into the account menu and the
- * sign-in header — still one click from anywhere.
- *
- * Because the OS is now a real input, opting *in* to full motion has to be
- * stored explicitly — removing the key would hand the decision straight back
- * to the OS the reader just overruled.
+ * explicit choice inside Pulse overrides it either way. The header carries no
+ * standalone Motion button, so the OS signal is the only thing standing
+ * between a motion-sensitive reader and a page full of parallax by default.
  *
  * "reduced" is not "none": it zeroes `--motion-travel` and `--motion-scale`
  * (see globals.css), stopping scenes, parallax, 3-D tilt, the rotators and
  * the ambient canvas, while colour, focus and state transitions survive —
  * those carry meaning, not atmosphere.
- *
- * Mirrors theme-context deliberately: same storage strategy, same
- * useSyncExternalStore shape, same cross-tab event. Two preferences that behave
- * differently for no reason is a maintenance trap for a rotating volunteer team.
  */
 
 export type MotionPreference = "full" | "reduced";

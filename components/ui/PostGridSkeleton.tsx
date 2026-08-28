@@ -1,9 +1,7 @@
 /**
- * The shimmer bones shared by every page whose loading state is "a
- * PageHeader, maybe a SpecStrip, then a grid of SecondaryPostCards" —
- * search, bookmarks, a topic archive, an author or entity profile. One file
- * rather than five near-identical loading.tsx bodies, each a chance to drift
- * from what its own page actually renders.
+ * Shimmer bones shared by every page whose loading state is "a PageHeader,
+ * maybe a SpecStrip, then a grid" — search, bookmarks, a topic archive, an
+ * author or entity profile. Edits here affect all of them.
  */
 export function Bone({ className }: { className?: string }) {
   return (
@@ -84,9 +82,8 @@ export function PostGridPageSkeleton({
 }
 
 /**
- * A hairline index — the shape the bookmarks list and both profile surfaces
- * load into now that none of them is a card grid. Two-line title bones on a
- * ruled row, with a leading square where a thumbnail sits.
+ * A hairline index, shared by the bookmarks list and both profile surfaces:
+ * two-line title bones on a ruled row, with a leading square for a thumbnail.
  */
 export function IndexRowsSkeleton({
   count = 5,
@@ -118,9 +115,7 @@ export function IndexRowsSkeleton({
 /**
  * The 4a profile composition, as bones: the angled hero, the four-cell stat
  * strip, and the index rail beside a column of ruled rows. Shared by
- * `/profile`, `/authors/[id]` and `/entities/[id]`, which now render the same
- * layout — three loading files that drift apart is exactly what this file
- * exists to prevent.
+ * `/profile`, `/authors/[id]` and `/entities/[id]`.
  */
 export function ProfilePageSkeleton({ rows = 5 }: { rows?: number }) {
   return (

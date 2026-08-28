@@ -46,7 +46,7 @@ export type PostComposerProps = {
   timezone?: string;
   /** Absent (or the flag off) hides the picker entirely — every post keeps the old unconditional GLOBAL default. */
   audienceOptions?: AudiencePickerOptions;
-  /** The 13 pre-seeded, active topics. Empty hides the picker — nothing to choose from. */
+  /** Empty hides the picker — nothing to choose from. */
   topics?: TopicOption[];
   /** How far this post may travel. Absent means LOCAL with nothing to decide. */
   reachOptions?: ReachOptions;
@@ -165,8 +165,6 @@ export function PostComposer({
     }
   }
 
-  // Debounced: a burst of keystrokes restarts the timer rather than firing on
-  // every one, so autosave reflects a pause in typing, not each character.
   useEffect(() => {
     if (!hasContent || isUploading) return;
     const timeout = setTimeout(() => void runSave(), AUTOSAVE_DELAY_MS);
@@ -276,8 +274,6 @@ export function PostComposer({
         promoteToNetwork,
         promotionNote: promoteToNetwork ? promotionNote : undefined,
       };
-      // A draft created by autosave (or being resumed) publishes in place;
-      // otherwise this is a from-scratch submission with nothing saved yet.
       const result = draftId
         ? await publishDraft(draftId, publishInput)
         : await createPost(publishInput);
@@ -366,9 +362,6 @@ export function PostComposer({
               fieldErrors.title ? "border-[var(--destructive)]" : "border-[var(--border)]",
             ].join(" ")}
           />
-          {/* The accent phrase, chosen by tapping words rather than retyping
-              them. Directly under the field it describes, and only once there
-              is a headline to choose from. */}
           <TitleAccentPicker
             title={title}
             value={titleAccent}

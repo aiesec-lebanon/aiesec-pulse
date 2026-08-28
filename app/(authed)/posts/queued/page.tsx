@@ -9,7 +9,6 @@ export default async function PostQueuedPage() {
   return (
     <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 py-28">
       <div className="mx-auto flex max-w-[520px] flex-col items-center gap-8 text-center">
-        {/* Envelope illustration — muted tones, matches FeedIllustration visual family */}
         <Reveal
           y={16}
           scale={0.94}

@@ -14,21 +14,14 @@ type Props = {
   label: string;
   /** Icon-only, for tight spaces (feed card meta rows). Defaults to icon+text. */
   compact?: boolean;
-  /**
-   * `inline` (default) is the quiet text+icon control in a metadata rule.
-   * `prominent` is the boxed one 4a puts in a profile hero — the one place
-   * §0.6 sanctions a box, since a standalone action needs to read as
-   * pressable. Following inverts to an outline, so the two states read
-   * apart by shape as well as colour and icon.
-   */
+  /** `inline` (default) is the quiet text+icon control in a metadata row. `prominent` is the boxed variant used in a profile hero. */
   variant?: "inline" | "prominent";
 };
 
 const DEBOUNCE_MS = 300;
 
-// Same shape as ReactionButton: debounced so a double-tap can't fire two
-// round-trips whose responses arrive out of order, optimistic with
-// revert-on-failure, aria-live announced.
+// Debounced so a double-tap can't fire two round-trips whose responses
+// arrive out of order. Optimistic with revert-on-failure, aria-live announced.
 export function FollowButton({
   targetType,
   targetId,

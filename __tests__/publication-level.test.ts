@@ -4,10 +4,6 @@ import { PostLevel, PostStatus } from "@/app/generated/prisma/enums";
 import { decideReach, type ReachContext } from "@/lib/content/level";
 import type { ResolvedQuota } from "@/lib/quota";
 
-// The reach decision, exercised against an injected transaction client rather
-// than a database: `decideReach` takes the client as a parameter precisely so
-// the rule can be asserted without one.
-
 const POLICY: ResolvedQuota = {
   policyId: "quota_network_mc_president",
   roleKey: "mc_president",
@@ -17,7 +13,6 @@ const POLICY: ResolvedQuota = {
   periodLabel: "2026-W34",
 };
 
-/** A transaction client that answers the one count `decideReach` makes. */
 const txSpending = (used: number) =>
   ({ post: { count: async () => used } }) as unknown as Parameters<typeof decideReach>[0];
 

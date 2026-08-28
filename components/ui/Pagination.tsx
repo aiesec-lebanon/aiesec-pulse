@@ -3,11 +3,9 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 /**
  * Feed / search / topic-archive pagination, as one component.
  *
- * The same Newer/Older markup had been copy-pasted into three pages with
- * three different `aria-label`s and three chances to drift. Plain `<a>`
- * elements, not `<Link>`: these are full navigations that must reset scroll
- * and re-run the server component, and each caller already computes its own
- * hrefs because the query-string shape differs per surface.
+ * Plain `<a>` elements, not `<Link>`: these are full navigations that must
+ * reset scroll and re-run the server component. Each caller computes its own
+ * hrefs, since the query-string shape differs per surface.
  */
 export function Pagination({
   label,

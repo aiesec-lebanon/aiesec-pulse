@@ -1,10 +1,3 @@
-/**
- * One pill shape, not one per feature: 12px medium on a `--radius-md` corner,
- * a 10% tint of a semantic token, and its matching `-text` derivative on top.
- *
- * `StatusPill` (lifecycle) and `LevelBadge` (reach) are both this shape with a
- * different vocabulary. Anything else needing a pill uses this too.
- */
 export function Pill({
   label,
   tint,
@@ -15,11 +8,7 @@ export function Pill({
   label: string;
   tint: string;
   text: string;
-  /**
-   * Square corners. The reference file draws a *topic* as a hard-edged patch of
-   * colour, not a pill — a filing mark, not a status, distinguished at a glance
-   * by the corner. Lifecycle and reach badges keep the rounded shape.
-   */
+  /** Square corners — used for topic pills; lifecycle and reach badges stay rounded. */
   square?: boolean;
   className?: string;
 }) {

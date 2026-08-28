@@ -20,9 +20,7 @@ import type { EntityKind } from "@/app/generated/prisma/enums";
  *
  * A name that already begins with the wordmark is returned untouched, so a
  * GIS record that happens to store the full lockup is never doubled up into
- * "AIESEC in AIESEC in Brazil". `kind` is optional because a few call sites
- * only have a name to work with; without it the function assumes a committee,
- * which is what the overwhelming majority of named offices are.
+ * "AIESEC in AIESEC in Brazil".
  */
 
 const ALREADY_BRANDED = /^aiesec\b/i;

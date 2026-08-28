@@ -93,7 +93,6 @@ const rule = {
     const filename = context.filename ?? context.getFilename();
     const normalised = filename.replace(/\\/g, "/");
 
-    // Only applies to Server Action modules.
     if (!normalised.includes("/app/actions/")) return {};
 
     const basename = normalised.split("/").pop() ?? "";
@@ -115,7 +114,6 @@ const rule = {
 
     return {
       "Program:exit"(program) {
-        // First pass: learn which local functions are themselves guarded.
         for (const node of program.body) {
           if (node.type === "FunctionDeclaration" && node.id) {
             collectHelper(node, node.id.name);
@@ -134,7 +132,6 @@ const rule = {
           }
         }
 
-        // Second pass: every exported function must be guarded.
         for (const node of program.body) {
           if (node.type !== "ExportNamedDeclaration" || !node.declaration) continue;
           const declaration = node.declaration;

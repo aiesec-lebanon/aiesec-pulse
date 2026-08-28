@@ -409,10 +409,9 @@ export async function getAuthorReactionTotal(authorId: string): Promise<number> 
 
 const RELATED_POSTS_LIMIT = 4;
 
-// Story 20: shared-topic posts first, then same-publisher-entity, excluding
-// self — no new query infrastructure, just visiblePublishedWhere (the same
-// "never a way around targeting" rule getTopicFeed/getBookmarkedPosts
-// already follow) sliced two ways and merged.
+// Shared-topic posts first, then same-publisher-entity, both under
+// visiblePublishedWhere — the same "never a way around targeting" rule
+// getTopicFeed/getBookmarkedPosts already follow.
 export async function getRelatedPosts(
   excludePostId: string,
   publisherEntityId: string,
@@ -467,13 +466,10 @@ export async function getRelatedPosts(
 // Bounding happens in SQL, scoring in JS. The *bounding* —
 // visiblePublishedWhere + ORDER BY + LIMIT 500, so this never scans the full
 // archive — is in rankingCandidatesFor below; the score arithmetic runs over
-// that bounded set (≤500 rows of plain numbers), the same call search made
-// choosing EXISTS/CROSS JOIN over the doc's illustrated SQL. It keeps the
-// formula a plain, unit-testable function — this repo's established pattern
-// for business logic (dueScheduledPostsQuery, decideAudienceForSubmission
-// work the same way) — and lets a single post's breakdown share the exact
-// code path that ranked the feed, rather than a second, raw-SQL formula that
-// could silently drift from it.
+// that bounded set (≤500 rows of plain numbers). It keeps the formula a
+// plain, unit-testable function, and lets a single post's breakdown share
+// the exact code path that ranked the feed, rather than a second, raw-SQL
+// formula that could silently drift from it.
 //
 // Caching: the candidate cache is keyed by scope set, but affinity (Follow)
 // and seen (PostRead) are per-viewer terms — two members of the same entity
@@ -560,10 +556,6 @@ export function proximityTier(viewerPath: string | null, publisherPath: string):
   return "global";
 }
 
-/**
- * Every DB lookup already resolved, so the formula stays a pure function of
- * primitives — unit-testable with hand-built fixtures, no database, no mocking.
- */
 export type RankingCandidateInput = {
   publishedAt: Date;
   publisherEntityPath: string;
@@ -962,8 +954,7 @@ export async function getElsewhereDigest(excludePostIds: string[]): Promise<Else
     };
   }
 
-  // Unreachable: the "all" window always returns, empty or not. Kept so the
-  // function is total rather than relying on the loop's shape.
+  // Unreachable: the "all" window always returns.
   return { posts: [], entityCount: 0, window: "all" };
 }
 

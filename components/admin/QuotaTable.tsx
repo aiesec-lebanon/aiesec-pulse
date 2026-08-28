@@ -22,13 +22,9 @@ export type QuotaGroup = { level: PostLevel; label: string; rows: QuotaRow[] };
 const PERIODS = Object.keys(PERIOD_NAMES) as QuotaPeriod[];
 
 /**
- * The budget grid, shaped like the permission matrix: one table in the
- * admin card shell, rows banded by what they govern.
- *
- * Every edit here is explicit, unlike the matrix's optimistic toggle: a
- * checkbox has one meaning, so a round trip feels broken, but a number
- * doesn't — a half-typed budget is a different budget, and saving on each
- * keystroke would write three wrong policies before the right one.
+ * Every edit here is explicit rather than auto-saved on change: a half-typed
+ * budget is a different budget, and saving on each keystroke would write
+ * three wrong policies before the right one.
  */
 export function QuotaTable({
   caption,

@@ -19,10 +19,6 @@ export type ComposerPreviewProps = {
 };
 
 /**
- * A live mirror of how the post will read, beside the fields that produce
- * it — 7a's split editor. Purely derived from the caller's form state: no
- * state of its own, no network calls.
- *
  * The standfirst fallback and word-count/reading-time line call the same
  * functions the server uses to fill a blank summary and store
  * `readingMinutes` — so the preview is never a rounder, prettier lie about

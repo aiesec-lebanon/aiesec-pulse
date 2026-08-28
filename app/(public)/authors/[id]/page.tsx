@@ -30,18 +30,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 /**
- * A member's public page — UI ref **4a**, sharing its whole composition with
- * `/profile`: angled initials hero, stat strip, sticky section index beside
- * one reading column, and the numbered "Published" index whose rows grow a
- * rule and arrow on hover.
+ * A member's public page.
  *
- * What 4a shows that this can't: an overview paragraph, a pull-quote, and
- * three "recognition" cards — `User` has no bio, quote, or award field, so
- * they're dropped rather than faked (§0's Trust row). The standfirst uses
- * real fields instead: where they publish from, since when.
- *
- * "Elsewhere in {entity}" is 4a's closing section and *is* real: recent posts
- * from the same office by other members.
+ * `User` has no bio, quote, or award field, so an overview paragraph,
+ * pull-quote, or "recognition" cards are dropped rather than faked with
+ * placeholder text.
  */
 export default async function AuthorProfilePage({
   params,
@@ -71,8 +64,6 @@ export default async function AuthorProfilePage({
   const sinceYear = profile.onPulseSince.getFullYear();
   const entityName = profile.primaryEntity?.name ?? null;
 
-  // The office's own recent publishing, minus this member's — "elsewhere"
-  // means elsewhere.
   const elsewhere = entityFeed.posts
     .filter((post) => post.author.id !== id)
     .slice(0, ELSEWHERE_TAKE);
@@ -121,10 +112,6 @@ export default async function AuthorProfilePage({
         }
       />
 
-      {/* The rail only earns its column with more than one section to track
-          (`ProfileIndexRail` renders nothing below that) — without the
-          condition, a single-section profile left a blank 230px gutter,
-          pushing its only content a third of the way across the page. */}
       <div
         className={[
           "mx-auto w-full max-w-[1240px] px-6 pt-14",

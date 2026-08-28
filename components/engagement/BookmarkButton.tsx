@@ -14,11 +14,8 @@ type Props = {
 
 const DEBOUNCE_MS = 300;
 
-// Same shape as ReactionButton: debounced so a double-tap can't fire
-// two round-trips whose responses arrive out of order, optimistic with
-// revert-on-failure, aria-live announced, and the same one-shot press
-// animations (overshoot plus a dissolving ring) so saving a story feels
-// like an event, not a colour change.
+// Debounced so a double-tap can't fire two round-trips whose responses
+// arrive out of order. Optimistic with revert-on-failure, aria-live announced.
 export function BookmarkButton({ postId, initialBookmarked, withLabel = false }: Props) {
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
   const [error, setError] = useState<string | null>(null);

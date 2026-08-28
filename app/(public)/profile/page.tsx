@@ -21,21 +21,14 @@ import { initialsOf } from "@/lib/topics-shared";
 export const metadata = { title: "Your posts · AIESEC Pulse" };
 
 /**
- * The member's own page, built on UI ref **4a**'s composition: angled
- * initials hero, four-cell stat strip, sticky section index beside a single
- * reading column.
+ * The member's own page.
  *
- * It's 4a's *layout*, not its content — this page answers a different
- * question than a public author profile: not "what has this person
- * published?" but "what is happening to everything I wrote?". So the index
- * tracks lifecycle sections — published, waiting, needs another look — and
- * numbered rows are reserved for posts that are actually live and therefore
- * linkable. A rejected post isn't a destination but a task, so it keeps its
- * editing panel.
+ * Numbered, linkable rows are reserved for posts that are actually live
+ * (`published`) — a rejected or waiting post isn't a destination yet, so it
+ * gets a `PendingRow` instead.
  *
- * 4a's overview paragraph, pull-quote, and "recognition" cards are dropped,
- * not invented: `User` carries no bio, quote, or award field. The standfirst
- * is a factual line assembled from what a query can answer.
+ * `User` has no bio, quote, or award field, so an overview paragraph,
+ * pull-quote, or "recognition" cards are dropped rather than faked.
  */
 export default async function ProfilePage() {
   const user = await requireSession();
@@ -66,9 +59,8 @@ export default async function ProfilePage() {
         topics: { select: { topicId: true, topic: { select: { name: true, kind: true } } } },
       },
     }),
-    // The viewer's own author profile: position title, entity (already the
-    // brand lockup), follower count, and when they joined. Reused rather than
-    // re-queried so the two profile surfaces cannot disagree about a member.
+    // Reused from the author-profile query, not rebuilt from session, so
+    // this page and /authors/[id] cannot disagree about the same member.
     getAuthorProfile(user.id),
     isEnabled("posts.rich_text"),
     listActiveTopics(),
@@ -132,10 +124,6 @@ export default async function ProfilePage() {
         }
       />
 
-      {/* The rail only earns its column with more than one section to track
-          (`ProfileIndexRail` renders nothing below that) — without the
-          condition, a single-section profile left a blank 230px gutter,
-          pushing its only content a third of the way across the page. */}
       <div
         className={[
           "mx-auto w-full max-w-[1240px] px-6 pt-14",

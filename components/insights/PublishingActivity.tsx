@@ -11,18 +11,11 @@ import { postScopeWhere, type ScopeFilter } from "@/lib/rbac/scope-filter";
 import { isoWeekShortLabel, lastNIsoWeeks } from "@/lib/week";
 
 /**
- * Publishing activity, as one implementation behind two doors.
- *
- * It answers the same question for two identities, at two reaches, and the
- * *authorisation* is what differs — not the page. So the guard stays in
- * each route (`/insights` requires an AIESEC position with
- * `analytics.view_entity`; `/admin/activity` requires a platform credential),
- * and the already-resolved scope is handed down here.
- *
- * That split is the whole point of the route move: a member reading their
- * own entity's numbers isn't administering the platform, and the URL
- * shouldn't tell them they are. Copying the page into two files was the
- * alternative, and the two would have drifted within a term.
+ * One implementation shared by two routes, each responsible for its own
+ * authorization before calling in: `/insights` requires an AIESEC position
+ * with `analytics.view_entity`, `/admin/activity` requires a platform
+ * credential. This component receives an already-resolved `scope` and does
+ * no authorization of its own — copied into two files, the two would drift.
  */
 export async function PublishingActivity({
   scope,

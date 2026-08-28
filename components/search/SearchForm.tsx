@@ -35,12 +35,6 @@ type Props = {
   initial: SearchFormInitial;
 };
 
-// Search bar and filter bar: topics stay chips in selector mode;
-// entity/kind/date all use the plain <select> pattern
-// PageSizeSelect already established — no typeahead here, unlike the
-// composer's AudiencePicker, and no native date-range input either. One
-// explicit submit rather than navigating on every change, matching how the
-// rest of the app treats a filter set as something you commit to.
 export function SearchForm({ topics, entities, initial }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState(initial.query);

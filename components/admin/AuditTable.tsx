@@ -37,8 +37,7 @@ function actionClass(action: string): string {
   if (action.includes("reject") || action.includes("hidden") || action.includes("restrict")) {
     return "bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)] text-[color:var(--destructive-text)]";
   }
-  // `break_glass.*` actions can no longer be written, but old rows using
-  // that path remain — exactly what a reader shouldn't have to hunt for.
+  // `break_glass.*` can no longer be written, but old rows using it remain.
   if (action.includes("erase") || action.includes("break_glass")) {
     return "bg-[color-mix(in_srgb,var(--destructive)_18%,transparent)] text-[color:var(--destructive-text)]";
   }

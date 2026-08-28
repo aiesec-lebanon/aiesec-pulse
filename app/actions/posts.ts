@@ -119,9 +119,9 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
   const audiences = audienceDecision.audiences;
   const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
-  // How far this post reaches once it publishes. After the audience, because
-  // an AI-level office's network default gives way to a narrowed audience.
-  // Resolved outside the transaction; only the budget count runs inside it.
+  // Resolved after the audience: an AI-level office's network default gives
+  // way to a narrowed audience. Resolved outside the transaction — only the
+  // budget count runs inside it.
   const reach = await reachContextFor(
     user,
     entityId,
@@ -222,9 +222,9 @@ export async function createPost(input: CreatePostInput): Promise<CreatePostResu
     async () => undefined
   );
 
-  // A promotion spent at publication is still a promotion: the same action name
-  // an auditor searches for, so the reach decisions are one stream rather than
-  // two depending on which route was taken.
+  // A promotion spent at publication is still a promotion: audited under the
+  // same "post.promote" action name as a later promotePost, or an auditor
+  // searching that action would miss these.
   if (decision.stamp) {
     await withAudit(
       userActor(user),
@@ -511,12 +511,6 @@ export async function restorePost(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Promotion — the editorial valve between two failures:
-// every LC post flooding every member's feed, and LC posts never travelling
-// past their own MC. The quota is how wide the valve opens.
-// ---------------------------------------------------------------------------
-
 export type PromotionResult = { ok: true } | { ok: false; error: string };
 
 export type PromotionBudget = {
@@ -605,14 +599,13 @@ async function promotionContextFor(
 }
 
 /**
- * What the control shows before the click, so the cost is known in
- * advance. Null when the viewer lacks promotion authority over the post,
- * which hides the control.
+ * Null when the viewer lacks promotion authority over the post, which hides
+ * the control.
  *
- * Deliberately skips GIS revalidation: this read runs on every post-page
- * render, and that latency is paid only where authority is actually
- * exercised. A number shown to someone whose position just lapsed is a
- * stale label; the write behind it still refuses.
+ * Deliberately skips GIS revalidation: this runs on every post-page render,
+ * and that latency belongs only where authority is actually exercised. A
+ * stale "available" label is harmless — the write behind it still refuses
+ * once revalidated.
  */
 export async function promotionBudgetFor(postId: string): Promise<PromotionBudget | null> {
   const user = await requireSession();
@@ -688,8 +681,6 @@ export async function promotePost(postId: string, note: string): Promise<Promoti
   });
 
   if (!outcome.spent) {
-    // A hard stop, not a queue: there is nothing to come back to later in the
-    // window, so the message says when the budget refills instead.
     return {
       ok: false,
       error: `Your MC has used all ${policy.maxPosts} promotions for ${policy.periodLabel}.`,
@@ -725,8 +716,8 @@ export async function demotePost(postId: string): Promise<PromotionResult> {
   const limit = await checkRateLimit("promote", user.id);
   if (!limit.allowed) return { ok: false, error: retryMessage(limit) };
 
-  // Withdrawing a post from every other MC's feed is the same authority as
-  // putting it there, so it is revalidated the same way.
+  // Same ordering as promotePost — before the permission check, never after
+  // (see lib/auth/positions.ts).
   const confirmed = await revalidatePositions(user);
   if (!confirmed.ok) return { ok: false, error: confirmed.error };
 
@@ -744,10 +735,9 @@ export async function demotePost(postId: string): Promise<PromotionResult> {
     { type: "post", id: post.id, entityId: post.publisherEntityId },
     { title: post.title, from: PostLevel.NETWORK },
     async () => {
-      // Only the level moves. `promotedAt`, `promotedById`, `promotionNote` and
-      // `promotionPeriod` all stay: the row keeps saying who bought the
-      // network's attention, when and why, and the period is what makes the
-      // spend permanent for the window.
+      // Only `level` moves — `promotedAt`/`promotedById`/`promotionNote`/
+      // `promotionPeriod` stay (see doc above): the spend must remain
+      // permanent for the window.
       await db.post.update({ where: { id: post.id }, data: { level: PostLevel.LOCAL } });
       revalidatePromotedPost(post.slug);
       return { ok: true as const };

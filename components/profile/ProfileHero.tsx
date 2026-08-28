@@ -5,40 +5,21 @@ import { EntityName } from "@/components/ui/EntityName";
 import { SpecStrip } from "@/components/ui/SpecStrip";
 import { brandPlaceAccent } from "@/lib/org/display";
 
-/** The shell's content column — the hero's type aligns to it, so the page lines
- *  up with the header wordmark on a wide screen. */
 const COLUMN = "mx-auto w-full max-w-[1240px] px-6";
 
 /**
- * The profile hero — UI ref **4a** — and its spec strip, which it owns.
+ * The hero and the strip fill exactly one screen: the frame is
+ * `calc(100svh - var(--rail-h))` less the strip's own height. The strip is
+ * rendered here, not by the page, because the two must be measured together
+ * — three pages each composing it themselves is three chances to get it
+ * wrong.
  *
- * Two clipped wedges cut across the frame at a shallow diagonal: the outer one
- * in the page ground, the inner one a field of brand light carrying the
- * subject's initials, set enormous and near-transparent in the display serif
- * and drifting on scroll. The type sits on the left third, in the page's own
- * colours.
+ * The initials are `aria-hidden`: the name is already in an `h1`, and two
+ * stray letters announced first would be noise.
  *
- * **The hero and the strip fill exactly one screen.** The frame is
- * `calc(100svh - var(--rail-h))` less the strip's own height, so a reader
- * arriving sees the whole hero with the totals on the screen's bottom edge
- * — not a fixed 500px band with 300px of dead space under the type and the
- * totals half-peeking above the fold. That's why the strip is rendered
- * here, not by the page: the two must be measured together, and three
- * pages each composing it themselves is three chances to get it wrong.
- *
- * **Imagery bleeds; type does not.** The wedges span the viewport; every line
- * of type sits in the shell's `max-w-[1240px]` column, so the name lines up
- * with the header wordmark and with the reading column below.
- *
- * The initials are `aria-hidden`: the name is right there in an `h1`, and
- * two stray letters announced first would be noise. Everything here is
- * real — name, position, entity, member count — because `User` and `Entity`
- * carry no pull-quote or recognition field, and 4a's are illustrative copy.
- * The one exception is the standfirst, a real `User.bio` when the member
- * has written one.
- *
- * The wedges are `lg:`-only: a shallow diagonal across a 390px viewport is a
- * stripe, not a composition.
+ * Name, position, entity, and member count are all real data — `User` and
+ * `Entity` carry no pull-quote or recognition field, so 4a's reference
+ * design is illustrative copy there, not a field to wire up.
  */
 export function ProfileHero({
   kicker,
@@ -61,12 +42,7 @@ export function ProfileHero({
   /** Already through `entityDisplayName` — the brand lockup, not a place. */
   entityName?: string | null;
   standfirst?: string | null;
-  /**
-   * Replaces the standfirst paragraph entirely — how `/profile` puts the bio
-   * editor where the bio is read. Editing a one-line standfirst on a separate
-   * settings page would make the author write blind and then navigate to see
-   * what they made.
-   */
+  /** Replaces the standfirst paragraph entirely — how `/profile` puts the bio editor where the bio is read. */
   standfirstSlot?: React.ReactNode;
   actions?: React.ReactNode;
   specCells: Array<{ label: string; value: React.ReactNode }>;
@@ -74,9 +50,7 @@ export function ProfileHero({
   /** The wedge's colour. Defaults to brand blue. */
   accent?: string;
 }) {
-  // Null for a person's name, the place half for an office's — so the one
-  // screen whose subject *is* an office gets the two-tone lockup on its `h1`,
-  // and nothing else in the app does.
+  // Null for a person's name, the place half for an office's.
   const nameAccent = brandPlaceAccent(name);
 
   const eyebrow = (
@@ -111,7 +85,6 @@ export function ProfileHero({
 
   return (
     <>
-      {/* 4a, lg: up — the angled wedges, hero and strip filling one screen. */}
       <div className="hidden lg:flex lg:h-[calc(100svh-var(--rail-h))] lg:min-h-[480px] lg:flex-col">
         <section className="relative min-h-0 flex-1 overflow-hidden bg-[var(--card)]">
           <div
@@ -124,9 +97,8 @@ export function ProfileHero({
             className="absolute inset-0 z-[2] overflow-hidden"
             style={{
               clipPath: "polygon(100% 0, 100% 100%, 48% 100%, 66% 0)",
-              // Deep corner to full accent, as 4a does — but mixed toward
-              // `--ink` rather than a literal near-black, so the wedge keeps its
-              // depth in both themes instead of going flat-bright.
+              // Mixed toward `--ink` rather than a literal near-black, so the
+              // wedge keeps its depth in both themes instead of going flat-bright.
               background: `radial-gradient(135% 115% at 22% 14%, color-mix(in srgb, ${accent} 34%, var(--ink)), color-mix(in srgb, ${accent} 80%, var(--ink)) 68%)`,
             }}
           >
@@ -144,8 +116,6 @@ export function ProfileHero({
             />
           </div>
 
-          {/* Drawn inside the content column, so its rules land on the same
-              four divisions the spec strip below uses. */}
           <div aria-hidden className="pointer-events-none absolute inset-0 z-[4]">
             <div className="mx-auto grid h-full w-full max-w-[1240px] grid-cols-4 px-6">
               <span className="border-r border-[var(--hairline)]" />
@@ -155,8 +125,6 @@ export function ProfileHero({
             </div>
           </div>
 
-          {/* Vertically centred in whatever height the screen gives it, so the
-              frame never has a void under the type. */}
           <div className="relative z-[3] flex h-full items-center py-16">
             <div className={COLUMN}>
               <Reveal y={22} className="max-w-[46%]">
@@ -174,8 +142,6 @@ export function ProfileHero({
         />
       </div>
 
-      {/* Below lg: the same content, stacked, with the initials as a quiet
-          watermark rather than a wedge. */}
       <section className="relative overflow-hidden border-b border-[var(--hairline)] bg-[var(--card)] px-6 pb-10 pt-12 lg:hidden">
         <span
           aria-hidden

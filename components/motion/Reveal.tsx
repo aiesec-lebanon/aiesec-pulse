@@ -7,7 +7,7 @@ type RevealProps = {
   /** Direction and distance the element travels in from. */
   y?: number;
   x?: number;
-  /** Starting scale — 0.96 gives a subtle push-in without a visible pop. */
+  /** Starting scale. */
   scale?: number;
   /** Starting blur in px. Defaults to the system value; 0 disables it. */
   blur?: number;

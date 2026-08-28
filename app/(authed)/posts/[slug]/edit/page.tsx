@@ -17,8 +17,7 @@ import { requirePermission } from "@/lib/rbac/guards";
 
 // Named [slug], not [id]: Next.js requires every route sharing this position
 // under /posts/ — this one and the published-post reader — to share a
-// dynamic segment name, even across different route groups. The lookup
-// below still authorises on the post's real id; slug is just the URL param.
+// dynamic segment name, even across different route groups.
 export default async function EditDraftPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const user = await requirePermission("post.draft");

@@ -7,8 +7,7 @@ import { Pill } from "@/components/ui/Pill";
  * `PostsTable`'s `STATUS_PILL` and the profile page's `STATUS_BADGE` were
  * independent copies that had already drifted — the profile map added borders
  * and mixed its tints into `--card` rather than `transparent`, so the same
- * post status rendered differently depending on which page you were on. This
- * is the lifecycle vocabulary over one shape, and both call sites use it. The
+ * post status rendered differently depending on which page you were on. The
  * shape itself lives in `Pill`, shared with `LevelBadge`.
  */
 

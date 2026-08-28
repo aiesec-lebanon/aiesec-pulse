@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 /**
- * The one dialog: focus trap, Escape-to-close, focus return, generalised over
- * its labels and its confirm tone so moderation and promotion share it. Reach
- * for this before writing another.
+ * The one dialog: focus trap, Escape-to-close, focus return, generalised
+ * over its labels and confirm tone so moderation and promotion share it.
  *
  * `tone` picks the confirm button's fill: `destructive` for an action that
  * takes something away (hide, reject), `primary` for one that grants reach.
@@ -82,8 +81,8 @@ export function ReasonModal({
     };
   }, [open, onClose]);
 
-  // Keyed by the caller, so opening for a different target remounts with empty
-  // state. Clearing in an effect would cost a render on every close.
+  // Keyed by the caller, so opening for a different target remounts with
+  // empty state.
   if (!open) return null;
 
   function handleSubmit(e: React.FormEvent) {

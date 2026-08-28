@@ -15,24 +15,13 @@ import { relativeTime } from "@/lib/relative-time";
 import { tokensForKind } from "@/lib/topics-shared";
 
 /**
- * Saved stories, as UI ref **6a**: a hairline-divided index — thumbnail,
- * headline in the editorial serif, topic and publisher in the topic's colour,
- * when it was saved, and a remove control — not a card grid.
- *
- * The grid it replaced was wrong in three ways, all visible at once:
- * `SecondaryPostCard` was hard-coded to 260px, so every card floated inside a
- * 380px grid cell; the remove button was positioned against the *cell*, not
- * the card, so it sat in mid-air a hundred pixels from what it removed; and
- * a three-up grid of tilting plates is the feed's lead treatment, which §0.5
- * reserves for exactly that — a list a reader browses is a list, and a list
- * is hairlines.
- *
- * Removal is optimistic and owned here, so a row leaves immediately instead
- * of waiting on `toggleBookmark`'s own `revalidatePath`. It leaves
- * *properly*: `.pulse-row-out` collapses the row's height so the rows below
- * close the gap, and `FlipList` carries the survivors to their new
- * positions. A row that vanishes and a list that jumps makes a reader
- * wonder what else just got deleted.
+ * Saved stories: a hairline-divided index, not a card grid — the grid it
+ * replaced was wrong in three ways, all visible at once: `SecondaryPostCard`
+ * was hard-coded to 260px, so every card floated inside a 380px grid cell;
+ * the remove button was positioned against the *cell*, not the card, so it
+ * sat in mid-air a hundred pixels from what it removed; and a three-up grid
+ * of tilting plates is the feed's lead treatment, which §0.5 reserves for
+ * exactly that.
  */
 
 /** Long enough for `.pulse-row-out` to finish before the row is unmounted. */
@@ -58,8 +47,8 @@ export function BookmarksList({ initialPosts }: { initialPosts: BookmarkedPost[]
     const restore = () =>
       setPosts((prev) => (prev.some((p) => p.id === postId) ? prev : [...prev, removed]));
 
-    // The row animates out first, then leaves the list — the server call runs
-    // in parallel, so the wait is never *added* to the round-trip.
+    // Runs in parallel with the exit animation, so the server round-trip is
+    // never added on top of it.
     setTimeout(() => {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
       setLeaving(null);
@@ -129,8 +118,6 @@ function BookmarkRow({
         leaving ? "pulse-row-out" : "",
       ].join(" ")}
     >
-      {/* The rule wipes to brand blue from the left as the pointer arrives —
-          the same hover moment the feed's index rows and search results use. */}
       <span
         aria-hidden
         className="absolute inset-x-0 bottom-[-1px] h-px origin-left scale-x-0 bg-[var(--primary)] transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:scale-x-100 group-focus-within:scale-x-100"

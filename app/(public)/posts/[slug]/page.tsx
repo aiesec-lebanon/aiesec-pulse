@@ -97,13 +97,11 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   if (!post) return notFound();
 
   // Inline image blocks store a mediaId, not a URL (lib/content/document.ts)
-  // — resolved here rather than inside DocumentRenderer, which stays a pure
-  // render function over whatever lookup its caller already has.
+  // — resolved into `bodyMedia` below before DocumentRenderer renders it.
   const sanitisedBody = sanitiseDocument(post.bodyJson);
   const imageMediaIds = collectImageMediaIds(sanitisedBody);
-  // The section list needs two or more headings to be a table of contents at
-  // all; the reading rail itself is unconditional, because every article has
-  // progress. `ReadingIndex` owns that distinction — see its own note.
+  // The reading rail itself is unconditional (every article has progress);
+  // `sections` only decides whether it also gets a table of contents.
   const sections = extractSections(sanitisedBody);
 
   const [initialComments, inlineMedia, rankingBreakdown, relatedPosts, promotionBudget] =
@@ -140,8 +138,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   const publishedAt = post.publishedAt ?? post.createdAt;
   const cover = mediaUrl(post.cover);
   const primaryTopic = post.topics[0]?.topic ?? null;
-  // "Lebanon" is a country; "AIESEC in Lebanon" is the office that published
-  // this. Resolved once here and threaded through every surface on the page.
+  // Resolved once here and threaded through every surface on the page.
   const publisherName =
     entityDisplayName(post.publisher.name, post.publisher.kind) ?? post.publisher.name;
 
@@ -177,11 +174,6 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
         specCells={specCells}
       />
 
-      {/* The reading column starts a clear step below the hero — without it the
-          rail's first hairline landed flush against the bottom edge of the
-          hero's spec strip, two unrelated rules touching. The rail column is
-          unconditional now: it always carries the read percentage, and adds the
-          section list when the story has headings. */}
       <div className="mx-auto w-full max-w-[1240px] px-6 pt-12 lg:grid lg:grid-cols-[230px_minmax(0,1fr)] lg:items-start lg:gap-12 lg:pt-16">
         <aside className="pulse-sticky-rail hidden lg:block">
           {/* Measured against the prose, not the column: everything after the

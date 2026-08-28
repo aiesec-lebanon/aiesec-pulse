@@ -93,9 +93,6 @@ export async function reachOptionsFor(
   publisherEntityId: string,
   roleKey: RoleKey
 ): Promise<ReachOptions | undefined> {
-  // Asked without an audience, because the composer has not been filled in yet:
-  // the `network` shape is the AI default, and the picker says what narrowing
-  // the audience does to it.
   const context = await reachContextFor(user, publisherEntityId, roleKey);
   if (context.defaultLevel === PostLevel.NETWORK) return { kind: "network" };
   if (!context.promotion) return undefined;

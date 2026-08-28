@@ -8,15 +8,6 @@ import { demotePost, promotePost, type PromotionBudget } from "@/app/actions/pos
 import { PostLevel } from "@/app/generated/prisma/enums";
 import { ReasonModal } from "@/components/ui/ReasonModal";
 
-/**
- * The MCP's editorial valve, on the post it acts on.
- *
- * Rendered only when the viewer may actually promote this post — the server
- * returns no budget otherwise — so this control never has to explain why it's
- * disabled. The remaining quota is stated before the click rather than
- * discovered by refusal: promotion is meant to be a deliberate choice against
- * a known budget, which is the budget's whole purpose.
- */
 export function PromotionControls({
   postId,
   postTitle,

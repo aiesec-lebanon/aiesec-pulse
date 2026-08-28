@@ -74,7 +74,6 @@ async function seedRootEntity() {
   console.log("  root entity: /ai");
 }
 
-// Topics rather than org units: interest crosses entity boundaries.
 const TOPICS: Array<{ slug: string; name: string; kind: "FUNCTION" | "PROGRAMME" | "GENERAL" }> = [
   { slug: "igv", name: "Incoming Global Volunteer", kind: "PROGRAMME" },
   { slug: "ogv", name: "Outgoing Global Volunteer", kind: "PROGRAMME" },
@@ -177,9 +176,6 @@ const RANKING_WEIGHTS: Array<{ key: string; weight: number }> = [
   { key: "priority", weight: 0.8 },
   { key: "seen", weight: 0.5 },
   { key: "halfLifeHours", weight: 36 },
-  // The signal term divides by log1p(normaliser). 50 saturates it around a
-  // post with ~10 reactions + 5 comments, a reasonable "trending" bar at
-  // this org's scale. Tunable at runtime like every other weight.
   { key: "normaliser", weight: 50 },
 ];
 

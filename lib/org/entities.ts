@@ -213,9 +213,8 @@ export type EntitySearchResult = { id: string; name: string; tag: string | null;
  * Name lookahead for the composer's audience typeahead
  * (components/composer/AudiencePicker.tsx). `contains`/`insensitive` compiles
  * to a leading-wildcard ILIKE, which the `Entity_name_trgm_idx` GIN index can
- * serve — the same substring-match convention this codebase already uses for
- * `User.fullName`/`Post.title`, just applied to `Entity` for the first time.
- * A 2-character floor keeps a single keystroke from scanning the whole table.
+ * serve. A 2-character floor keeps a single keystroke from scanning the whole
+ * table.
  */
 export async function searchEntitiesByName(
   query: string,

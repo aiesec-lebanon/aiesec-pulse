@@ -12,9 +12,8 @@ import { tokensForKind } from "@/lib/topics-shared";
 import type { FeedPost } from "@/types/feed";
 
 /**
- * 1b's tilt plate: a real `--card` surface with `--elev-2`, pointer
- * perspective, and a 3px bar in the post's topic colour across the image's
- * top — the one sanctioned exception to §0.5's "no card grid" rule.
+ * 1b's tilt plate — the one sanctioned exception to §0.5's "no card grid"
+ * rule.
  *
  * **The card is the link.** It used to be a `<Link>` on the headline with an
  * `::after` overlay meant to cover the whole plate — which it never did: the
@@ -90,8 +89,7 @@ export function SecondaryPostCard({ post }: { post: FeedPost }) {
           {/* Two lines, not one: an office's name and timestamp on the same
               11px mono line ran out of room in a 260px card and truncated the
               publisher — the one fact on the card that says whose story this
-              is. Splitting them also matches the reference card's own
-              footer. */}
+              is. */}
           <span className="mt-auto block pt-3.5">
             <span className="pulse-label pulse-label-tight block truncate">
               <EntityName name={publisher} className="normal-case tracking-[0.06em]" />

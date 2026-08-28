@@ -29,10 +29,9 @@ export type ResolvedQuota = {
 /**
  * Nearest scope wins, so an entity can be given a bespoke allowance.
  *
- * Every candidate sits on one chain from root to the author's entity, and an
- * ancestor's path prefixes its descendant's — so "nearest" means "deepest". A
- * GLOBAL policy has no entity, hence no depth, so it sits behind every
- * entity-scoped row as the fallback — depth 0 says exactly that.
+ * An ancestor's path prefixes its descendant's, so "nearest" means "deepest".
+ * A GLOBAL policy has no entity, hence depth 0 — behind every entity-scoped
+ * row, as the fallback.
  */
 export function nearestByScope<T extends { entityId: string | null }>(
   policies: T[],
@@ -42,9 +41,8 @@ export function nearestByScope<T extends { entityId: string | null }>(
   let nearestDepth = -1;
 
   for (const policy of policies) {
-    // `> nearestDepth`, never `>=`, so the first row wins ties — the same
-    // arbitrary-but-stable choice the old per-scope `findFirst` made when one
-    // scope held policies for more than one period.
+    // `> nearestDepth`, never `>=`, so the first row wins ties — matching the
+    // legacy per-scope `findFirst` behaviour.
     const depth = policy.entityId ? (depthByEntityId.get(policy.entityId) ?? 0) : 0;
     if (depth > nearestDepth) {
       nearest = policy;
@@ -56,11 +54,9 @@ export function nearestByScope<T extends { entityId: string | null }>(
 }
 
 /**
- * Nearest scope wins, so an entity can be given a bespoke allowance.
- *
  * `postLevel` picks between a role's two budgets: LOCAL for posts published
  * into its own MC, NETWORK for promotions to the whole network — separate
- * policy rows at the same scope, so level is part of the question, never
+ * policy rows at the same scope, so level must be passed explicitly, never
  * inferred.
  */
 export async function resolveQuotaPolicy(
@@ -69,9 +65,7 @@ export async function resolveQuotaPolicy(
   postLevel: PostLevel,
   at: Date = new Date()
 ): Promise<ResolvedQuota | null> {
-  // Two round trips regardless of tree depth; this runs twice per publish —
-  // once for the composer's quota state, once inside createPost. Precedence
-  // lives in nearestByScope, not in query order.
+  // Precedence lives in nearestByScope, not in query order.
   const entity = entityId
     ? await db.entity.findUnique({ where: { id: entityId }, select: { path: true } })
     : null;
@@ -80,10 +74,6 @@ export async function resolveQuotaPolicy(
   // set on the author's own entity is the nearest scope there is.
   const chainPaths = entity ? [...ancestorPaths(entity.path), entity.path] : [];
 
-  // Neither needs the other's answer, so they run together as one round trip,
-  // not two. Both key on the same paths: the policy query filters through the
-  // relation, which Prisma compiles to a single join — `include` instead would
-  // add a second, sequential query just to hydrate the related row.
   const [chain, policies] = await Promise.all([
     chainPaths.length > 0
       ? db.entity.findMany({
@@ -124,8 +114,7 @@ export async function resolveQuotaPolicy(
 /**
  * Which classes need a budget at each level: those holding the permission that
  * spends it. A class with the permission but no policy can't publish or
- * promote at all — a missing policy reads as at-limit, not unlimited — so the
- * administration surface shows those rows as unset rather than hiding them.
+ * promote at all — a missing policy reads as at-limit, not unlimited.
  */
 export const SPENDING_PERMISSION: Record<PostLevel, PermissionKey> = {
   [PostLevel.LOCAL]: "post.publish",
@@ -209,10 +198,6 @@ export function promotionPoolFor(promoterId: string, mc: { path: string } | null
 }
 
 /**
- * The window's spend, as a where clause — kept apart from the count so the
- * rule can be asserted without a database. The subtlest decision in the
- * promotion model, and the easiest to undo by accident.
- *
  * Counted on `promotionPeriod` alone — deliberately **not** also on
  * `level = NETWORK`. Including it would let demotion refund the promotion: the
  * window's spend stands whether or not it's later withdrawn, or promote/demote

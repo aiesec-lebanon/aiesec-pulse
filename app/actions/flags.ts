@@ -13,9 +13,6 @@ function isFlagKey(key: string): key is FlagKey {
   return (FLAG_KEYS as readonly string[]).includes(key);
 }
 
-// Every gated feature ships off by default and is flipped on here, one flag
-// at a time, so a bad milestone is one toggle away from off without a
-// rollback deploy.
 export async function setFlagEnabled(key: string, enabled: boolean): Promise<SetFlagResult> {
   const authorised = await checkAdmin();
   if (!authorised.ok) return { ok: false, error: authorised.error };

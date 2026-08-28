@@ -130,9 +130,8 @@ async function purge(db: Db): Promise<PurgeSummary> {
   });
   const userIds = users.map((user) => user.id);
 
-  // The stub's office tree, as Pulse materialised it. Fixed ids, so these do not
-  // accumulate — but they are still the suite's, and a post targeted at one is
-  // reachable through the entity even if its author has somehow gone already.
+  // These are still the suite's, and a post targeted at one is reachable
+  // through the entity even if its author has somehow gone already.
   const entities = await db.entity.findMany({
     where: { gisOfficeId: { in: E2E_OFFICE_IDS } },
     select: { id: true, path: true },
@@ -353,8 +352,6 @@ export async function prepareDatabase(): Promise<void> {
 
 /** globalTeardown: leave the database as the run found it. */
 export async function cleanUpDatabase(): Promise<void> {
-  // The escape hatch for debugging a failure: keep the rows and inspect them,
-  // knowing the next run's globalSetup will clear them.
   if (process.env.PULSE_E2E_KEEP_DATA === "1") {
     console.log("[e2e cleanup] PULSE_E2E_KEEP_DATA=1 — leaving this run's data in place.");
     return;

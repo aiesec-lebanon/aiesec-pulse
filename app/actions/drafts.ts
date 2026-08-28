@@ -47,15 +47,15 @@ export type SaveDraftResult =
 
 /**
  * Create-or-update a `Post{status: DRAFT}` + a `PostVersion` snapshot.
- * Inline images in `bodyJson` are deliberately left as the raw upload URL,
- * not materialised — this runs on a 5-second autosave cadence, with no
+ *
+ * Inline images in `bodyJson` are left as the raw upload URL, not
+ * materialised, because this runs on a 5-second autosave cadence with no
  * channel to hand a rewritten mediaId back to an actively-typing TipTap
- * instance without disturbing it. Materialisation to a real Media row
- * happens once, at publish time (see `lib/content/publish.ts`). The cover
- * image has no such constraint — it's a plain `useState`, not an
- * uncontrolled editor — so it's resolved eagerly below, idempotently, so
- * re-saving the same attached image on every tick doesn't mint a new
- * Media row each time.
+ * instance without disturbing it. Materialisation happens once, at publish
+ * time (see `lib/content/publish.ts`).
+ *
+ * The cover image is resolved eagerly below, idempotently — re-saving the
+ * same attached image on every tick must not mint a new Media row each time.
  */
 export async function saveDraft(input: SaveDraftInput, postId?: string): Promise<SaveDraftResult> {
   const user = await requireSession();
@@ -214,12 +214,11 @@ export type PublishDraftResult =
   | { ok: false; errors: Record<string, string> };
 
 /**
- * The draft equivalent of createPost: transitions an existing DRAFT to
- * PUBLISHED/IN_REVIEW rather than creating a new row, sharing the same
- * quota-resolution and image-materialisation logic (lib/content/publish.ts)
- * instead of duplicating it. Re-validated with the strict createPostSchema —
- * saveDraft's lenient schema was only ever a "leave and return" convenience,
- * not a lower publish bar.
+ * The draft equivalent of createPost, sharing its quota-resolution and
+ * image-materialisation logic (lib/content/publish.ts).
+ *
+ * Re-validated with the strict createPostSchema — saveDraft's lenient schema
+ * is a "leave and return" convenience only, not a lower bar for publishing.
  */
 export async function publishDraft(
   postId: string,
@@ -329,9 +328,6 @@ export async function publishDraft(
   const audienceSize = await resolveAudienceSize(audiences);
   const validTopicIds = await resolveValidTopicIds(topicIds ?? []);
 
-  // Publishing a draft is a publication like any other, so it uses the same
-  // reach decision as createPost — the shared composer offers the choice on
-  // both routes.
   const reach = await reachContextFor(
     user,
     post.publisherEntityId,
@@ -441,7 +437,6 @@ export async function publishDraft(
   return { ok: true, postId, slug, status };
 }
 
-/** Author-only, DRAFT-only — matches deleteOwnComment's ownership-only gate. */
 export async function deleteDraft(
   postId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -462,9 +457,9 @@ export async function deleteDraft(
     { type: "post", id: postId, entityId: post.publisherEntityId },
     { title: post.title },
     async () => {
-      // Hard delete, not hidden/archived: an unpublished draft was seen only
-      // by its author, so reversible-moderation doesn't apply — retention.ts
-      // already hard-deletes stale drafts the same way.
+      // Hard delete: an unpublished draft was never seen by anyone but its
+      // author, so moderation reversibility doesn't apply (retention.ts
+      // hard-deletes stale drafts the same way).
       await db.post.delete({ where: { id: postId } });
       revalidatePath("/drafts");
       return { ok: true as const };
@@ -474,11 +469,6 @@ export async function deleteDraft(
 
 export type RestoreVersionResult = { ok: true } | { ok: false; error: string };
 
-/**
- * Appends a new PostVersion copying an older one's content rather than
- * mutating history, consistent with the append-only pattern every other
- * version-creating action already uses.
- */
 export async function restorePostVersion(
   postId: string,
   version: number

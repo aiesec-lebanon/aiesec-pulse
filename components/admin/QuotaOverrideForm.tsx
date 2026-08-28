@@ -16,10 +16,6 @@ const LEVELS: Array<{ level: PostLevel; label: string }> = [
   { level: PostLevel.NETWORK, label: "Promotion" },
 ];
 
-/**
- * Gives one MC its own allowance: same row shape as a default, just scoped
- * — a publish resolves against the nearest scope.
- */
 export function QuotaOverrideForm({
   rolesByLevel,
 }: {

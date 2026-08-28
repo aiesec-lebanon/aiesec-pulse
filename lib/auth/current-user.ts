@@ -42,8 +42,7 @@ export const getCurrentUserWithEntity = cache(
 
     const user = await db.user.findUnique({
       where: { id: session.userId },
-      // `kind` is what decides whether the office is named "AIESEC in {name}"
-      // or carries its own full name — see lib/org/display.ts.
+      // `kind` drives office display naming — see lib/org/display.ts.
       include: { primaryEntity: { select: { name: true, tag: true, path: true, kind: true } } },
     });
     if (!user) return null;

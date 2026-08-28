@@ -58,10 +58,6 @@ test.describe("OAuth callback", () => {
 });
 
 test.describe("position classes", () => {
-  // Every class signs in through the real OAuth handshake and the real GIS
-  // reconciliation; only the far end of the socket is a stub. A class that
-  // stopped resolving — a renamed title, a tag that no longer matches — fails
-  // here rather than the first time someone tries to use the product.
   for (const persona of SIGNED_IN_PERSONAS) {
     test(`${persona} signs in and lands on the feed`, async ({ page, signInAs }) => {
       await signInAs(persona);

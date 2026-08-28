@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Same focus-trap / Escape-to-close / focus-return shape as ReasonModal —
-// like that component, state is never reset in an effect; the caller keys
-// this by the pending upload, so a new image gets a fresh instance.
+// State is never reset in an effect; the caller keys this by the pending
+// upload, so a new image gets a fresh instance.
 export function InsertImageDialog({
   open,
   previewUrl,

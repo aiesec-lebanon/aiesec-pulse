@@ -52,11 +52,7 @@ describe("quota periods", () => {
   });
 });
 
-// Precedence is decided in `nearestByScope`, not by query order, so the
-// rule is worth pinning down here.
 describe("quota scope precedence", () => {
-  // The chain the author sits on: root, their MC, their LC. Depth comes from the
-  // entity rows the resolver fetches alongside the policies.
   const depths = new Map([
     ["ai", 1],
     ["mc", 2],

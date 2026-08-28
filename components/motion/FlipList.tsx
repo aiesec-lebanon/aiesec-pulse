@@ -5,12 +5,6 @@ import { useLayoutEffect, useRef } from "react";
 /**
  * A list whose items *move* when the list reorders, instead of teleporting.
  *
- * The problem this solves was visible on the feed: the "more top stories"
- * rail drops whichever post the hero is showing, so every rotation removes
- * one card, inserts another, and shifts the three between. Rendered plainly,
- * all four blink into new positions at once — the single hardest cut left in
- * the app, firing every eight seconds.
- *
  * FLIP is the standard answer, and at only ~40 lines it lives here rather
  * than pulling in an animation library: measure every child's box *before*
  * the DOM updates (First), read it again after (Last), write the difference

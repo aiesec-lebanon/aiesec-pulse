@@ -13,9 +13,6 @@ import { fetchCurrentPerson } from "@/server-utils/gis";
  * position that's disappeared or changed since login fails the action
  * instead of being spent on it.
  *
- * The middle path the document describes, not a per-request GIS call: Pulse
- * pays the latency only where authority is actually exercised.
- *
  * Call it **before** the permission check, never after. Reconciliation ends
  * grants GIS no longer returns and busts the authorisation cache, and
  * `lib/rbac/can.ts` memoises grants per request — a check that ran first

@@ -17,11 +17,7 @@ export type ScopeSet = {
    * viewer's MC subtree, plus their region. Empty when `unrestricted`.
    */
   entityIds: string[];
-  /**
-   * The viewer sits at the global root, so every entity is already beneath
-   * them — nothing for the local arm to exclude. Materialising every entity
-   * id would give the same answer at far greater cost.
-   */
+  /** The viewer sits at the global root, so every entity is already beneath them. */
   unrestricted: boolean;
   primaryEntityId: string | null;
   primaryEntityPath: string | null;
@@ -41,8 +37,7 @@ const NO_SCOPE: ScopeSet = {
 type EntityRef = { id: string; kind: EntityKind; path: string };
 
 /**
- * Where a viewer's local reach starts, isolated from the database so the rule
- * is unit-testable against a hand-built chain.
+ * Where a viewer's local reach starts.
  *
  * The local root is the viewer's **MC**, not their ancestor chain — the chain
  * never contained sibling LCs, so an LC member couldn't see the LC next door
@@ -81,8 +76,6 @@ export async function scopeSetFor(user: {
       return { entityIds: [], unrestricted: true, ...anchors };
     }
 
-    // The subtree is bounded by one MC's LC count rather than by the network,
-    // which is what makes materialising it as a list affordable at all.
     const subtree = await subtreeEntityIds(localRoot.id);
     return {
       entityIds: region ? [...subtree, region.id] : subtree,

@@ -6,10 +6,6 @@ import { MAX_BUDGET, parseBudget } from "@/lib/quota-shared";
 import type { PermissionKey, RoleKey } from "@/lib/rbac/catalogue";
 import { ROLE_KEYS, seededPermissionsFor } from "@/lib/rbac/catalogue";
 
-// The administration surface asks two questions of pure code: which classes
-// need a budget at a given level, and whether a typed number is one. Both are
-// asserted here rather than through the console.
-
 function seededMatrix(): Record<RoleKey, readonly PermissionKey[]> {
   return Object.fromEntries(ROLE_KEYS.map((role) => [role, seededPermissionsFor(role)])) as Record<
     RoleKey,

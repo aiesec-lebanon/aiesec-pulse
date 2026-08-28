@@ -4,9 +4,6 @@ import { Reveal } from "@/components/motion/Reveal";
 import { DisplayTitle } from "@/components/ui/DisplayTitle";
 
 /**
- * The connection-lost shape (9b in the reference file), generalised from
- * `app/(public)/feed/error.tsx` so every route segment's own `error.tsx` can
- * carry the same type-led recovery state instead of Next's default overlay.
  * Not `EmptyState`: recovery here is a `reset()` callback, not a destination.
  */
 export function RouteError({

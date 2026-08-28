@@ -7,11 +7,8 @@ import type { PersonaKey } from "./gis-stub/fixtures";
 export type { PersonaKey } from "./gis-stub/fixtures";
 
 /**
- * Signing in drives the whole real path: /api/auth/start mints `state`, the
- * browser is redirected to the authorization server, the code comes back, the
- * callback verifies `state`, exchanges the code, queries GIS, parses the
- * response through the production Zod schema and reconciles grants. Only the far
- * end of the socket is ours — see ./gis-stub/server.ts.
+ * Signing in drives the whole real OAuth + GIS path; only the far end of the
+ * socket is a stub — see ./gis-stub/server.ts.
  *
  * The persona is chosen with a cookie on the stub's own origin, set here before
  * navigating. The application never learns that personas exist.

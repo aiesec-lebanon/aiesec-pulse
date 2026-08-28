@@ -79,8 +79,6 @@ export function ShellInteractive({
     setDropdownOpen(false);
   }
 
-  // The rail tightens once the page has moved beneath it — a small, continuous
-  // signal that the header is floating over content rather than part of it.
   useEffect(() => {
     let ticking = false;
     function onScroll() {
@@ -178,10 +176,6 @@ export function ShellInteractive({
 
           <Wordmark />
 
-          {/* Desktop primary navigation. The feed's own Latest/For You switch
-              sits beside the "Feed" link itself — a menu on the destination
-              that owns it, rather than a second tab-shaped control on the
-              page below. */}
           <NavRail
             items={nav.primary}
             pathname={pathname}
@@ -191,10 +185,6 @@ export function ShellInteractive({
 
           <div className="ml-auto flex items-center gap-1">
             {nav.compose && (
-              // Outline, not filled: the reference file's "Write" is a boxed
-              // mono label in the brand colour, not a solid button — the
-              // shell's one filled control stays reserved for the account
-              // avatar and the primary CTA inside a page (§7.2).
               <Link
                 href={nav.compose.href}
                 className="group mr-1 hidden min-h-[36px] items-center gap-2 rounded-[var(--radius-sm)] border border-[color-mix(in_srgb,var(--primary)_55%,transparent)] px-3.5 text-[color:var(--primary-text)] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] hover:border-[var(--primary)] hover:bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:inline-flex"
@@ -280,11 +270,7 @@ export function ShellInteractive({
 
                     <div role="separator" className="my-1.5 border-t border-[var(--hairline)]" />
 
-                    {/* The motion preference lives here rather than as a
-                        standalone icon in the rail: it is a preference, and
-                        this is where the app keeps preferences. It stays one
-                        click from every page, which is the requirement §8.2
-                        actually imposes — the rail was never the requirement. */}
+                    {/* One click from every page — the requirement §8.2 imposes. */}
                     <MotionMenuItem className={`${MENU_ITEM_CLASS} justify-between gap-3`} />
 
                     <div role="separator" className="my-1.5 border-t border-[var(--hairline)]" />
@@ -388,8 +374,6 @@ function Wordmark() {
       href="/feed"
       className="group flex shrink-0 select-none items-center gap-2 rounded-[var(--radius-sm)] pr-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
     >
-      {/* The mark is the product: a pulse trace, drawn once and animated on
-          hover. An emoji or a bare letter would be the placeholder version. */}
       <span
         aria-hidden
         className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-[var(--radius-sm)] bg-[var(--primary-fill)]"
@@ -414,11 +398,9 @@ function Wordmark() {
 }
 
 /**
- * The signature interaction: one indicator element that measures the active
- * item and slides between positions, rather than a border per link. Measured
- * with a layout effect so the first paint after a route change already has the
- * indicator in the right place — an indicator that visibly jumps from 0 on
- * every navigation is worse than no indicator.
+ * Measured with a layout effect so the first paint after a route change
+ * already has the indicator in the right place — an indicator that visibly
+ * jumps from 0 on every navigation is worse than no indicator.
  */
 function NavRail({
   items,
@@ -434,10 +416,6 @@ function NavRail({
   const listRef = useRef<HTMLUListElement>(null);
   const [indicator, setIndicator] = useState({ x: 0, w: 0, o: 0 });
 
-  // The feed's order menu opens on hover over the whole "Feed" item — the link
-  // and its chevron together — because that is the target a reader actually
-  // points at. A 24px chevron is a click target, not a hover target.
-  //
   // The close is delayed by one beat. Without it, the few pixels between the
   // item and the panel below it are enough to close the menu the reader is on
   // their way to; with it, a pointer that leaves and comes straight back never

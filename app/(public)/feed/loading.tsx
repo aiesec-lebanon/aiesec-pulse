@@ -1,16 +1,3 @@
-/**
- * Feed skeleton, matching the page's real composition: a full-bleed rotator
- * frame with an index rail, a horizontal "also today" plate rail, then the
- * elsewhere list. No page-title block — the real page doesn't render one
- * either; the rotator is the page's visual lead, and its own h1 is
- * `sr-only`.
- *
- * The shimmer is a masked sweep rather than `animate-pulse` — a whole page of
- * blocks fading in and out together reads as a fault, while a single light
- * travelling across them reads as loading. Under Reduced motion the sweep
- * stops and the bones sit still, which is the whole of the change: the
- * skeleton's job is to hold the layout, and it still does that.
- */
 function Bone({ className }: { className?: string }) {
   return (
     <div
@@ -33,9 +20,6 @@ function Bone({ className }: { className?: string }) {
 export default function FeedLoading() {
   return (
     <main className="flex-1 pb-24" aria-busy="true" aria-label="Loading feed">
-      {/* Rotator frame — dark, full-bleed (no border-radius, height-capped —
-          matches HeroRotator exactly), with the index rail's column of dots
-          down the left edge and the headline block bottom-left. */}
       <div className="relative aspect-[4/5] max-h-[min(620px,82vh)] w-full overflow-hidden bg-[#161b22] sm:aspect-[16/10] lg:aspect-[21/9] lg:max-h-[min(700px,88vh)] lg:min-h-[540px]">
         <span
           aria-hidden
@@ -55,7 +39,6 @@ export default function FeedLoading() {
       </div>
 
       <div className="relative z-20 mx-auto w-full max-w-[1240px] px-6">
-        {/* The secondary rail, overlapping the frame above it from sm: up. */}
         <div className="mt-12 sm:-mt-[96px] lg:-mt-[124px]">
           <Bone className="mb-5 h-3 w-28" />
           <div className="flex gap-5 overflow-hidden">

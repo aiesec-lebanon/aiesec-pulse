@@ -20,10 +20,9 @@ export function CommentList({ postId, comments, allLoaded, onLoadMore }: Props) 
   const [loading, startLoad] = useTransition();
   const firstNewRef = useRef<HTMLLIElement | null>(null);
 
-  // Which comments were already on screen when this list first rendered.
-  // Anything arriving later — the reader's own optimistic comment, or a
-  // "Show more" page — is *new* and gets the arrival animation. Without the
-  // distinction, either nothing animates, or the whole thread re-animates on
+  // Comments already on screen at first render vs. arriving later (an
+  // optimistic add, a "Show more" page) — without the distinction, either
+  // nothing gets the arrival animation, or the whole thread re-animates on
   // every row change.
   const [seen] = useState(() => new Set(comments.map((c) => c.id)));
   useEffect(() => {
