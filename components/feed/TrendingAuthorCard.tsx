@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { EntityName } from "@/components/ui/EntityName";
 
 type TrendingAuthorCardProps = {
@@ -24,9 +26,10 @@ function initials(name: string): string {
 
 export function TrendingAuthorCard({ author, isFirst = false }: TrendingAuthorCardProps) {
   return (
-    <div
+    <Link
+      href={`/authors/${author.id}`}
       className={[
-        "flex w-[220px] shrink-0 snap-start items-center gap-3",
+        "group flex w-[220px] shrink-0 snap-start items-center gap-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]",
         isFirst ? "" : "border-l border-[var(--hairline)] pl-4",
       ]
         .filter(Boolean)
@@ -40,7 +43,7 @@ export function TrendingAuthorCard({ author, isFirst = false }: TrendingAuthorCa
       </span>
 
       <div className="min-w-0">
-        <p className="truncate text-[14px] font-bold leading-tight text-[color:var(--foreground)]">
+        <p className="truncate text-[14px] font-bold leading-tight text-[color:var(--foreground)] group-hover:text-[color:var(--primary-text)]">
           {author.fullName}
         </p>
         {author.entityName && (
@@ -52,6 +55,6 @@ export function TrendingAuthorCard({ author, isFirst = false }: TrendingAuthorCa
           {author.postCount} {author.postCount === 1 ? "post" : "posts"}
         </p>
       </div>
-    </div>
+    </Link>
   );
 }
