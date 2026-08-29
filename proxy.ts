@@ -1,9 +1,6 @@
 import { jwtVerify } from "jose";
 import { type NextRequest, NextResponse } from "next/server";
 
-// Coarse gate only — can't see revocation/scope; lib/rbac/guards.ts is
-// authoritative. Kept dependency-free: no database, no Redis, no lib/env.
-
 const PUBLIC_PREFIXES = [
   "/login",
   "/admin/login",
@@ -11,7 +8,7 @@ const PUBLIC_PREFIXES = [
   "/legal",
   "/api/auth",
   "/api/health",
-  "/api/inngest",
+  "/api/cron",
 ];
 
 const SESSION_COOKIE = "pulse_session";
@@ -40,12 +37,10 @@ function contentSecurityPolicy(nonce: string, isDev: boolean): string {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' ${isDev ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
-    // A nonce cannot apply to a `style="…"` attribute, which React emits for
-    // dynamic values. Stylesheets and <style> blocks stay under the nonce.
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' blob: data: https://*.supabase.co https://*.supabase.in https://*.aiesec.org",
     "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co https://*.supabase.in https://*.ingest.sentry.io https://*.ingest.de.sentry.io",
+    "connect-src 'self' https://*.supabase.co https://*.supabase.in",
     "media-src 'self' https://*.supabase.co",
     "object-src 'none'",
     "base-uri 'self'",

@@ -1,5 +1,4 @@
-// Kept dependency-free so proxy.ts can use it without pulling in the database
-// or Redis clients.
+// Kept dependency-free so proxy.ts can use it without pulling in the database.
 
 // Spoofable behind an arbitrary proxy, so it's only ever used for throttling
 // and a keyed hash — never as an identity.

@@ -25,6 +25,7 @@ env:
   SHADOW_DATABASE_URL: postgresql://pulse:pulse@localhost:5432/pulse_shadow
   SESSION_SECRET: ci-session-secret-that-is-at-least-32-chars
   TOKEN_ENCRYPTION_KEY: ci-token-encryption-key-at-least-32-chars
+  CRON_SECRET: ci-cron-secret-that-is-at-least-32-chars
   AIESEC_OAUTH_AUTH_URL: https://auth.example.invalid
   AIESEC_OAUTH_CLIENT_ID: ci-client-id
   AIESEC_OAUTH_CLIENT_SECRET: ci-client-secret

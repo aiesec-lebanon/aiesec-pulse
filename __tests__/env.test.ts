@@ -20,6 +20,7 @@ const VALID = {
   ADMIN_EMAIL: "admin@example.invalid",
   ADMIN_PASSWORD: "admin-password",
   ADMIN_SESSION_SECRET: "c".repeat(32),
+  CRON_SECRET: "d".repeat(32),
 };
 
 const BLANK_OPTIONALS = {
@@ -29,12 +30,6 @@ const BLANK_OPTIONALS = {
   SUPABASE_S3_ACCESS_KEY_ID: "",
   SUPABASE_S3_SECRET_ACCESS_KEY: "",
   SUPABASE_S3_REGION: "",
-  UPSTASH_REDIS_REST_URL: "",
-  UPSTASH_REDIS_REST_TOKEN: "",
-  INNGEST_EVENT_KEY: "",
-  INNGEST_SIGNING_KEY: "",
-  SENTRY_DSN: "",
-  OTEL_EXPORTER_OTLP_ENDPOINT: "",
   PULSE_DEPLOYMENT: "",
   PULSE_TERM_LABEL: "",
 };
@@ -57,23 +52,23 @@ describe("server environment schema", () => {
   });
 
   it("normalises a blank optional to undefined, matching how has.*() reads it", () => {
-    const parsed = serverSchema.parse({ ...VALID, SENTRY_DSN: "", UPSTASH_REDIS_REST_URL: "" });
-    expect(parsed.SENTRY_DSN).toBeUndefined();
-    expect(parsed.UPSTASH_REDIS_REST_URL).toBeUndefined();
+    const parsed = serverSchema.parse({ ...VALID, SUPABASE_URL: "", SUPABASE_S3_REGION: "" });
+    expect(parsed.SUPABASE_URL).toBeUndefined();
+    expect(parsed.SUPABASE_S3_REGION).toBeUndefined();
   });
 
   it("treats whitespace-only as absent too", () => {
-    const parsed = serverSchema.parse({ ...VALID, OTEL_EXPORTER_OTLP_ENDPOINT: "   " });
-    expect(parsed.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
+    const parsed = serverSchema.parse({ ...VALID, SUPABASE_URL: "   " });
+    expect(parsed.SUPABASE_URL).toBeUndefined();
   });
 
   it("still validates an optional that is actually set", () => {
-    const bad = serverSchema.safeParse({ ...VALID, UPSTASH_REDIS_REST_URL: "not-a-url" });
+    const bad = serverSchema.safeParse({ ...VALID, SUPABASE_URL: "not-a-url" });
     expect(bad.success).toBe(false);
 
     const good = serverSchema.safeParse({
       ...VALID,
-      UPSTASH_REDIS_REST_URL: "https://eu1.upstash.io",
+      SUPABASE_URL: "https://project.storage.supabase.co/storage/v1/s3",
     });
     expect(good.success).toBe(true);
   });
@@ -98,6 +93,13 @@ describe("required variables", () => {
     expect(serverSchema.safeParse({ ...VALID, SESSION_SECRET: "short" }).success).toBe(false);
     expect(serverSchema.safeParse({ ...VALID, TOKEN_ENCRYPTION_KEY: "short" }).success).toBe(false);
     expect(serverSchema.safeParse({ ...VALID, ADMIN_SESSION_SECRET: "short" }).success).toBe(false);
+    expect(serverSchema.safeParse({ ...VALID, CRON_SECRET: "short" }).success).toBe(false);
+  });
+
+  it("rejects a missing CRON_SECRET", () => {
+    const rest: Record<string, string> = { ...VALID };
+    delete rest.CRON_SECRET;
+    expect(serverSchema.safeParse(rest).success).toBe(false);
   });
 
   it("refuses admin credentials that are missing, malformed or too short", () => {

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { User } from "@/app/generated/prisma/client";
 import { GrantSource, ScopeType } from "@/app/generated/prisma/enums";
+import { invalidateUserAuthorisation } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { resolveOfficeEntity, ROOT_ENTITY_ID } from "@/lib/org/entities";
@@ -12,7 +13,6 @@ import {
   type PositionDenial,
   type PositionInput,
 } from "@/lib/rbac/position-mapping";
-import { invalidateUserAuthorisation } from "@/lib/redis";
 import { currentTermLabel } from "@/lib/term";
 import type { GisPerson } from "@/server-utils/gis";
 import { warnIfPositionless } from "@/server-utils/gis";

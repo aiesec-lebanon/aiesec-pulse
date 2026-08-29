@@ -171,9 +171,6 @@ export default function PrivacyNoticePage() {
       <ul>
         <li>Vercel — application hosting</li>
         <li>Supabase — database and file storage (EU region)</li>
-        <li>Upstash — caching and rate limiting</li>
-        <li>Inngest — scheduled background jobs</li>
-        <li>Sentry — error reporting (pseudonymous identifier only, never your name)</li>
       </ul>
       <p>
         The current list, and what each one processes, is maintained in the platform&apos;s data

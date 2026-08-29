@@ -1,13 +1,5 @@
 import "server-only";
 
-import { Ratelimit } from "@upstash/ratelimit";
-
-import { logger } from "@/lib/logger";
-import { redis } from "@/lib/redis";
-
-// A module-level Map is ineffective on serverless — each instance holds its
-// own buckets, so the real limit is max × instance count. Local-dev fallback only.
-
 export type LimitName =
   | "auth"
   | "postSubmit"
@@ -40,27 +32,6 @@ export type RateLimitResult = {
   resetAt: number;
 };
 
-const limiters = new Map<LimitName, Ratelimit>();
-
-function limiter(name: LimitName): Ratelimit | null {
-  const client = redis();
-  if (!client) return null;
-
-  const existing = limiters.get(name);
-  if (existing) return existing;
-
-  const { max, windowSeconds } = LIMITS[name];
-  const built = new Ratelimit({
-    redis: client,
-    // A fixed window lets a caller spend two budgets across the reset boundary.
-    limiter: Ratelimit.slidingWindow(max, `${windowSeconds} s`),
-    prefix: `rl:${name}`,
-    analytics: false,
-  });
-  limiters.set(name, built);
-  return built;
-}
-
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
 function localCheck(name: LimitName, key: string): RateLimitResult {
@@ -82,26 +53,11 @@ function localCheck(name: LimitName, key: string): RateLimitResult {
   };
 }
 
-// Fails open on a Redis error, except auth — an outage shouldn't sign
-// everyone out, but an unbounded window on the login door is worse than a
-// brief lockout.
 export async function checkRateLimit(
   name: LimitName,
   identifier: string
 ): Promise<RateLimitResult> {
-  const rl = limiter(name);
-  if (!rl) return localCheck(name, identifier);
-
-  try {
-    const { success, remaining, reset } = await rl.limit(identifier);
-    return { allowed: success, remaining, resetAt: reset };
-  } catch (error) {
-    const failClosed = name === "auth";
-    logger.error("Rate limiter unavailable", { limit: name, failClosed, error });
-    return failClosed
-      ? { allowed: false, remaining: 0, resetAt: Date.now() + LIMITS[name].windowSeconds * 1000 }
-      : { allowed: true, remaining: 0, resetAt: Date.now() };
-  }
+  return localCheck(name, identifier);
 }
 
 export function retryMessage(result: RateLimitResult): string {

@@ -18,12 +18,12 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/rbac/guards", () => ({ checkAdmin: vi.fn() }));
 
 import { setRolePermission } from "@/app/actions/role-permissions";
+import { __clearLocalCache } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { can, permissionsOf } from "@/lib/rbac/can";
 import { PERMISSION_KEYS, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { checkAdmin } from "@/lib/rbac/guards";
 import { permissionMatrix } from "@/lib/rbac/matrix";
-import { __clearLocalCache } from "@/lib/redis";
 
 const roleFindMany = vi.mocked(db.role.findMany);
 const roleFindUnique = vi.mocked(db.role.findUnique);

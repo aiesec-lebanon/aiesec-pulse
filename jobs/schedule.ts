@@ -2,7 +2,6 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import type { Prisma } from "@/app/generated/prisma/client";
 import { PostStatus } from "@/app/generated/prisma/enums";
-import { inngest, JOB_IDS } from "@/jobs/client";
 import { recordAudit, systemActor } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -42,27 +41,28 @@ export async function publishDuePost(post: DuePost): Promise<boolean> {
   return true;
 }
 
-export const publishScheduled = inngest.createFunction(
-  { id: JOB_IDS.publishScheduled, retries: 2 },
-  [{ cron: "* * * * *" }, { event: "posts/schedule.publish.requested" }],
-  async ({ step }) => {
-    const due = await step.run("select-due", () => db.post.findMany(dueScheduledPostsQuery()));
+/**
+ * Triggered every few minutes by a Vercel/GitHub Actions cron hitting
+ * /api/cron/publish-scheduled — see lib/cron-auth.ts. `asOf` lets the
+ * test-only endpoint fast-forward past the wait instead of the two minutes
+ * a real schedule would take.
+ */
+export async function runPublishScheduled(
+  asOf: Date = new Date()
+): Promise<{ due: number; published: number }> {
+  const due = await db.post.findMany(dueScheduledPostsQuery(asOf));
 
-    let published = 0;
-    for (const post of due) {
-      const ok = await step.run(`publish-${post.id}`, () => publishDuePost(post));
-      if (ok) published++;
-    }
-
-    if (published > 0) {
-      await step.run("revalidate", () => {
-        revalidateTag("feed", "max");
-        revalidatePath("/feed");
-        revalidatePath("/profile");
-      });
-    }
-
-    logger.info("publish-scheduled complete", { due: due.length, published });
-    return { due: due.length, published };
+  let published = 0;
+  for (const post of due) {
+    if (await publishDuePost(post)) published++;
   }
-);
+
+  if (published > 0) {
+    revalidateTag("feed", "max");
+    revalidatePath("/feed");
+    revalidatePath("/profile");
+  }
+
+  logger.info("publish-scheduled complete", { due: due.length, published });
+  return { due: due.length, published };
+}

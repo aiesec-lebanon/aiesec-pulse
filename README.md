@@ -22,20 +22,20 @@ publisher writes an update
 
 ## Tech Stack
 
-| Concern               | Choice                                                             |
-| --------------------- | ------------------------------------------------------------------ |
-| Framework             | Next.js 16 (App Router, RSC + Server Actions)                      |
-| Language              | TypeScript                                                         |
-| Database              | Postgres via Prisma 7 + `@prisma/adapter-pg`                       |
-| Storage               | S3-compatible object storage (Supabase Storage)                    |
-| Cache / rate limiting | Upstash Redis                                                      |
-| Background jobs       | Inngest                                                            |
-| UI                    | Tailwind CSS v4                                                    |
-| Validation            | Zod                                                                |
-| Sessions              | `jose`-signed JWT in an httpOnly cookie, backed by a `Session` row |
-| Observability         | OpenTelemetry + Sentry                                             |
-| Unit tests            | Vitest                                                             |
-| E2E / accessibility   | Playwright + axe-core                                              |
+| Concern               | Choice                                                                    |
+| --------------------- | ------------------------------------------------------------------------- |
+| Framework             | Next.js 16 (App Router, RSC + Server Actions)                             |
+| Language              | TypeScript                                                                |
+| Database              | Postgres via Prisma 7 + `@prisma/adapter-pg`                              |
+| Storage               | S3-compatible object storage (Supabase Storage)                           |
+| Cache / rate limiting | Process-local (`lib/cache.ts`, `lib/rate-limit.ts`)                       |
+| Background jobs       | Vercel Cron + a GitHub Actions pinger, calling plain functions in `jobs/` |
+| UI                    | Tailwind CSS v4                                                           |
+| Validation            | Zod                                                                       |
+| Sessions              | `jose`-signed JWT in an httpOnly cookie, backed by a `Session` row        |
+| Observability         | Structured JSON logs (`lib/logger.ts`)                                    |
+| Unit tests            | Vitest                                                                    |
+| E2E / accessibility   | Playwright + axe-core                                                     |
 
 ---
 
@@ -105,7 +105,7 @@ aiesec-pulse/
 │   ├── api/
 │   │   ├── auth/                 # start, callback, logout
 │   │   ├── storage/sign/         # Presigned upload URLs
-│   │   ├── inngest/              # Background job endpoint
+│   │   ├── cron/                 # Scheduled job endpoints, CRON_SECRET-guarded
 │   │   └── health/               # Readiness with a freshness timestamp
 │   └── actions/                  # Server Actions — every mutation
 │
@@ -117,11 +117,14 @@ aiesec-pulse/
 │   ├── privacy/                  # data subject requests
 │   ├── audit.ts                  # withAudit() wrapper
 │   ├── quota.ts                  # publishing quota resolution
-│   ├── rate-limit.ts             # distributed rate limiting
+│   ├── rate-limit.ts             # process-local rate limiting
+│   ├── cache.ts                  # process-local cache
+│   ├── cron-auth.ts              # CRON_SECRET guard for /api/cron/*
 │   └── env.ts                    # validated environment
 │
-├── jobs/                         # Inngest functions (entity sync, role sync,
-│                                 # term transition, retention, DSR export)
+├── jobs/                         # Plain functions: entity sync, role sync,
+│                                 # term transition, retention, DSR export —
+│                                 # triggered by /api/cron/* or scripts/run-job.ts
 ├── server-utils/gis.ts           # GIS GraphQL client
 ├── components/                   # Feed, post detail, admin, shell, engagement
 ├── prisma/                       # schema.prisma, migrations, seed
@@ -168,6 +171,9 @@ SESSION_SECRET=
 TOKEN_ENCRYPTION_KEY=
 
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# Guards /api/cron/* (lib/cron-auth.ts). Generate with: openssl rand -base64 32
+CRON_SECRET=
 ```
 
 Optional. Each degrades gracefully when absent in development, and is **required in production**:
@@ -180,19 +186,6 @@ SUPABASE_S3_ACCESS_KEY_ID=
 SUPABASE_S3_SECRET_ACCESS_KEY=
 SUPABASE_S3_REGION=
 
-# Distributed cache and rate limiting. Without these, both fall back to a
-# process-local map — correct for one dev server, ineffective across instances.
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
-
-# Background jobs
-INNGEST_EVENT_KEY=
-INNGEST_SIGNING_KEY=
-
-# Observability
-SENTRY_DSN=
-OTEL_EXPORTER_OTLP_ENDPOINT=
-
 # Declares a non-Vercel host as the live deployment. Vercel sets VERCEL_ENV
 # itself, so this is only needed elsewhere.
 PULSE_DEPLOYMENT=
@@ -200,6 +193,11 @@ PULSE_DEPLOYMENT=
 # Overrides the computed AIESEC term label. Only set to rehearse a rollover.
 PULSE_TERM_LABEL=
 ```
+
+Cache and rate limiting are process-local (`lib/cache.ts`, `lib/rate-limit.ts`) —
+correct for one dev server, and an accepted trade-off in production at this
+platform's scale: each serverless instance polices its own bucket rather than
+sharing a distributed store.
 
 ### 3. Apply migrations and seed
 
@@ -280,9 +278,9 @@ git commit --no-verify -m "message"
 
 The app is built for Vercel but has no hard dependency on it. Set every environment variable in the platform's dashboard, and use separate databases and OAuth redirect URIs for preview and production.
 
-Production refuses to boot without Redis, Sentry, and object storage configured — a deployment that silently falls back to in-memory rate limiting is not a production deployment. On a non-Vercel host, set `PULSE_DEPLOYMENT=production` so that check runs.
+Production refuses to boot without object storage configured. On a non-Vercel host, set `PULSE_DEPLOYMENT=production` so that check runs.
 
-Background jobs run through Inngest, triggered by cron. Cron only triggers a job; a serverless request timeout is not a job runtime.
+Background jobs are plain functions in `jobs/`, triggered by Vercel Cron (`vercel.json`) for the daily/weekly ones and by a GitHub Actions scheduled workflow (`.github/workflows/cron-publish-scheduled.yml`) for the per-minute-equivalent `publishScheduled` check — Vercel's Hobby-plan cron floor is once a day, too coarse for that one. Every `/api/cron/*` route is guarded by `CRON_SECRET` (`lib/cron-auth.ts`); set the same value in Vercel's environment variables and as the `CRON_SECRET` GitHub Actions secret, plus a `PULSE_BASE_URL` Actions variable pointing at the deployment. `term-transition` and `dsr-export` have no schedule — run them by hand with `npm run job`.
 
 **Production checklist**
 
@@ -291,8 +289,8 @@ Background jobs run through Inngest, triggered by cron. Cron only triggers a job
 - [ ] `npx prisma migrate deploy` run against production
 - [ ] `npm run seed` run with production environment
 - [ ] `post-media` bucket created with public read, S3 keys issued
-- [ ] `SESSION_SECRET` and `TOKEN_ENCRYPTION_KEY` at least 32 characters, stored in a secret manager
-- [ ] Redis, Sentry, and Inngest configured
+- [ ] `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`, and `CRON_SECRET` at least 32 characters, stored in a secret manager
+- [ ] `CRON_SECRET` set identically in Vercel and in the GitHub Actions repo secrets
 - [ ] AIESEC OAuth client registered with the production redirect URI
 - [ ] Every intended administrator holds an AI-level GIS position — there is no other way to grant admin access
 - [ ] Smoke test: sign in → publish → approve → react → comment → check the audit log
@@ -354,7 +352,7 @@ The full schema is in [`prisma/schema.prisma`](prisma/schema.prisma). The main t
 - Post bodies are stored as structured JSON and rendered through a node allowlist. No `dangerouslySetInnerHTML`, no raw HTML ingestion. The document is re-sanitised on read as well as on write.
 - Every Server Action input is validated with Zod. Prisma parameterizes all queries.
 - Mutating Route Handlers are POST-only with an origin check, which Server Actions get from the framework.
-- Rate limits are distributed via Redis and use a sliding window. Auth fails closed; everything else fails open, so a limiter outage degrades throttling rather than signing everyone out.
+- Rate limits are process-local (`lib/rate-limit.ts`) — each serverless instance polices its own bucket, an accepted trade-off at this platform's scale rather than a distributed store.
 - Erasure removes the person from the append-only audit log without removing the events: `actorId` is nulled and `actorLabel` becomes a salted pseudonym.
 
 ---

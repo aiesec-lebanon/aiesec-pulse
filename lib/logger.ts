@@ -1,7 +1,5 @@
 import "server-only";
 
-import { trace } from "@opentelemetry/api";
-
 // Redaction happens at the sink rather than at each call site, so a careless
 // log line added later is contained by default.
 
@@ -56,13 +54,6 @@ function redact(value: unknown, depth = 0): unknown {
   return value;
 }
 
-function traceIds(): { traceId?: string; spanId?: string } {
-  const span = trace.getActiveSpan();
-  if (!span) return {};
-  const ctx = span.spanContext();
-  return { traceId: ctx.traceId, spanId: ctx.spanId };
-}
-
 function emit(level: LogLevel, message: string, fields?: Record<string, unknown>): void {
   if (LEVEL_ORDER[level] < LEVEL_ORDER[MIN_LEVEL]) return;
 
@@ -70,7 +61,6 @@ function emit(level: LogLevel, message: string, fields?: Record<string, unknown>
     level,
     time: new Date().toISOString(),
     message,
-    ...traceIds(),
     ...(fields ? (redact(fields) as Record<string, unknown>) : {}),
   };
 

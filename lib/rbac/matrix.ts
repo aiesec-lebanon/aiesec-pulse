@@ -2,9 +2,9 @@ import "server-only";
 
 import { cache } from "react";
 
+import { cached, cacheDelete, cacheKeys } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { PERMISSION_KEYS, type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
-import { cached, cacheDelete, cacheKeys } from "@/lib/redis";
 
 // Live answer is the `RolePermission` table; catalogue.ts holds only the
 // seed defaults. Read here, not in can.ts, so it's one shared cache entry

@@ -1,4 +1,3 @@
-import { inngest, JOB_IDS } from "@/jobs/client";
 import { recordAudit, systemActor } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -9,150 +8,132 @@ import { buildExportBundle } from "@/lib/privacy/dsr";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ago = (days: number) => new Date(Date.now() - days * DAY_MS);
 
-export const retentionSweep = inngest.createFunction(
-  { id: JOB_IDS.retentionSweep, retries: 2 },
-  [{ cron: "30 3 * * *" }, { event: "privacy/retention.sweep.requested" }],
-  async ({ event, step }) => {
-    const dryRun =
-      "dryRun" in (event.data ?? {}) ? Boolean((event.data as { dryRun?: boolean }).dryRun) : false;
+/**
+ * Daily retention sweep — triggered by Vercel Cron hitting
+ * /api/cron/retention-sweep.
+ */
+export async function runRetentionSweep(dryRun = false) {
+  const run = await db.syncRun.create({
+    data: { kind: `retention-sweep:${dryRun ? "dry" : "apply"}`, status: "RUNNING" },
+    select: { id: true },
+  });
 
-    const run = await step.run("start", () =>
-      db.syncRun.create({
-        data: { kind: `retention-sweep:${dryRun ? "dry" : "apply"}`, status: "RUNNING" },
-        select: { id: true },
-      })
-    );
+  const counts: Record<string, number> = {};
 
-    const counts = await step.run("sweep", async () => {
-      const result: Record<string, number> = {};
+  const drafts = { status: "DRAFT" as const, updatedAt: { lt: ago(365) } };
+  counts.drafts = dryRun
+    ? await db.post.count({ where: drafts })
+    : (await db.post.deleteMany({ where: drafts })).count;
 
-      const drafts = { status: "DRAFT" as const, updatedAt: { lt: ago(365) } };
-      result.drafts = dryRun
-        ? await db.post.count({ where: drafts })
-        : (await db.post.deleteMany({ where: drafts })).count;
+  const notifications = { createdAt: { lt: ago(183) } };
+  counts.notifications = dryRun
+    ? await db.notification.count({ where: notifications })
+    : (await db.notification.deleteMany({ where: notifications })).count;
 
-      const notifications = { createdAt: { lt: ago(183) } };
-      result.notifications = dryRun
-        ? await db.notification.count({ where: notifications })
-        : (await db.notification.deleteMany({ where: notifications })).count;
+  const emails = { createdAt: { lt: ago(365) } };
+  counts.emailDeliveries = dryRun
+    ? await db.emailDelivery.count({ where: emails })
+    : (await db.emailDelivery.deleteMany({ where: emails })).count;
 
-      const emails = { createdAt: { lt: ago(365) } };
-      result.emailDeliveries = dryRun
-        ? await db.emailDelivery.count({ where: emails })
-        : (await db.emailDelivery.deleteMany({ where: emails })).count;
+  const sessions = { expiresAt: { lt: ago(30) } };
+  counts.sessions = dryRun
+    ? await db.session.count({ where: sessions })
+    : (await db.session.deleteMany({ where: sessions })).count;
 
-      const sessions = { expiresAt: { lt: ago(30) } };
-      result.sessions = dryRun
-        ? await db.session.count({ where: sessions })
-        : (await db.session.deleteMany({ where: sessions })).count;
+  const idleTokens = { user: { lastSeenAt: { lt: ago(90) } } };
+  counts.oauthTokens = dryRun
+    ? await db.oauthToken.count({ where: idleTokens })
+    : (await db.oauthToken.deleteMany({ where: idleTokens })).count;
 
-      const idleTokens = { user: { lastSeenAt: { lt: ago(90) } } };
-      result.oauthTokens = dryRun
-        ? await db.oauthToken.count({ where: idleTokens })
-        : (await db.oauthToken.deleteMany({ where: idleTokens })).count;
+  const syncRuns = { startedAt: { lt: ago(90) } };
+  counts.syncRuns = dryRun
+    ? await db.syncRun.count({ where: syncRuns })
+    : (await db.syncRun.deleteMany({ where: syncRuns })).count;
 
-      const syncRuns = { startedAt: { lt: ago(90) } };
-      result.syncRuns = dryRun
-        ? await db.syncRun.count({ where: syncRuns })
-        : (await db.syncRun.deleteMany({ where: syncRuns })).count;
+  const reports = { resolvedAt: { lt: ago(365 * 3) } };
+  counts.reports = dryRun
+    ? await db.report.count({ where: reports })
+    : (await db.report.deleteMany({ where: reports })).count;
 
-      const reports = { resolvedAt: { lt: ago(365 * 3) } };
-      result.reports = dryRun
-        ? await db.report.count({ where: reports })
-        : (await db.report.deleteMany({ where: reports })).count;
+  const appeals = { decidedAt: { lt: ago(365 * 3) } };
+  counts.appeals = dryRun
+    ? await db.appeal.count({ where: appeals })
+    : (await db.appeal.deleteMany({ where: appeals })).count;
 
-      const appeals = { decidedAt: { lt: ago(365 * 3) } };
-      result.appeals = dryRun
-        ? await db.appeal.count({ where: appeals })
-        : (await db.appeal.deleteMany({ where: appeals })).count;
+  // Deleting raw reads before metrics-rollup exists would destroy
+  // measurement that has not been rolled up, so this only reports.
+  counts.postReadsEligible = await db.postRead.count({
+    where: { lastReadAt: { lt: ago(396) } },
+  });
 
-      // Deleting raw reads before metrics-rollup exists would destroy
-      // measurement that has not been rolled up, so this only reports.
-      result.postReadsEligible = await db.postRead.count({
-        where: { lastReadAt: { lt: ago(396) } },
-      });
+  // Per post: Prisma has no single-statement "latest N per group",
+  // so this loops manually.
+  const noisy = await db.post.findMany({
+    where: { versions: { some: {} } },
+    select: { id: true, _count: { select: { versions: true } } },
+    orderBy: { updatedAt: "desc" },
+    take: 500,
+  });
 
-      return result;
+  let versionsPruned = 0;
+  for (const post of noisy.filter((p) => p._count.versions > 50)) {
+    const keep = await db.postVersion.findMany({
+      where: { postId: post.id },
+      orderBy: { version: "desc" },
+      take: 50,
+      select: { id: true },
     });
-
-    // Per post: Prisma has no single-statement "latest N per group",
-    // so this loops manually.
-    const versionsPruned = await step.run("prune-versions", async () => {
-      const noisy = await db.post.findMany({
-        where: { versions: { some: {} } },
-        select: { id: true, _count: { select: { versions: true } } },
-        orderBy: { updatedAt: "desc" },
-        take: 500,
-      });
-
-      let pruned = 0;
-      for (const post of noisy.filter((p) => p._count.versions > 50)) {
-        const keep = await db.postVersion.findMany({
-          where: { postId: post.id },
-          orderBy: { version: "desc" },
-          take: 50,
-          select: { id: true },
-        });
-        if (dryRun) {
-          pruned += post._count.versions - keep.length;
-          continue;
-        }
-        const removed = await db.postVersion.deleteMany({
-          where: { postId: post.id, id: { notIn: keep.map((v) => v.id) } },
-        });
-        pruned += removed.count;
-      }
-      return pruned;
+    if (dryRun) {
+      versionsPruned += post._count.versions - keep.length;
+      continue;
+    }
+    const removed = await db.postVersion.deleteMany({
+      where: { postId: post.id, id: { notIn: keep.map((v) => v.id) } },
     });
-
-    const summary = { ...counts, postVersions: versionsPruned, dryRun };
-
-    await step.run("finish", async () => {
-      await db.syncRun.update({
-        where: { id: run.id },
-        data: {
-          status: "SUCCEEDED",
-          finishedAt: new Date(),
-          processed: Object.values(counts).reduce((a, b) => a + b, 0) + versionsPruned,
-          error: JSON.stringify(summary).slice(0, 1000),
-        },
-      });
-      await recordAudit(
-        systemActor("retention"),
-        dryRun ? "retention.dry_run" : "retention.swept",
-        { type: "system", id: "retention" },
-        summary
-      );
-    });
-
-    logger.info("retention-sweep complete", summary);
-    return summary;
+    versionsPruned += removed.count;
   }
-);
 
-// The operator-driven path: a request raised by email, or a subject whose
-// account is suspended and who therefore cannot self-serve.
-export const dsrExport = inngest.createFunction(
-  { id: JOB_IDS.dsrExport, retries: 2 },
-  [{ event: "privacy/dsr.export.requested" }],
-  async ({ event, step }) => {
-    const { requestId, userId } = event.data;
+  const summary = { ...counts, postVersions: versionsPruned, dryRun };
 
-    const bundle = await step.run("build", () => buildExportBundle(userId));
+  await db.syncRun.update({
+    where: { id: run.id },
+    data: {
+      status: "SUCCEEDED",
+      finishedAt: new Date(),
+      processed: Object.values(counts).reduce((a, b) => a + b, 0) + versionsPruned,
+      error: JSON.stringify(summary).slice(0, 1000),
+    },
+  });
+  await recordAudit(
+    systemActor("retention"),
+    dryRun ? "retention.dry_run" : "retention.swept",
+    { type: "system", id: "retention" },
+    summary
+  );
 
-    await step.run("record", async () => {
-      await db.dataSubjectRequest.update({
-        where: { id: requestId },
-        data: { status: "IN_PROGRESS", notes: "Export bundle assembled and ready for delivery." },
-      });
-      await recordAudit(
-        systemActor("privacy"),
-        "dsr.export_assembled",
-        { type: "data_subject_request", id: requestId },
-        { userId, sizeBytes: JSON.stringify(bundle).length }
-      );
-    });
+  logger.info("retention-sweep complete", summary);
+  return summary;
+}
 
-    return { requestId, ready: true };
-  }
-);
+/**
+ * The operator-driven DSR export path: a request raised by email, or a
+ * subject whose account is suspended and who therefore cannot self-serve.
+ * Run by hand via `npm run job dsr-export -- <requestId> <userId>`
+ * (scripts/run-job.ts) — there is no scheduled trigger for this one.
+ */
+export async function runDsrExport(requestId: string, userId: string) {
+  const bundle = await buildExportBundle(userId);
+
+  await db.dataSubjectRequest.update({
+    where: { id: requestId },
+    data: { status: "IN_PROGRESS", notes: "Export bundle assembled and ready for delivery." },
+  });
+  await recordAudit(
+    systemActor("privacy"),
+    "dsr.export_assembled",
+    { type: "data_subject_request", id: requestId },
+    { userId, sizeBytes: JSON.stringify(bundle).length }
+  );
+
+  return { requestId, ready: true, bundle };
+}

@@ -244,8 +244,6 @@ test.describe("scheduling", () => {
 
     await expect(page).toHaveURL(/\/posts\/scheduled/, { timeout: 15_000 });
 
-    // No Inngest dev server runs here — this fast-forwards through the same
-    // due-post logic the real cron invokes, instead of waiting two minutes.
     const response = await page.request.post("/api/test/publish-scheduled", {
       data: { asOf: new Date(scheduledFor.getTime() + 60_000).toISOString() },
     });

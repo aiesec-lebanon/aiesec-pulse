@@ -87,12 +87,6 @@ export default function CookiesPage() {
         </li>
       </ul>
 
-      <h2>Error reporting</h2>
-      <p>
-        Server-side errors are reported to Sentry with a pseudonymous identifier — never your name,
-        email or entity. Sentry does not set a cookie in your browser.
-      </p>
-
       <h2>Controlling cookies</h2>
       <p>
         You can clear or block cookies in your browser, but blocking <code>pulse_session</code> will
