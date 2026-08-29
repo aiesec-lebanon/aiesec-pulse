@@ -50,7 +50,14 @@ async function canSee(page: Page, path: string, title: string): Promise<boolean>
 }
 
 async function promote(page: Page, note: string) {
-  await page.getByRole("button", { name: /^promote to the network$/i }).click();
+  // force: true — the only client-side gate on this button is budget
+  // availability, never permission (the bypass test above relies on
+  // exactly that). A plain click() waits for Playwright's "enabled"
+  // actionability check, which can never resolve if a swapped-identity
+  // race leaves it looking disabled, turning a fast pass/fail into a
+  // 120s hang. Forcing dispatches the click regardless, so the assertion
+  // that follows is what actually verifies the outcome.
+  await page.getByRole("button", { name: /^promote to the network$/i }).click({ force: true });
   await page.getByLabel(/why the network should see this/i).fill(note);
   await page.getByRole("button", { name: /^promote$/i }).click();
 }
@@ -177,7 +184,14 @@ test.describe("post level", () => {
     // Demote: post goes back to local, but the window's promotion is not
     // refunded — otherwise promote/demote cycling would be unbounded reach.
     await page.getByRole("button", { name: /^return to local$/i }).click();
-    await expect(promotionPanel(page).getByText(/only your MC/i)).toBeVisible({
+    // Matches only the panel's persistent description, not its aria-live
+    // announcement ("Returned to local. Only your MC and its LCs can see
+    // this post.") — both contain "only your MC", which was a strict-mode
+    // violation (2 matches) until this was narrowed to the description's
+    // own wording.
+    await expect(
+      promotionPanel(page).getByText(/only your mc and the lcs beneath it/i)
+    ).toBeVisible({
       timeout: 15_000,
     });
     await expect(promotionPanel(page)).toContainText(/0 of 1 promotion left/i);
