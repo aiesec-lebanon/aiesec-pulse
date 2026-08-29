@@ -10,6 +10,7 @@ const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/admin/activity", label: "Publishing activity" },
   { href: "/admin/audit", label: "Audit log" },
   { href: "/admin/roles", label: "Permissions" },
+  { href: "/admin/topics", label: "Topics" },
   { href: "/admin/quotas", label: "Publishing quotas" },
   { href: "/admin/privacy", label: "Data requests" },
   { href: "/admin/flags", label: "Feature flags" },

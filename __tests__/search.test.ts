@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSearchFilters, parseSnippet } from "@/lib/search";
+import { hasSearchInput, parseSearchFilters, parseSnippet } from "@/lib/search";
+
+const EMPTY_FILTERS = {
+  query: "",
+  topicIds: [] as string[],
+  entityId: null,
+  kind: null,
+  dateFrom: null,
+  dateTo: null,
+  page: 1,
+};
 
 // parseSnippet decodes the charCode(1)/charCode(2) markers ts_headline
 // wraps matches in (not HTML); these tests hand-build that same shape.
@@ -107,5 +117,39 @@ describe("parseSearchFilters", () => {
   it("treats a blank entity id the same as an absent one", () => {
     expect(parseSearchFilters({ entity: "   " }).entityId).toBeNull();
     expect(parseSearchFilters({ entity: "ent_123" }).entityId).toBe("ent_123");
+  });
+});
+
+// A topic/entity/kind/date filter is a facet in its own right, not a
+// modifier that only narrows a keyword hit — each must be enough on its
+// own for searchPosts to run, or filtering by topic alone returns nothing.
+describe("hasSearchInput", () => {
+  it("is false when nothing was submitted", () => {
+    expect(hasSearchInput(EMPTY_FILTERS)).toBe(false);
+  });
+
+  it("is false when the query is only whitespace", () => {
+    expect(hasSearchInput({ ...EMPTY_FILTERS, query: "   " })).toBe(false);
+  });
+
+  it("is true with a keyword and no filters", () => {
+    expect(hasSearchInput({ ...EMPTY_FILTERS, query: "conference" })).toBe(true);
+  });
+
+  it("is true with a topic filter and no keyword", () => {
+    expect(hasSearchInput({ ...EMPTY_FILTERS, topicIds: ["topic_a"] })).toBe(true);
+  });
+
+  it("is true with an entity filter and no keyword", () => {
+    expect(hasSearchInput({ ...EMPTY_FILTERS, entityId: "ent_123" })).toBe(true);
+  });
+
+  it("is true with a kind filter and no keyword", () => {
+    expect(hasSearchInput({ ...EMPTY_FILTERS, kind: "EVENT" })).toBe(true);
+  });
+
+  it("is true with only a date range", () => {
+    expect(hasSearchInput({ ...EMPTY_FILTERS, dateFrom: new Date("2026-01-01") })).toBe(true);
+    expect(hasSearchInput({ ...EMPTY_FILTERS, dateTo: new Date("2026-01-01") })).toBe(true);
   });
 });

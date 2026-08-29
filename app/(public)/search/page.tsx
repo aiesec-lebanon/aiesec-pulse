@@ -6,7 +6,12 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { listActiveTopics } from "@/lib/content/topics";
 import { requireSession } from "@/lib/rbac/guards";
-import { listFilterableEntities, parseSearchFilters, searchPosts } from "@/lib/search";
+import {
+  hasSearchInput,
+  listFilterableEntities,
+  parseSearchFilters,
+  searchPosts,
+} from "@/lib/search";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +70,9 @@ export default async function SearchPage({
     days: inferDaysPreset(filters.dateFrom),
   };
 
+  const searched = hasSearchInput(filters);
+  const resultsLabel = filters.query ? `"${filters.query}"` : "your filters";
+
   return (
     <main className="mx-auto w-full max-w-[940px] flex-1 px-6 pb-24">
       <PageHeader
@@ -83,18 +91,18 @@ export default async function SearchPage({
         <SearchForm topics={topics} entities={entities} initial={initial} />
       </Reveal>
 
-      {!filters.query ? (
+      {!searched ? (
         <EmptyState
           heading="Search the network"
-          body="Find posts by keyword, then narrow by topic, entity, type, or date."
+          body="Find posts by keyword, or filter by topic, entity, type, or date on their own."
         />
       ) : results.length === 0 ? (
         <EmptyState
-          heading={`Nothing matched "${filters.query}"`}
+          heading={`Nothing matched ${resultsLabel}`}
           body="Try a different keyword, or loosen a filter."
         />
       ) : (
-        <section aria-label={`Results for ${filters.query}`} className="mt-12">
+        <section aria-label={`Results for ${resultsLabel}`} className="mt-12">
           <p className="pulse-label mb-5 border-b border-[var(--hairline)] pb-4">
             {results.length} {results.length === 1 ? "result" : "results"} on this page
           </p>
@@ -108,7 +116,7 @@ export default async function SearchPage({
         </section>
       )}
 
-      {filters.query && (results.length > 0 || filters.page > 1) && (
+      {searched && (results.length > 0 || filters.page > 1) && (
         <Pagination
           label="Search pagination"
           page={filters.page}

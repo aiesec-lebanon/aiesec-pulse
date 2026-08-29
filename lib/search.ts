@@ -128,11 +128,28 @@ type RawHit = {
 
 const PAGE_SIZE = 20;
 
+/**
+ * Whether the search page has anything to search by at all. A keyword is
+ * not required: topic/entity/kind/date are facets in their own right, not
+ * modifiers that only narrow a keyword hit — a member filtering by topic
+ * alone must still get that topic's posts back.
+ */
+export function hasSearchInput(filters: SearchFilters): boolean {
+  return (
+    filters.query.trim().length > 0 ||
+    filters.topicIds.length > 0 ||
+    Boolean(filters.entityId) ||
+    Boolean(filters.kind) ||
+    Boolean(filters.dateFrom) ||
+    Boolean(filters.dateTo)
+  );
+}
+
 export async function searchPosts(
   filters: SearchFilters
 ): Promise<{ results: SearchHit[]; hasNext: boolean }> {
   const query = filters.query.trim();
-  if (!query) return { results: [], hasNext: false };
+  if (!hasSearchInput(filters)) return { results: [], hasNext: false };
 
   const user = await requireSession();
   const scope = await scopeSetFor(user);
@@ -163,9 +180,14 @@ export async function searchPosts(
     Prisma.sql`p."status" = 'PUBLISHED'`,
     Prisma.sql`p."publishedAt" <= now()`,
     Prisma.sql`(p."expiresAt" IS NULL OR p."expiresAt" > now())`,
-    Prisma.sql`p."searchVector" @@ q`,
     visibilityCondition,
   ];
+  // No keyword: browsing by facet alone (topic/entity/kind/date), so every
+  // published post in scope is a candidate rather than none — an empty
+  // `websearch_to_tsquery` matches nothing via `@@`, not everything.
+  if (query) {
+    conditions.push(Prisma.sql`p."searchVector" @@ q`);
+  }
   if (filters.entityId) {
     conditions.push(Prisma.sql`p."publisherEntityId" = ${filters.entityId}`);
   }

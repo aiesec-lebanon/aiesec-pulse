@@ -8,6 +8,12 @@ export const TOPIC_TONE: Record<TopicKind, TopicTone> = {
   GENERAL: "general",
 };
 
+export const TOPIC_KIND_LABELS: Record<TopicKind, string> = {
+  PROGRAMME: "Programme",
+  FUNCTION: "Function",
+  GENERAL: "General",
+};
+
 /** The four tokens a tone carries: the accent, its fill, the text that sits on
  *  that fill, and the derivative safe to use as text on the page ground. */
 export type TopicTokens = {

@@ -106,6 +106,7 @@ test.describe("the PAI", () => {
 
     for (const route of [
       "/admin/roles",
+      "/admin/topics",
       "/admin/flags",
       "/admin/quotas",
       "/admin/system",
@@ -143,6 +144,7 @@ test.describe("the platform administrator", () => {
   test("reaches every administrative surface", async ({ page, signInAsAdmin }) => {
     await signInAsAdmin();
     for (const [route, heading] of [
+      ["/admin/topics", /^topics$/i],
       ["/admin/flags", /feature flags/i],
       ["/admin/quotas", /publishing quotas/i],
       ["/admin/system", /three faces/i],
@@ -200,6 +202,33 @@ test.describe("the platform administrator", () => {
     await expect(overrides.getByText(/no MC has a bespoke allowance/i)).toBeVisible({
       timeout: 15_000,
     });
+  });
+
+  // Topics are admin configuration (architecture.md §7.4/§7.5), same as quotas
+  // and flags above. "Remove" deactivates rather than deletes — the row stays
+  // visible so it can be restored, unlike the quota override above which
+  // disappears when removed.
+  test("adds a topic, removes it, and restores it", async ({ page, signInAsAdmin }) => {
+    await signInAsAdmin();
+    await page.goto("/admin/topics");
+
+    const topicName = `E2E Topic ${Date.now()}`;
+    await page.getByLabel("Name").fill(topicName);
+    await page.getByRole("button", { name: /^add topic$/i }).click();
+
+    const row = page.getByRole("listitem").filter({ hasText: topicName });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row.getByText(/^active$/i)).toBeVisible();
+
+    await row
+      .getByRole("button", { name: new RegExp(`remove the ${topicName} topic`, "i") })
+      .click();
+    await expect(row.getByText(/^removed$/i)).toBeVisible({ timeout: 15_000 });
+
+    await row
+      .getByRole("button", { name: new RegExp(`restore the ${topicName} topic`, "i") })
+      .click();
+    await expect(row.getByText(/^active$/i)).toBeVisible({ timeout: 15_000 });
   });
 
   test("signs out, and the console closes behind them", async ({ page, signInAsAdmin }) => {

@@ -3,6 +3,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 
 import { db } from "@/lib/db";
+import { slugBase } from "@/lib/slug";
 
 // Assigned once at first publication, never regenerated — so a published
 // URL stays valid. Titles collide constantly; the id tail disambiguates.
@@ -10,15 +11,7 @@ import { db } from "@/lib/db";
 const MAX_BASE_LENGTH = 60;
 
 export function slugifyTitle(title: string): string {
-  const base = title
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, MAX_BASE_LENGTH)
-    .replace(/-+$/, "");
-  return base || "post";
+  return slugBase(title, MAX_BASE_LENGTH) || "post";
 }
 
 // The loop exists because "vanishingly unlikely" is not "impossible", and a

@@ -537,4 +537,46 @@ test.describe("search", () => {
 
     await expect(page.getByRole("link", { name: title })).toBeVisible();
   });
+
+  // A freshly admin-created topic, not a seeded one — under fullyParallel,
+  // a shared seeded topic could pick up another worker's post mid-run and
+  // break the "exactly one" assertion this test exists to make.
+  test("a topic filter alone, with no keyword, returns that topic's one post", async ({
+    page,
+    signInAs,
+    signInAsAdmin,
+  }, testInfo) => {
+    test.setTimeout(60_000);
+    const isolate = isolationId(testInfo);
+    const topicName = `E2E Solo Topic ${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const title = uniqueTitle("E2E topic-only search");
+
+    await signInAsAdmin("/admin/topics");
+    await page.getByLabel("Name").fill(topicName);
+    await page.getByRole("button", { name: /^add topic$/i }).click();
+    await expect(page.getByRole("listitem").filter({ hasText: topicName })).toBeVisible({
+      timeout: 15_000,
+    });
+    await ensureFlagEnabled(page, "search.enabled");
+
+    await signInAs("lc_vp", "/posts/new", isolate);
+    await page.locator("#title").fill(title);
+    await page.locator("#content").pressSequentially(BODY);
+    await page
+      .getByRole("group", { name: "Topics" })
+      .getByRole("button", { name: topicName })
+      .click();
+    await page.getByRole("button", { name: /^publish$/i }).click();
+    await expect(page).toHaveURL(POST_SLUG_URL, { timeout: 15_000 });
+
+    await signInAs("member", "/search", isolate);
+    await page
+      .getByRole("group", { name: "Topics" })
+      .getByRole("button", { name: topicName })
+      .click();
+    await page.getByRole("button", { name: /^search$/i }).click();
+
+    await expect(page.getByText("1 result on this page")).toBeVisible();
+    await expect(page.getByRole("link", { name: title })).toBeVisible();
+  });
 });
