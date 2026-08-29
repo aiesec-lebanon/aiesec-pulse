@@ -13,7 +13,7 @@ type Props = {
   postId: string;
   comments: CommentDto[];
   allLoaded: boolean;
-  onLoadMore: (more: CommentDto[]) => void;
+  onLoadMore: (_more: CommentDto[]) => void;
 };
 
 export function CommentList({ postId, comments, allLoaded, onLoadMore }: Props) {

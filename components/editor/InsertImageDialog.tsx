@@ -13,7 +13,7 @@ export function InsertImageDialog({
   open: boolean;
   previewUrl: string | null;
   onCancel: () => void;
-  onConfirm: (alt: string) => void;
+  onConfirm: (_alt: string) => void;
 }) {
   const [alt, setAlt] = useState("");
   const [error, setError] = useState<string | null>(null);

@@ -15,7 +15,7 @@ export function InsertLinkDialog({
 }: {
   open: boolean;
   onCancel: () => void;
-  onConfirm: (url: string) => void;
+  onConfirm: (_url: string) => void;
 }) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);

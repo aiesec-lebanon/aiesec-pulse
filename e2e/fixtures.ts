@@ -28,13 +28,17 @@ function syntheticIp(testInfo: TestInfo): string {
   return `10.${testInfo.workerIndex & 0xff}.${(n >> 8) & 0xff}.${n & 0xff}`;
 }
 
-export type SignInAs = (persona: PersonaKey, returnTo?: string, isolate?: string) => Promise<void>;
+export type SignInAs = (
+  _persona: PersonaKey,
+  _returnTo?: string,
+  _isolate?: string
+) => Promise<void>;
 
 /** The credential admin. No AIESEC position reaches platform administration. */
-export type SignInAsAdmin = (returnTo?: string) => Promise<void>;
+export type SignInAsAdmin = (_returnTo?: string) => Promise<void>;
 
 /** Starts a sign-in without asserting where it lands — for the refusal cases. */
-export type AttemptSignIn = (persona: PersonaKey, isolate?: string) => Promise<void>;
+export type AttemptSignIn = (_persona: PersonaKey, _isolate?: string) => Promise<void>;
 
 /**
  * Signs an arbitrary page in (not the `signInAs`-bound one). Sessions live

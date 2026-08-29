@@ -60,7 +60,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export type RichTextEditorProps = {
   id?: string;
   content: PulseDocument;
-  onChange: (doc: PulseDocument) => void;
+  onChange: (_doc: PulseDocument) => void;
   /** Behind `posts.rich_text` — a kill switch for the authoring surface, not the storage format. */
   showToolbar: boolean;
   placeholder?: string;

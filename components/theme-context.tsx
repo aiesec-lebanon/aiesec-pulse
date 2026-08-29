@@ -8,7 +8,7 @@ type Resolved = "light" | "dark";
 type ThemeCtx = {
   theme: Theme;
   resolvedTheme: Resolved;
-  setTheme: (t: Theme) => void;
+  setTheme: (_t: Theme) => void;
 };
 
 const Ctx = createContext<ThemeCtx>({

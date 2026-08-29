@@ -20,7 +20,7 @@ export function TitleAccentPicker({
 }: {
   title: string;
   value: string;
-  onChange: (next: string) => void;
+  onChange: (_next: string) => void;
   /** The selected topic's kind, so the swatch is the real accent colour. */
   topicKind: TopicKind | null;
 }) {

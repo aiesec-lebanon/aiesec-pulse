@@ -42,7 +42,7 @@ export function HeroRotator({
    *  room for it so a one-post feed (no rail) isn't left with a blank void
    *  under its headline. */
   overlapping: boolean;
-  onPick: (index: number) => void;
+  onPick: (_index: number) => void;
   onPause: () => void;
   onResume: () => void;
 }) {

@@ -48,7 +48,7 @@ function refuseOnProduction(): void {
   }
 }
 
-async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
+async function withDb<T>(fn: (_db: Db) => Promise<T>): Promise<T> {
   refuseOnProduction();
   const db = new PrismaClient({ adapter: new PrismaPg(connectionString()) });
   try {

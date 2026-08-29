@@ -83,7 +83,7 @@ function FollowGroup({
   title: string;
   items: FollowingItem[];
   removingId: string | null;
-  onRemove: (item: FollowingItem) => void;
+  onRemove: (_item: FollowingItem) => void;
 }) {
   return (
     <section aria-label={title}>

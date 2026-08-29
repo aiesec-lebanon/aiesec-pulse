@@ -9,9 +9,9 @@ type Props = {
   /** True once the audience is aimed at something narrower than everyone. */
   narrowed?: boolean;
   value: ReachValue;
-  onChange: (value: ReachValue) => void;
+  onChange: (_value: ReachValue) => void;
   note: string;
-  onNoteChange: (note: string) => void;
+  onNoteChange: (_note: string) => void;
   error?: string;
   disabled?: boolean;
 };

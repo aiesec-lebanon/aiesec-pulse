@@ -14,7 +14,7 @@ export type MotionPreference = "full" | "reduced";
 
 type MotionCtx = {
   motion: MotionPreference;
-  setMotion: (next: MotionPreference) => void;
+  setMotion: (_next: MotionPreference) => void;
   /** Whether the current value came from the OS rather than an explicit choice. */
   fromSystem: boolean;
 };

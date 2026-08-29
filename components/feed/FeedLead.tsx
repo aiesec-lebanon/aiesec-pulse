@@ -179,7 +179,7 @@ function RailArrow({
 }: {
   direction: -1 | 1;
   disabled: boolean;
-  onPress: (direction: -1 | 1) => void;
+  onPress: (_direction: -1 | 1) => void;
 }) {
   const Icon = direction === -1 ? ArrowLeft : ArrowRight;
   return (

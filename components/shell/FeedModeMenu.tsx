@@ -24,7 +24,7 @@ export function FeedModeMenu({
 }: {
   mode: FeedMode;
   open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  onOpenChange?: (_open: boolean) => void;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [isPending, startTransition] = useTransition();

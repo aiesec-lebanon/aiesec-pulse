@@ -42,7 +42,7 @@ export function ReasonModal({
    * reason is meaningful when there's no one else to show it to. */
   requireReason?: boolean;
   onClose: () => void;
-  onConfirm: (reason: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onConfirm: (_reason: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);

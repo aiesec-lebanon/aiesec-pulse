@@ -13,9 +13,9 @@ const MAX_CHARS = 2000;
 type Props = {
   postId: string;
   currentUserName: string;
-  onOptimisticAdd: (optimistic: CommentDto) => void;
-  onConfirm: (optimistic: CommentDto, confirmed: CommentDto) => void;
-  onRemove: (optimistic: CommentDto) => void;
+  onOptimisticAdd: (_optimistic: CommentDto) => void;
+  onConfirm: (_optimistic: CommentDto, _confirmed: CommentDto) => void;
+  onRemove: (_optimistic: CommentDto) => void;
 };
 
 function SubmitButton({ empty }: { empty: boolean }) {
