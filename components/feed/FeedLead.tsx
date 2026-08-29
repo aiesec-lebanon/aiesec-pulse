@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { HeroRotator } from "@/components/feed/HeroRotator";
@@ -151,6 +152,21 @@ function SecondaryRail({ posts, revision }: { posts: FeedPost[]; revision: numbe
             </div>
           ))}
         </FlipList>
+      </div>
+
+      <div className="mt-6 flex justify-end">
+        <Link
+          href="/search"
+          className="group inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--hairline)] bg-[var(--card)] px-5 text-[15px] font-bold text-[color:var(--foreground)] shadow-[var(--elev-1)] transition-[color,border-color,box-shadow,transform] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] hover:-translate-y-[calc(2px*var(--motion-travel))] hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:text-[color:var(--primary-text)] hover:shadow-[var(--elev-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:border-white/25 sm:bg-transparent sm:text-white/85 sm:hover:border-white sm:hover:text-white"
+        >
+          Browse every story
+          <ArrowRight
+            size={15}
+            strokeWidth={2.5}
+            aria-hidden
+            className="transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:translate-x-[calc(3px*var(--motion-travel))]"
+          />
+        </Link>
       </div>
     </section>
   );

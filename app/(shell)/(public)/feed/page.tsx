@@ -5,21 +5,14 @@ import { FeedLead } from "@/components/feed/FeedLead";
 import { TrendingAuthorCard } from "@/components/feed/TrendingAuthorCard";
 import { Reveal } from "@/components/motion/Reveal";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Pagination } from "@/components/ui/Pagination";
 import { getElsewhereDigest, getFeedPage, getForYouFeedPage, getTrendingAuthors } from "@/lib/feed";
 import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
 import { isEnabled } from "@/lib/flags";
 import { can } from "@/lib/rbac/can";
 import { requireSession } from "@/lib/rbac/guards";
 
-export default async function FeedPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ page?: string }>;
-}) {
+export default async function FeedPage() {
   const user = await requireSession();
-  const { page: pageParam } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   // Latest-only when the flag is off — a courtesy default, not a permission
   // boundary.
@@ -27,9 +20,9 @@ export default async function FeedPage({
   const cookieStore = await cookies();
   const mode = rankedAvailable ? parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value) : "latest";
 
-  const [{ posts, hasNext }, trendingAuthors] = await Promise.all([
-    mode === "for-you" ? getForYouFeedPage(page) : getFeedPage(page),
-    page === 1 ? getTrendingAuthors() : Promise.resolve([]),
+  const [{ posts }, trendingAuthors] = await Promise.all([
+    mode === "for-you" ? getForYouFeedPage(1) : getFeedPage(1),
+    getTrendingAuthors(),
   ]);
 
   // Shared pool for hero + "more top stories" rail so FeedLead can split
@@ -97,14 +90,6 @@ export default async function FeedPage({
             </div>
           </section>
         )}
-
-        <Pagination
-          label="Feed pagination"
-          page={page}
-          hasNext={hasNext}
-          previousHref={page > 1 ? (page === 2 ? "/feed" : `/feed?page=${page - 1}`) : null}
-          nextHref={`/feed?page=${page + 1}`}
-        />
       </div>
     </main>
   );

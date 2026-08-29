@@ -915,12 +915,13 @@ export async function getElsewhereDigest(excludePostIds: string[]): Promise<Else
 
 async function topAuthorsBy(
   scope: ScopeSet,
-  publishedAt?: { gte: Date }
+  options: { publishedAt?: { gte: Date }; publisherEntityId?: string } = {}
 ): Promise<TrendingAuthor[]> {
   const visible = await db.post.findMany({
     where: {
       status: PostStatus.PUBLISHED,
-      ...(publishedAt ? { publishedAt } : {}),
+      ...(options.publishedAt ? { publishedAt: options.publishedAt } : {}),
+      ...(options.publisherEntityId ? { publisherEntityId: options.publisherEntityId } : {}),
       ...visibilityFilter(scope),
     },
     select: { authorId: true },
@@ -930,7 +931,7 @@ async function topAuthorsBy(
   for (const row of visible) counts.set(row.authorId, (counts.get(row.authorId) ?? 0) + 1);
   if (counts.size === 0) return [];
 
-  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   const authors = await db.user.findMany({
     where: { id: { in: top.map(([id]) => id) } },
@@ -966,8 +967,16 @@ export async function getTrendingAuthors(): Promise<TrendingAuthor[]> {
   const scope = await scopeSetFor(user);
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const recent = await topAuthorsBy(scope, { gte: since });
+  const recent = await topAuthorsBy(scope, { publishedAt: { gte: since } });
   if (recent.length > 0) return recent;
 
   return topAuthorsBy(scope);
+}
+
+// Ranked by posts published under this entity specifically (publisherEntityId),
+// not the author's primaryEntity — same attribution getEntityPosts already uses.
+export async function getTopAuthorsForEntity(entityId: string): Promise<TrendingAuthor[]> {
+  const user = await requireSession();
+  const scope = await scopeSetFor(user);
+  return topAuthorsBy(scope, { publisherEntityId: entityId });
 }

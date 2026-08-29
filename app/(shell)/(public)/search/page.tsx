@@ -70,8 +70,12 @@ export default async function SearchPage({
     days: inferDaysPreset(filters.dateFrom),
   };
 
-  const searched = hasSearchInput(filters);
-  const resultsLabel = filters.query ? `"${filters.query}"` : "your filters";
+  const filtersApplied = hasSearchInput(filters);
+  const resultsLabel = filters.query
+    ? `"${filters.query}"`
+    : filtersApplied
+      ? "your filters"
+      : "all posts";
 
   return (
     <main className="mx-auto w-full max-w-[940px] flex-1 px-6 pb-24">
@@ -91,15 +95,14 @@ export default async function SearchPage({
         <SearchForm topics={topics} entities={entities} initial={initial} />
       </Reveal>
 
-      {!searched ? (
+      {results.length === 0 ? (
         <EmptyState
-          heading="Search the network"
-          body="Find posts by keyword, or filter by topic, entity, type, or date on their own."
-        />
-      ) : results.length === 0 ? (
-        <EmptyState
-          heading={`Nothing matched ${resultsLabel}`}
-          body="Try a different keyword, or loosen a filter."
+          heading={filtersApplied ? `Nothing matched ${resultsLabel}` : "Nothing published yet"}
+          body={
+            filtersApplied
+              ? "Try a different keyword, or loosen a filter."
+              : "When something goes out, it will show up here."
+          }
         />
       ) : (
         <section aria-label={`Results for ${resultsLabel}`} className="mt-12">
@@ -116,7 +119,7 @@ export default async function SearchPage({
         </section>
       )}
 
-      {searched && (results.length > 0 || filters.page > 1) && (
+      {(results.length > 0 || filters.page > 1) && (
         <Pagination
           label="Search pagination"
           page={filters.page}

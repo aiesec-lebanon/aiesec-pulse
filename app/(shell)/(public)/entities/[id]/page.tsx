@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { FollowTarget } from "@/app/generated/prisma/enums";
 import { FollowButton } from "@/components/engagement/FollowButton";
+import { TrendingAuthorCard } from "@/components/feed/TrendingAuthorCard";
 import { Reveal } from "@/components/motion/Reveal";
 import { ProfileHero } from "@/components/profile/ProfileHero";
 import { ProfileIndexRail, type ProfileSection } from "@/components/profile/ProfileIndexRail";
@@ -10,7 +11,12 @@ import { PublishedIndexRow } from "@/components/profile/PublishedIndexRow";
 import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import { getEntityPostCount, getEntityPosts, PROFILE_PAGE_SIZE } from "@/lib/feed";
+import {
+  getEntityPostCount,
+  getEntityPosts,
+  getTopAuthorsForEntity,
+  PROFILE_PAGE_SIZE,
+} from "@/lib/feed";
 import { getEntityProfile } from "@/lib/profile";
 import { initialsOf } from "@/lib/topics-shared";
 
@@ -45,13 +51,15 @@ export default async function EntityProfilePage({
   const entity = await getEntityProfile(id);
   if (!entity) return notFound();
 
-  const [{ posts, hasNext }, postCount] = await Promise.all([
+  const [{ posts, hasNext }, postCount, topAuthors] = await Promise.all([
     getEntityPosts(id, page),
     getEntityPostCount(id),
+    getTopAuthorsForEntity(id),
   ]);
 
   const sections: ProfileSection[] = [
     { id: "entity-published", label: `Published (${postCount})` },
+    ...(topAuthors.length > 0 ? [{ id: "entity-top-authors", label: "Top authors" }] : []),
     ...(entity.children.length > 0
       ? [{ id: "entity-children", label: `Local committees (${entity.children.length})` }]
       : []),
@@ -137,6 +145,31 @@ export default async function EntityProfilePage({
               </div>
             )}
           </Reveal>
+
+          {topAuthors.length > 0 && (
+            <Reveal as="section" y={20} className="mt-16 border-t border-[var(--hairline)] pt-10">
+              <div id="entity-top-authors" className="scroll-mt-[calc(var(--rail-h)+40px)]">
+                <DisplayTitle
+                  as="h2"
+                  size="sm"
+                  title="Top authors"
+                  className="mb-4 text-[color:var(--foreground)]"
+                />
+              </div>
+              <div
+                tabIndex={0}
+                role="group"
+                aria-label={`Top authors at ${entity.name}, scrollable`}
+                className="flex snap-x snap-mandatory overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              >
+                {topAuthors.map((author, i) => (
+                  <Reveal key={author.id} y={16} x={12} delay={i * 55} className="shrink-0">
+                    <TrendingAuthorCard author={author} isFirst={i === 0} />
+                  </Reveal>
+                ))}
+              </div>
+            </Reveal>
+          )}
 
           {entity.children.length > 0 && (
             <Reveal as="section" y={20} className="mt-16 border-t border-[var(--hairline)] pt-10">

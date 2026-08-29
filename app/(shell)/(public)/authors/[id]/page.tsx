@@ -79,6 +79,7 @@ export default async function AuthorProfilePage({
         name={profile.fullName}
         positionTitle={profile.positionTitle}
         entityName={entityName}
+        entityHref={profile.primaryEntity ? `/entities/${profile.primaryEntity.id}` : undefined}
         // Their own words if they wrote a bio; otherwise a factual line —
         // never a plausible-sounding sentence about someone who didn't write it.
         standfirst={

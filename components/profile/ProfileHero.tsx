@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Parallax } from "@/components/motion/Parallax";
 import { Reveal } from "@/components/motion/Reveal";
 import { DisplayTitle } from "@/components/ui/DisplayTitle";
@@ -18,6 +20,7 @@ export function ProfileHero({
   name,
   positionTitle,
   entityName,
+  entityHref,
   standfirst,
   standfirstSlot,
   actions,
@@ -32,6 +35,8 @@ export function ProfileHero({
   positionTitle?: string | null;
   /** Already through `entityDisplayName` — the brand lockup, not a place. */
   entityName?: string | null;
+  /** When set, `entityName` links there — ordinary link treatment, not a filter chip's active-state shift. */
+  entityHref?: string;
   standfirst?: string | null;
   /** Replaces the standfirst — how `/profile` slots the bio editor in. */
   standfirstSlot?: React.ReactNode;
@@ -50,7 +55,17 @@ export function ProfileHero({
         {kicker}
       </span>
       {positionTitle && <span>{positionTitle}</span>}
-      {entityName && <EntityName name={entityName} />}
+      {entityName &&
+        (entityHref ? (
+          <Link
+            href={entityHref}
+            className="underline-offset-4 hover:text-[color:var(--primary-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          >
+            <EntityName name={entityName} />
+          </Link>
+        ) : (
+          <EntityName name={entityName} />
+        ))}
     </p>
   );
 

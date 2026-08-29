@@ -149,7 +149,6 @@ export async function searchPosts(
   filters: SearchFilters
 ): Promise<{ results: SearchHit[]; hasNext: boolean }> {
   const query = filters.query.trim();
-  if (!hasSearchInput(filters)) return { results: [], hasNext: false };
 
   const user = await requireSession();
   const scope = await scopeSetFor(user);
