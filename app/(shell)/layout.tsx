@@ -5,7 +5,7 @@ import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
 import { isEnabled } from "@/lib/flags";
 import { getShellUser } from "@/lib/shell-user";
 
-export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+export default async function ShellLayout({ children }: { children: React.ReactNode }) {
   const [user, feedRankedAvailable, cookieStore] = await Promise.all([
     getShellUser(),
     isEnabled("feed.ranked"),

@@ -34,7 +34,7 @@ export default async function BookmarksPage({
   return (
     <main className="mx-auto w-full max-w-[1240px] flex-1 px-6 pb-24">
       <PageHeader
-        breadcrumb={[{ href: "/feed", label: "Feed" }, { label: "Saved" }]}
+        breadcrumb={[{ href: "/feed", label: "Feed" }, { label: "Bookmarks" }]}
         title="Bookmarks"
         standfirst="Stories you have bookmarked across every topic, in one place — most recently saved first."
         count={total}
