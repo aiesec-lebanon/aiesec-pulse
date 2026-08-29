@@ -451,7 +451,13 @@ function NavRail({
       setIndicator((prev) => ({ ...prev, o: 0 }));
       return;
     }
-    setIndicator({ x: active.offsetLeft, w: active.offsetWidth, o: 1 });
+    // getBoundingClientRect diff, not offsetLeft/offsetWidth — each <li> is
+    // itself position:relative (for the feed-mode dropdown), which makes it
+    // the active link's offsetParent instead of this <ul>, so offsetLeft was
+    // always 0.
+    const listRect = list.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    setIndicator({ x: activeRect.left - listRect.left, w: activeRect.width, o: 1 });
   }, []);
 
   useLayoutEffect(() => {
