@@ -409,9 +409,6 @@ function NavRail({
   const listRef = useRef<HTMLUListElement>(null);
   const [indicator, setIndicator] = useState({ x: 0, w: 0, o: 0 });
 
-  // Close delayed by one beat so a pointer crossing the gap to the panel
-  // doesn't trigger a flicker-close. (.pulse-menu-bridge covers the gap
-  // itself; this covers the diagonal.)
   const [feedMenuOpen, setFeedMenuOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -434,9 +431,6 @@ function NavRail({
 
   useEffect(() => cancelClose, [cancelClose]);
 
-  // Closes the feed menu on route change; done during render (like the
-  // shell's drawer close above) to land in the same commit and avoid
-  // set-state-in-effect.
   const [renderedPath, setRenderedPath] = useState(pathname);
   if (renderedPath !== pathname) {
     setRenderedPath(pathname);
@@ -451,10 +445,6 @@ function NavRail({
       setIndicator((prev) => ({ ...prev, o: 0 }));
       return;
     }
-    // getBoundingClientRect diff, not offsetLeft/offsetWidth — each <li> is
-    // itself position:relative (for the feed-mode dropdown), which makes it
-    // the active link's offsetParent instead of this <ul>, so offsetLeft was
-    // always 0.
     const listRect = list.getBoundingClientRect();
     const activeRect = active.getBoundingClientRect();
     setIndicator({ x: activeRect.left - listRect.left, w: activeRect.width, o: 1 });
