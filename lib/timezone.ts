@@ -1,0 +1,54 @@
+function offsetParts(instant: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(instant);
+
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0");
+  // Midnight can format as hour "24" under hour12: false in some engines.
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: get("hour") % 24,
+    minute: get("minute"),
+    second: get("second"),
+  };
+}
+
+/**
+ * Interprets a `datetime-local` value (no zone) as a moment in `timeZone`.
+ * Scheduling honours the author's stored timezone, not the browser's —
+ * "Monday 9am Beirut" must mean that wherever the author is.
+ */
+export function zonedWallTimeToUtc(localDateTime: string, timeZone: string): Date {
+  const naiveUtc = new Date(`${localDateTime}:00.000Z`);
+  if (Number.isNaN(naiveUtc.getTime())) return naiveUtc;
+
+  const p = offsetParts(naiveUtc, timeZone);
+  const asIfUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  const drift = asIfUtc - naiveUtc.getTime();
+
+  return new Date(naiveUtc.getTime() - drift);
+}
+
+/** The inverse: formats a UTC instant as the `datetime-local`-shaped wall-clock string for `timeZone`. */
+export function formatAsWallTime(instant: Date, timeZone: string): string {
+  const p = offsetParts(instant, timeZone);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}`;
+}
+
+/** A short human label like "GMT+3" for the hint text next to the picker. */
+export function timeZoneOffsetLabel(timeZone: string, at: Date = new Date()): string {
+  const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "shortOffset" })
+    .formatToParts(at)
+    .find((p) => p.type === "timeZoneName");
+  return part?.value ?? timeZone;
+}

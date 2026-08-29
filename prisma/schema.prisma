@@ -1,3 +1,16 @@
+// AIESEC Pulse — production data model. This file is the single source of truth
+// for the schema, organised in five groups:
+//
+//   1. Organisation & identity
+//   2. Content
+//   3. Engagement & measurement
+//   4. Notifications
+//   5. Trust & safety, governance
+//
+// Constructs Prisma cannot express — the generated `searchVector`
+// column, trigram index, and partial feed/scheduler indexes — ship as
+// raw SQL in `prisma/migrations/*_m16_search_and_partial_indexes`.
+
 generator client {
   provider = "prisma-client"
   output   = "../app/generated/prisma"
@@ -7,127 +20,890 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  MCP
-  MEMBER
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. Organisation & identity
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EntityKind {
+  GLOBAL
+  REGION
+  MC
+  LC
 }
 
-enum PostStatus {
-  PUBLISHED
-  PENDING
-  REJECTED
+enum UserStatus {
+  ACTIVE
+  RESTRICTED
+  SUSPENDED
+  ERASED
+}
+
+enum ScopeType {
+  GLOBAL
+  REGION
+  ENTITY
+}
+
+enum GrantSource {
+  GIS
+  MANUAL
+}
+
+/// An AIESEC office mirrored from GIS. The tree is GLOBAL → REGION → MC → LC.
+model Entity {
+  id            String     @id @default(cuid())
+  gisOfficeId   String     @unique
+  name          String
+  tag           String?
+  kind          EntityKind
+  parentId      String?
+  /// Materialised ancestor path (e.g. "/ai/mena/lb/aub") — powers subtree
+  /// queries and org-distance scoring without recursive CTEs.
+  path          String     @default("")
+  countryCode   String?    @db.Char(2)
+  timezone      String     @default("UTC")
+  defaultLocale String     @default("en")
+  isActive      Boolean    @default(true)
+  syncedAt      DateTime?  @db.Timestamptz(3)
+  createdAt     DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime   @updatedAt @db.Timestamptz(3)
+
+  parent   Entity?  @relation("EntityTree", fields: [parentId], references: [id])
+  children Entity[] @relation("EntityTree")
+
+  members       User[]
+  posts         Post[]
+  grants        RoleGrant[]
+  audiences     PostAudience[]
+  quotaPolicies QuotaPolicy[]
+
+  @@index([kind, isActive])
+  @@index([parentId])
+  @@index([path])
+  /// Trigram index for entity-name lookahead. Created by the M16 raw
+  /// migration; declared here so the CI drift check passes.
+  @@index([name(ops: raw("gin_trgm_ops"))], map: "Entity_name_trgm_idx", type: Gin)
 }
 
 model User {
-  id            String   @id @default(cuid())
-  aiesecUserId  String   @unique
-  fullName      String
-  role          UserRole
-  committeeId   String?
-  committeeName String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String     @id @default(cuid())
+  aiesecPersonId  String     @unique
+  fullName        String
+  email           String?
+  avatarUrl       String?
+  /// Member's own one-or-two sentences, shown as the standfirst on their
+  /// profile and stories. Pulse-owned — GIS has no equivalent field.
+  /// Nullable: most members never set one.
+  bio             String?
+  primaryEntityId String?
+  locale          String     @default("en")
+  timezone        String     @default("UTC")
+  status          UserStatus @default(ACTIVE)
+  lastSyncedAt    DateTime?  @db.Timestamptz(3)
+  lastSeenAt      DateTime?  @db.Timestamptz(3)
+  erasedAt        DateTime?  @db.Timestamptz(3)
+  createdAt       DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime   @updatedAt @db.Timestamptz(3)
 
-  posts       Post[]
-  comments    Comment[]
-  likes       Like[]
-  oauthTokens OauthToken?
-  userActions UserAction[]
+  primaryEntity Entity? @relation(fields: [primaryEntityId], references: [id])
 
-  @@index([role])
+  grants            RoleGrant[]
+  posts             Post[]                   @relation("PostAuthor")
+  promotedPosts     Post[]                   @relation("PostPromoter")
+  postVersions      PostVersion[]
+  comments          Comment[]
+  mentions          CommentMention[]
+  reactions         Reaction[]
+  bookmarks         Bookmark[]
+  reads             PostRead[]
+  acknowledgements  Acknowledgement[]
+  follows           Follow[]
+  sessions          Session[]
+  oauthToken        OauthToken?
+  notifications     Notification[]
+  notificationPrefs NotificationPreference[]
+  digestSetting     UserDigestSetting?
+  pushSubscriptions PushSubscription[]
+  emailDeliveries   EmailDelivery[]
+  media             Media[]
+  reportsFiled      Report[]                 @relation("Reporter")
+  reportsAssigned   Report[]                 @relation("Assignee")
+  appeals           Appeal[]
+  restrictions      UserRestriction[]
+
+  @@index([primaryEntityId])
+  @@index([status])
+  @@index([lastSeenAt(sort: Desc)])
+}
+
+/// Static catalogue, seeded. Roles are not user-editable; grants are.
+model Role {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  description String?
+  isSystem    Boolean @default(true)
+
+  permissions RolePermission[]
+  grants      RoleGrant[]
+}
+
+model Permission {
+  id   String @id @default(cuid())
+  key  String @unique
+  name String
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+/// A role held by a user at a scope, for a term — time-bounded because
+/// AIESEC leadership rotates annually and grants must expire on their own.
+model RoleGrant {
+  id            String      @id @default(cuid())
+  userId        String
+  roleId        String
+  scopeType     ScopeType
+  scopeEntityId String?
+  termLabel     String?
+  gisPositionId String?
+  source        GrantSource @default(GIS)
+  startsAt      DateTime    @default(now()) @db.Timestamptz(3)
+  endsAt        DateTime?   @db.Timestamptz(3)
+  revokedAt     DateTime?   @db.Timestamptz(3)
+  grantedById   String?
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role  Role    @relation(fields: [roleId], references: [id])
+  scope Entity? @relation(fields: [scopeEntityId], references: [id])
+
+  @@unique([userId, roleId, scopeType, scopeEntityId, termLabel])
+  @@index([userId, revokedAt, endsAt])
+  @@index([scopeEntityId, roleId])
+  @@index([endsAt])
+}
+
+/// Server-side session record — enables real revocation ("sign out
+/// everywhere"), which a stateless JWT can't provide.
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  userAgent  String?
+  ipHash     String?
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }
 
 model OauthToken {
-  userId       String   @id
-  accessToken  String
-  refreshToken String
-  expiresAt    DateTime
+  userId          String   @id
+  accessTokenEnc  Bytes
+  refreshTokenEnc Bytes
+  expiresAt       DateTime @db.Timestamptz(3)
+  scope           String?
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Admin {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. Content
+// ─────────────────────────────────────────────────────────────────────────────
 
-  actions AdminAction[]
+enum PostKind {
+  ANNOUNCEMENT
+  STORY
+  EVENT
+  OPPORTUNITY
+  RESOURCE
+  RECOGNITION
+}
+
+enum PostStatus {
+  DRAFT
+  IN_REVIEW
+  SCHEDULED
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+  HIDDEN
+}
+
+/// Reach of a published post. LOCAL (default) stays in the publisher's
+/// own MC subtree; NETWORK reaches every MC via quota-limited MCP
+/// promotion. Distinct from PostStatus: reach vs. lifecycle.
+enum PostLevel {
+  LOCAL
+  NETWORK
+}
+
+enum TopicKind {
+  FUNCTION
+  PROGRAMME
+  GENERAL
+}
+
+enum QuotaPeriod {
+  ISO_WEEK
+  CALENDAR_MONTH
 }
 
 model Post {
-  id              String     @id @default(cuid())
-  authorId        String
-  title           String
-  content         String     @db.Text
-  mediaUrl        String?
-  linkUrl         String?
-  status          PostStatus @default(PUBLISHED)
-  weekIso         String
+  id                String     @id @default(cuid())
+  slug              String     @unique
+  kind              PostKind   @default(STORY)
+  status            PostStatus @default(DRAFT)
+  authorId          String
+  publisherEntityId String
+  termLabel         String?
+
+  title          String
+  /// Phrase in `title` italicised in the topic's colour. Stored as the
+  /// substring (not an offset pair) so title edits can't corrupt it; a
+  /// vanished phrase is just ignored at render (see `splitOnWord`).
+  titleAccent    String?
+  summary        String?
+  /// Portable rich-text document (TipTap/ProseMirror JSON).
+  bodyJson       Json
+  /// Flattened plain text. Drives full-text search, digests, and reading time.
+  bodyText       String  @db.Text
+  readingMinutes Int     @default(1)
+  locale         String  @default("en")
+
+  coverMediaId String?
+  linkUrl      String?
+
+  requiresAck Boolean   @default(false)
+  pinnedUntil DateTime? @db.Timestamptz(3)
+  expiresAt   DateTime? @db.Timestamptz(3)
+
+  /// Reach. Defaults to LOCAL — nothing becomes network-visible by accident.
+  level           PostLevel @default(LOCAL)
+  promotedAt      DateTime? @db.Timestamptz(3)
+  promotedById    String?
+  /// Why it was promoted — required at the action, so quota spend always
+  /// has a stated reason.
+  promotionNote   String?
+  /// Quota window the *promotion* consumed — separate from `quotaPeriod`
+  /// since promoting is a distinct budgeted act from publishing.
+  promotionPeriod String?
+
+  scheduledAt     DateTime? @db.Timestamptz(3)
+  publishedAt     DateTime? @db.Timestamptz(3)
+  archivedAt      DateTime? @db.Timestamptz(3)
+  hiddenAt        DateTime? @db.Timestamptz(3)
+  hiddenReason    String?
   rejectionReason String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
 
-  author   User      @relation(fields: [authorId], references: [id])
-  comments Comment[]
-  likes    Like[]
+  /// Quota window this post consumed, e.g. "2026-W21".
+  quotaPeriod String?
 
-  @@index([status, createdAt(sort: Desc)])
-  @@index([authorId, weekIso])
+  /// Denormalised counters, maintained transactionally with the source rows.
+  reactionCount Int @default(0)
+  commentCount  Int @default(0)
+  readCount     Int @default(0)
+  /// Targeted audience size at publish time — denominator for read rate.
+  audienceSize  Int @default(0)
+
+  /// Generated tsvector over title + summary + bodyText — declared as
+  /// database-generated since Prisma can't express generated columns.
+  searchVector Unsupported("tsvector")? @default(dbgenerated())
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  author    User   @relation("PostAuthor", fields: [authorId], references: [id])
+  publisher Entity @relation(fields: [publisherEntityId], references: [id])
+  cover     Media? @relation("PostCover", fields: [coverMediaId], references: [id])
+
+  promotedBy User? @relation("PostPromoter", fields: [promotedById], references: [id])
+
+  versions   PostVersion[]
+  audiences  PostAudience[]
+  topics     PostTopic[]
+  media      PostMedia[]
+  comments   Comment[]
+  reactions  Reaction[]
+  bookmarks  Bookmark[]
+  reads      PostRead[]
+  acks       Acknowledgement[]
+  deliveries PostDelivery[]
+  metrics    PostMetricDaily[]
+  event      EventDetail?
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([publisherEntityId, status, publishedAt(sort: Desc)])
+  @@index([authorId, quotaPeriod, status])
+  @@index([status, scheduledAt])
+  @@index([kind, status, publishedAt(sort: Desc)])
+  /// Serves the network arm of the feed union.
+  @@index([level, status, publishedAt(sort: Desc)])
+  /// Promotion quota counting, per promoter per window.
+  @@index([promotedById, promotionPeriod])
+  /// Full-text index over the generated column. Created by the M16 raw
+  /// migration; declared here so the CI drift check passes.
+  @@index([searchVector(ops: raw("tsvector_ops"))], map: "Post_searchVector_idx", type: Gin)
 }
 
-model Comment {
+model PostVersion {
+  id         String   @id @default(cuid())
+  postId     String
+  version    Int
+  title      String
+  summary    String?
+  bodyJson   Json
+  editedById String
+  changeNote String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  editedBy User @relation(fields: [editedById], references: [id])
+
+  @@unique([postId, version])
+  @@index([postId, createdAt(sort: Desc)])
+}
+
+/// Audience targeting: GLOBAL rows have no entity; REGION/ENTITY rows
+/// name one. Viewer sees a post if any row matches their scope.
+model PostAudience {
   id        String    @id @default(cuid())
   postId    String
-  userId    String
-  content   String    @db.Text
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
+  scopeType ScopeType
+  entityId  String?
 
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id])
+  post   Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  entity Entity? @relation(fields: [entityId], references: [id])
 
-  @@index([postId, createdAt])
+  @@unique([postId, scopeType, entityId])
+  @@index([scopeType, entityId])
 }
 
-model Like {
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
+/// Functional areas (TM, iGV, …), programmes, and editorial themes.
+model Topic {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String?
+  kind        TopicKind @default(GENERAL)
+  isFeatured  Boolean   @default(false)
+  isActive    Boolean   @default(true)
+
+  posts PostTopic[]
+}
+
+model PostTopic {
+  postId  String
+  topicId String
+
+  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@id([postId, topicId])
+  @@index([topicId])
+}
+
+model EventDetail {
+  postId   String    @id
+  startsAt DateTime  @db.Timestamptz(3)
+  endsAt   DateTime? @db.Timestamptz(3)
+  timezone String    @default("UTC")
+  location String?
+  joinUrl  String?
+  rsvpUrl  String?
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id])
+
+  @@index([startsAt])
+}
+
+model Media {
+  id         String   @id @default(cuid())
+  ownerId    String?
+  bucket     String
+  path       String
+  mimeType   String
+  bytes      Int
+  width      Int?
+  height     Int?
+  durationMs Int?
+  checksum   String?
+  altText    String?
+  /// Derived renditions: { thumb, card, hero, blurhash }
+  variants   Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  owner    User?       @relation(fields: [ownerId], references: [id])
+  coverFor Post[]      @relation("PostCover")
+  posts    PostMedia[]
+
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@index([checksum])
+}
+
+model PostMedia {
+  postId   String
+  mediaId  String
+  position Int     @default(0)
+  caption  String?
+
+  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id])
+
+  @@id([postId, mediaId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. Engagement & measurement
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ReactionKind {
+  LIKE
+  CELEBRATE
+  INSIGHTFUL
+  SUPPORT
+}
+
+enum CommentStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
+enum FollowTarget {
+  TOPIC
+  ENTITY
+  USER
+}
+
+enum ReadSource {
+  FEED
+  SEARCH
+  DIGEST
+  PUSH
+  DIRECT
+}
+
+model Reaction {
+  postId    String
+  userId    String
+  kind      ReactionKind @default(LIKE)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([postId, kind])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+/// One level of nesting only — parentId must reference a depth-0 comment.
+/// Enforced in the Server Action, not the schema.
+model Comment {
+  id           String        @id @default(cuid())
+  postId       String
+  parentId     String?
+  userId       String
+  body         String        @db.Text
+  status       CommentStatus @default(VISIBLE)
+  depth        Int           @default(0)
+  editedAt     DateTime?     @db.Timestamptz(3)
+  hiddenAt     DateTime?     @db.Timestamptz(3)
+  hiddenReason String?
+  deletedAt    DateTime?     @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+
+  post     Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent   Comment?         @relation("CommentThread", fields: [parentId], references: [id])
+  replies  Comment[]        @relation("CommentThread")
+  user     User             @relation(fields: [userId], references: [id])
+  mentions CommentMention[]
+
+  @@index([postId, status, createdAt])
+  @@index([parentId, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model CommentMention {
+  commentId String
+  userId    String
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([userId])
+}
+
+model Bookmark {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+/// Follows and mutes share a row; `muted = true` inverts the signal.
+model Follow {
+  id         String       @id @default(cuid())
+  userId     String
+  targetType FollowTarget
+  targetId   String
+  muted      Boolean      @default(false)
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
+}
+
+/// One row per (post, reader), updated in place — the source of read
+/// rate and dwell.
+model PostRead {
+  postId      String
+  userId      String
+  firstReadAt DateTime   @default(now()) @db.Timestamptz(3)
+  lastReadAt  DateTime   @default(now()) @db.Timestamptz(3)
+  dwellMs     Int        @default(0)
+  scrollPct   Int        @default(0)
+  source      ReadSource @default(FEED)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([postId, firstReadAt])
+  @@index([userId, lastReadAt(sort: Desc)])
+}
+
+model Acknowledgement {
+  postId         String
+  userId         String
+  acknowledgedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([postId, userId])
   @@index([postId])
 }
 
-model AdminAction {
-  id         String   @id @default(cuid())
-  adminId    String
+/// Push/email delivery receipts only — in-app reach uses
+/// `Post.audienceSize` since a row per reader per post doesn't scale.
+model PostDelivery {
+  id          String              @id @default(cuid())
+  postId      String
+  userId      String
+  channel     NotificationChannel
+  deliveredAt DateTime            @default(now()) @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, channel])
+  @@index([postId, channel])
+}
+
+/// Nightly rollup. Keeps analytics queries off the raw event tables.
+model PostMetricDaily {
+  postId        String
+  day           DateTime @db.Date
+  impressions   Int      @default(0)
+  uniqueReaders Int      @default(0)
+  reactions     Int      @default(0)
+  comments      Int      @default(0)
+  bookmarks     Int      @default(0)
+  avgDwellMs    Int      @default(0)
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([postId, day])
+  @@index([day])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. Notifications
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+}
+
+enum DigestFrequency {
+  OFF
+  DAILY
+  WEEKLY
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String
+  payload   Json
+  postId    String?
+  readAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id      String              @id @default(cuid())
+  userId  String
+  kind    String
+  channel NotificationChannel
+  enabled Boolean             @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, channel])
+}
+
+model UserDigestSetting {
+  userId         String          @id
+  frequency      DigestFrequency @default(WEEKLY)
+  /// Local hour of day, resolved against `User.timezone`.
+  sendHour       Int             @default(8)
+  lastSentAt     DateTime?       @db.Timestamptz(3)
+  unsubscribedAt DateTime?       @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id         String    @id @default(cuid())
+  userId     String
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  lastUsedAt DateTime? @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailDelivery {
+  id         String    @id @default(cuid())
+  userId     String
+  kind       String
+  providerId String?
+  status     String
+  sentAt     DateTime? @db.Timestamptz(3)
+  openedAt   DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. Trust & safety, governance, operations
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE
+  MISINFORMATION
+  OFF_TOPIC
+  CONFIDENTIAL
+  COPYRIGHT
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  TRIAGED
+  ACTIONED
+  DISMISSED
+  ESCALATED
+}
+
+enum ReportSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AppealStatus {
+  OPEN
+  UPHELD
+  OVERTURNED
+}
+
+enum ActorType {
+  USER
+  SYSTEM
+  ADMIN
+}
+
+model Report {
+  id            String         @id @default(cuid())
+  reporterId    String
+  targetType    String
+  targetId      String
+  /// Entity scope the report routes to — enables entity-level moderation.
+  scopeEntityId String?
+  reason        ReportReason
+  details       String?
+  status        ReportStatus   @default(OPEN)
+  severity      ReportSeverity @default(MEDIUM)
+  assigneeId    String?
+  resolution    String?
+  resolvedAt    DateTime?      @db.Timestamptz(3)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
+
+  reporter User     @relation("Reporter", fields: [reporterId], references: [id])
+  assignee User?    @relation("Assignee", fields: [assigneeId], references: [id])
+  appeals  Appeal[]
+
+  @@index([status, severity, createdAt])
+  @@index([targetType, targetId])
+  @@index([scopeEntityId, status])
+}
+
+model Appeal {
+  id           String       @id @default(cuid())
+  reportId     String?
+  appellantId  String
+  targetType   String
+  targetId     String
+  rationale    String
+  status       AppealStatus @default(OPEN)
+  decidedById  String?
+  decisionNote String?
+  decidedAt    DateTime?    @db.Timestamptz(3)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+
+  report    Report? @relation(fields: [reportId], references: [id])
+  appellant User    @relation(fields: [appellantId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+model UserRestriction {
+  id         String    @id @default(cuid())
+  userId     String
+  kind       String
+  reason     String
+  startsAt   DateTime  @default(now()) @db.Timestamptz(3)
+  endsAt     DateTime? @db.Timestamptz(3)
+  issuedById String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, endsAt])
+}
+
+/// Publishing quotas as runtime config. `postLevel` splits two budgeted
+/// acts: LOCAL caps posts within the publisher's own MC; NETWORK caps
+/// promotions network-wide.
+model QuotaPolicy {
+  id        String      @id @default(cuid())
+  scopeType ScopeType
+  entityId  String?
+  roleKey   String
+  postLevel PostLevel   @default(LOCAL)
+  period    QuotaPeriod @default(ISO_WEEK)
+  maxPosts  Int
+  isActive  Boolean     @default(true)
+
+  entity Entity? @relation(fields: [entityId], references: [id])
+
+  @@unique([scopeType, entityId, roleKey, postLevel, period])
+}
+
+/// Unified append-only audit stream for every actor. `actorLabel` is
+/// denormalised so records survive the actor's GDPR erasure.
+model AuditEvent {
+  id         String    @id @default(cuid())
+  actorType  ActorType
+  actorId    String?
+  actorLabel String?
   action     String
   targetType String
   targetId   String
+  entityId   String?
+  ipHash     String?
+  userAgent  String?
   metadata   Json?
-  createdAt  DateTime @default(now())
-
-  admin Admin @relation(fields: [adminId], references: [id])
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
 
   @@index([createdAt(sort: Desc)])
-  @@index([adminId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([targetType, targetId, createdAt(sort: Desc)])
+  @@index([entityId, createdAt(sort: Desc)])
 }
 
-model UserAction {
-  id         String   @id @default(cuid())
-  userId     String
-  action     String   // "create_post" | "add_comment"
-  targetType String   // "post" | "comment"
-  targetId   String
-  metadata   Json?
-  createdAt  DateTime @default(now())
+model FeatureFlag {
+  key       String   @id
+  enabled   Boolean  @default(false)
+  rollout   Json?
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
 
-  user User @relation(fields: [userId], references: [id])
+/// Feed ranking weights, tunable by platform admins without a deploy.
+model RankingWeight {
+  key       String   @id
+  weight    Float
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
 
-  @@index([createdAt(sort: Desc)])
-  @@index([userId, createdAt(sort: Desc)])
+model DataSubjectRequest {
+  id          String    @id @default(cuid())
+  userId      String?
+  email       String?
+  kind        String
+  status      String    @default("RECEIVED")
+  receivedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  dueAt       DateTime  @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+  handledById String?
+  notes       String?
+
+  @@index([status, dueAt])
+}
+
+model SyncRun {
+  id         String    @id @default(cuid())
+  kind       String
+  startedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+  status     String
+  processed  Int       @default(0)
+  failed     Int       @default(0)
+  error      String?
+
+  @@index([kind, startedAt(sort: Desc)])
 }

@@ -1,10 +1,5 @@
 import Image from "next/image";
 
-// ── Avatar ─────────────────────────────────────────────────────────────────────
-
-// Five muted-tone backgrounds built by blending design-system tokens with the
-// card surface via color-mix(). The result adapts to both light and dark themes
-// without hard-coded hex values.
 const AVATAR_PALETTE = [
   "color-mix(in srgb, var(--primary) 18%, var(--card))",
   "color-mix(in srgb, var(--success) 18%, var(--card))",
@@ -47,9 +42,7 @@ export function PostAvatar({ fullName, avatarUrl, size = "md" }: PostAvatarProps
 
   if (avatarUrl) {
     return (
-      <span
-        className={`relative shrink-0 overflow-hidden rounded-full ${sizeClass}`}
-      >
+      <span className={`relative shrink-0 overflow-hidden rounded-full ${sizeClass}`}>
         <Image src={avatarUrl} alt="" fill className="object-cover" sizes="48px" />
       </span>
     );
@@ -58,37 +51,10 @@ export function PostAvatar({ fullName, avatarUrl, size = "md" }: PostAvatarProps
   return (
     <span
       aria-hidden
-      className={`flex shrink-0 select-none items-center justify-center rounded-full font-bold text-[var(--foreground)] ${sizeClass}`}
+      className={`flex shrink-0 select-none items-center justify-center rounded-full font-bold text-[color:var(--foreground)] ${sizeClass}`}
       style={{ background: avatarBg(fullName) }}
     >
       {initials(fullName)}
     </span>
-  );
-}
-
-// ── Image Fallback ─────────────────────────────────────────────────────────────
-
-// Fills its parent container (which must be `position: relative` + sized).
-// A single SVG bezier curve provides a subtle abstract mark — aria-hidden so
-// screen readers skip this purely decorative element.
-export function ImageFallback() {
-  return (
-    <div aria-hidden className="relative h-full w-full bg-[var(--muted)]">
-      <svg
-        viewBox="0 0 200 120"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="absolute inset-0 h-full w-full text-[var(--muted-foreground)]"
-        aria-hidden
-      >
-        <path
-          d="M -10 90 C 50 10 130 110 210 30"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeOpacity="0.18"
-          fill="none"
-        />
-      </svg>
-    </div>
   );
 }

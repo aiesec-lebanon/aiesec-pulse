@@ -2,179 +2,174 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
-import { adminLogout } from "@/app/actions/admin";
+import { useEffect, useState } from "react";
 
-const NAV_ITEMS = [
-  { href: "/admin/queue", label: "Queue", queueBadge: true },
-  { href: "/admin/posts", label: "All posts" },
-  { href: "/admin/comments", label: "Comments" },
-  { href: "/admin/activity", label: "MCP activity" },
+import { adminLogout } from "@/app/actions/admin-auth";
+
+const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
+  { href: "/admin/activity", label: "Publishing activity" },
   { href: "/admin/audit", label: "Audit log" },
-] as const;
+  { href: "/admin/roles", label: "Permissions" },
+  { href: "/admin/topics", label: "Topics" },
+  { href: "/admin/quotas", label: "Publishing quotas" },
+  { href: "/admin/privacy", label: "Data requests" },
+  { href: "/admin/flags", label: "Feature flags" },
+  { href: "/admin/system", label: "Design system" },
+];
 
 interface AdminShellProps {
   adminEmail: string;
-  pendingCount: number;
   children: React.ReactNode;
 }
 
-export function AdminShell({ adminEmail, pendingCount, children }: AdminShellProps) {
+export function AdminShell({ adminEmail, children }: AdminShellProps) {
+  const userName = adminEmail;
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Close sidebar on route change
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [pathname]);
-
-  // Prevent body scroll when sidebar is open
   useEffect(() => {
     if (sidebarOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [sidebarOpen]);
 
   const items = NAV_ITEMS.map((item) => ({
     href: item.href,
     label: item.label,
-    badge: "queueBadge" in item && pendingCount > 0 ? pendingCount : undefined,
-    isActive:
-      pathname === item.href || pathname.startsWith(item.href + "/"),
+    isActive: pathname === item.href || pathname.startsWith(item.href + "/"),
   }));
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* ── Top bar: 64px ─────────────────────────────────────────────────── */}
-      <header className="h-16 flex-shrink-0 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6 gap-2 z-30 relative">
-        <div className="flex items-center gap-3 min-w-0">
-          {/* Hamburger — mobile only */}
+    <div className="pulse-stage flex min-h-screen flex-col">
+      <header className="pulse-rail relative z-30 flex h-16 flex-shrink-0 items-center justify-between gap-2 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={() => setSidebarOpen((v) => !v)}
-            className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-[5px] flex-shrink-0 rounded-[var(--radius-sm)] hover:bg-[var(--muted)] transition-colors"
+            className="flex h-11 w-11 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] transition-colors hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] md:hidden"
             aria-label={sidebarOpen ? "Close menu" : "Open menu"}
             aria-expanded={sidebarOpen}
           >
-            <span
-              className={[
-                "block w-5 h-0.5 bg-[var(--foreground)] transition-all duration-200 origin-center",
-                sidebarOpen ? "rotate-45 translate-y-[7px]" : "",
-              ].join(" ")}
-            />
-            <span
-              className={[
-                "block w-5 h-0.5 bg-[var(--foreground)] transition-all duration-200",
-                sidebarOpen ? "opacity-0" : "",
-              ].join(" ")}
-            />
-            <span
-              className={[
-                "block w-5 h-0.5 bg-[var(--foreground)] transition-all duration-200 origin-center",
-                sidebarOpen ? "-rotate-45 -translate-y-[7px]" : "",
-              ].join(" ")}
-            />
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                aria-hidden
+                className="block h-0.5 w-5 origin-center bg-[var(--foreground)] transition-[transform,opacity] duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]"
+                style={
+                  sidebarOpen
+                    ? i === 1
+                      ? { opacity: 0 }
+                      : {
+                          transform: `rotate(${i === 0 ? 45 : -45}deg) translateY(${i === 0 ? 7 : -7}px)`,
+                        }
+                    : undefined
+                }
+              />
+            ))}
           </button>
 
-          <span className="text-[14px] sm:text-[16px] font-bold text-foreground whitespace-nowrap">
-            AIESEC Pulse · Moderator
+          <span className="whitespace-nowrap text-[14px] font-bold text-[color:var(--foreground)] sm:text-[16px]">
+            Pulse
+            <span aria-hidden className="px-2 text-[color:var(--muted-foreground)]">
+              /
+            </span>
+            Administration
           </span>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="hidden sm:block text-[14px] text-muted-foreground truncate max-w-[200px]">
-            {adminEmail}
+        <div className="flex flex-shrink-0 items-center gap-4">
+          <span className="hidden max-w-[200px] truncate text-[14px] text-[color:var(--muted-foreground)] sm:block">
+            {userName}
           </span>
+          <Link
+            href="/feed"
+            className="pulse-underline rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          >
+            Back to feed
+          </Link>
           <form action={adminLogout}>
             <button
               type="submit"
-              className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="pulse-underline min-h-[36px] rounded-[var(--radius-sm)] text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
             >
-              Log out
+              Sign out
             </button>
           </form>
         </div>
       </header>
 
-      {/* ── Body: left rail + page content ────────────────────────────────── */}
-      <div className="flex flex-1 relative">
-        {/* Mobile overlay */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-20 bg-black/50 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-
-        {/* Mobile slide-in sidebar */}
-        <nav
+      <div className="relative flex flex-1">
+        <div
+          aria-hidden
+          onClick={() => setSidebarOpen(false)}
           className={[
-            "fixed top-16 left-0 bottom-0 w-64 z-30 bg-[var(--card)] border-r border-[var(--border)] py-4 flex flex-col transition-transform duration-200 md:hidden",
+            "fixed inset-0 z-20 bg-black/50 transition-opacity duration-[calc(var(--dur-element)*var(--motion-scale))] md:hidden",
+            sidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+          ].join(" ")}
+        />
+
+        {/* Shared nav list for both shells so mobile/desktop can't drift apart. */}
+        <nav
+          aria-label="Admin navigation"
+          inert={!sidebarOpen}
+          className={[
+            "fixed bottom-0 left-0 top-16 z-30 flex w-64 flex-col overflow-y-auto border-r border-[var(--hairline)] bg-[var(--card)] py-4 transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)] md:hidden",
             sidebarOpen ? "translate-x-0" : "-translate-x-full",
           ].join(" ")}
-          aria-label="Admin navigation"
         >
-          <div className="px-4 pb-3 mb-1 border-b border-[var(--border)]">
-            <p className="text-[12px] font-medium text-[var(--muted-foreground)] uppercase tracking-wide truncate">
-              {adminEmail}
-            </p>
-          </div>
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={[
-                "flex items-center justify-between px-4 py-3 text-[15px] transition-colors border-l-2",
-                item.isActive
-                  ? "border-primary bg-muted font-bold text-foreground"
-                  : "border-transparent font-medium text-muted-foreground hover:text-foreground hover:bg-muted",
-              ].join(" ")}
-            >
-              <span>{item.label}</span>
-              {item.badge != null && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary text-primary-foreground text-[12px] font-bold px-1.5 tabular-nums">
-                  {item.badge > 99 ? "99+" : item.badge}
-                </span>
-              )}
-            </Link>
-          ))}
+          <p className="pulse-label mb-2 truncate border-b border-[var(--hairline)] px-4 pb-3">
+            {userName}
+          </p>
+          <AdminNavList items={items} onNavigate={() => setSidebarOpen(false)} />
         </nav>
 
-        {/* Desktop left rail — 240px */}
         <nav
-          className="hidden md:flex flex-col w-60 flex-shrink-0 border-r border-border bg-card py-4"
           aria-label="Admin navigation"
+          className="hidden w-60 flex-shrink-0 flex-col border-r border-[var(--hairline)] bg-[var(--card)] py-4 md:flex"
         >
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={[
-                "flex items-center justify-between px-4 py-2.5 text-[15px] transition-colors border-l-2",
-                item.isActive
-                  ? "border-primary bg-muted font-bold text-foreground"
-                  : "border-transparent font-medium text-muted-foreground hover:text-foreground hover:bg-muted",
-              ].join(" ")}
-            >
-              <span>{item.label}</span>
-              {item.badge != null && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary text-primary-foreground text-[12px] font-bold px-1.5 tabular-nums">
-                  {item.badge > 99 ? "99+" : item.badge}
-                </span>
-              )}
-            </Link>
-          ))}
+          <AdminNavList items={items} />
         </nav>
 
-        {/* Page content */}
-        <div className="flex-1 min-w-0 overflow-auto">
-          {children}
-        </div>
+        <div className="min-w-0 flex-1 overflow-auto">{children}</div>
       </div>
     </div>
+  );
+}
+
+type AdminNavItem = { href: string; label: string; isActive: boolean };
+
+function AdminNavList({ items, onNavigate }: { items: AdminNavItem[]; onNavigate?: () => void }) {
+  return (
+    <ul className="flex flex-col">
+      {items.map((item) => (
+        <li key={item.href}>
+          <Link
+            href={item.href}
+            onClick={onNavigate}
+            aria-current={item.isActive ? "page" : undefined}
+            className={[
+              "relative flex min-h-[44px] items-center justify-between gap-2 px-4 py-2.5 text-[15px] transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--primary)]",
+              item.isActive
+                ? "bg-[color-mix(in_srgb,var(--primary)_9%,transparent)] font-bold text-[color:var(--foreground)]"
+                : "font-medium text-[color:var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[color:var(--foreground)]",
+            ].join(" ")}
+          >
+            <span
+              aria-hidden
+              className={[
+                "absolute inset-y-0 left-0 w-0.5 origin-top bg-[var(--primary)] transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]",
+                item.isActive ? "scale-y-100" : "scale-y-0",
+              ].join(" ")}
+            />
+            <span>{item.label}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

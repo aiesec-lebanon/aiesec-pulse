@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { SendHorizonal } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+
 import { addComment } from "@/app/actions/comments";
 import { PostAvatar } from "@/components/posts/_shared";
 import type { CommentDto } from "@/types/comment";
@@ -22,9 +24,20 @@ function SubmitButton({ empty }: { empty: boolean }) {
     <button
       type="submit"
       disabled={empty || pending}
-      className="rounded-[var(--radius-sm)] bg-[var(--primary)] px-5 py-2 text-[14px] font-bold text-[var(--primary-foreground)] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+      className="group/send flex min-h-[38px] items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--primary-fill)] px-5 text-[13px] font-bold text-[color:var(--primary-foreground)] transition-[opacity,transform] duration-[calc(var(--dur-micro)*var(--motion-scale))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
     >
-      {pending ? "Posting…" : "Post"}
+      {pending ? "Posting…" : "Post comment"}
+      <SendHorizonal
+        size={14}
+        strokeWidth={2.5}
+        aria-hidden
+        className={[
+          "transition-transform duration-[calc(var(--dur-element)*var(--motion-scale))] ease-[var(--ease-out-expo)]",
+          pending
+            ? "animate-float-drift"
+            : "group-hover/send:translate-x-[calc(3px*var(--motion-travel))]",
+        ].join(" ")}
+      />
     </button>
   );
 }
@@ -55,10 +68,11 @@ export function CommentComposer({
 
     const optimistic: CommentDto = {
       id: `optimistic-${Date.now()}`,
-      content: trimmed,
+      body: trimmed,
       tombstone: false,
+      hiddenReason: null,
       createdAt: new Date().toISOString(),
-      author: { fullName: currentUserName, committeeName: null },
+      author: { fullName: currentUserName, entityName: null },
     };
 
     onOptimisticAdd(optimistic);
@@ -94,18 +108,18 @@ export function CommentComposer({
                 e.currentTarget.form?.requestSubmit();
               }
             }}
-            placeholder="Write a comment…"
+            placeholder="Add a comment…"
             rows={2}
             maxLength={MAX_CHARS}
             aria-label="Comment text"
-            className="w-full resize-none overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[15px] leading-[1.5] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] transition-colors focus:border-[var(--primary)] focus:outline-none"
+            className="w-full resize-none overflow-hidden rounded-[3px] border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-[15px] leading-[1.5] text-[color:var(--foreground)] placeholder:text-[color:var(--muted-foreground)] transition-[border-color,box-shadow] duration-[calc(var(--dur-element)*var(--motion-scale))] focus:border-[var(--primary)] focus:shadow-[0_0_0_4px_var(--glow-primary-soft)] focus:outline-none"
           />
-          <div className="mt-2 flex items-center justify-between gap-4">
+          <div className="mt-2.5 flex items-center justify-between gap-4">
             <span
-              className={`text-[12px] tabular-nums ${
+              className={`text-[12px] tabular-nums transition-colors duration-[calc(var(--dur-micro)*var(--motion-scale))] ${
                 chars > MAX_CHARS * 0.9
-                  ? "text-[var(--destructive)]"
-                  : "text-[var(--muted-foreground)]"
+                  ? "text-[color:var(--destructive-text)]"
+                  : "text-[color:var(--muted-foreground)]"
               }`}
             >
               {chars}/{MAX_CHARS}
@@ -115,7 +129,7 @@ export function CommentComposer({
         </form>
 
         {error && (
-          <p role="alert" className="mt-2 text-[13px] text-[var(--destructive)]">
+          <p role="alert" className="mt-2 text-[13px] text-[color:var(--destructive-text)]">
             {error}
           </p>
         )}

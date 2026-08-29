@@ -1,24 +1,16 @@
-import { requireAdmin } from "@/lib/auth/guards";
-import { db } from "@/lib/db";
-import { PostStatus } from "@/app/generated/prisma/enums";
+import { redirect } from "next/navigation";
+
 import { AdminShell } from "@/components/admin/AdminShell";
+import { getAdminSession } from "@/lib/auth/admin-session";
 
-export default async function AdminProtectedLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // Defense in depth: proxy already guards /admin/*, but we verify here too.
-  const session = await requireAdmin();
+/**
+ * Platform-credential console only — guarded by requireAdmin/getAdminSession,
+ * not requirePermission (there's no member session here). Position-scoped
+ * surfaces live in the member app: /review, /moderation/*, /insights.
+ */
+export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
+  const admin = await getAdminSession();
+  if (!admin) redirect("/admin/login");
 
-  const [admin, pendingCount] = await Promise.all([
-    db.admin.findUnique({ where: { id: session.sub }, select: { email: true } }),
-    db.post.count({ where: { status: PostStatus.PENDING } }),
-  ]);
-
-  return (
-    <AdminShell adminEmail={admin?.email ?? "Admin"} pendingCount={pendingCount}>
-      {children}
-    </AdminShell>
-  );
+  return <AdminShell adminEmail={admin.email}>{children}</AdminShell>;
 }

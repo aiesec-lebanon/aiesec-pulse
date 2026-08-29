@@ -1,33 +1,38 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { AdminLoginForm } from "@/app/admin/login/AdminLoginForm";
+import { DisplayTitle } from "@/components/ui/DisplayTitle";
 import { getAdminSession } from "@/lib/auth/admin-session";
-import LoginForm from "./LoginForm";
+
+export const dynamic = "force-dynamic";
+
+export const metadata = { title: "Admin sign in · AIESEC Pulse" };
 
 export default async function AdminLoginPage() {
-  const session = await getAdminSession();
-  if (session) redirect("/admin/queue");
+  if (await getAdminSession()) redirect("/admin/roles");
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-muted px-6 py-12">
+    <main className="pulse-stage flex min-h-screen items-center justify-center px-4 py-12 sm:px-6">
       <div className="aiesec-card w-full max-w-[420px] p-8">
-        <h1 className="text-[28px] font-black text-foreground leading-tight mb-2">
-          AIESEC Pulse — Moderator Sign In
-        </h1>
-        <p className="text-[14px] text-muted-foreground mb-8 leading-relaxed">
-          This portal is for moderators only. Members and MCPs sign in via
-          AIESEC.
-        </p>
+        <p className="pulse-label flex items-center justify-center">AIESEC Pulse</p>
+        <DisplayTitle
+          as="h1"
+          size="sm"
+          title="Platform Administration"
+          className="mt-3 flex items-center justify-center text-center text-[color:var(--foreground)]"
+        />
 
-        <LoginForm />
+        <AdminLoginForm />
 
-        <div className="mt-6 text-center">
+        <p className="flex mt-8 items-center justify-center text-[14px] text-[color:var(--muted-foreground)]">
           <Link
-            href="/"
-            className="text-[14px] text-muted-foreground hover:text-foreground transition-colors"
+            href="/login"
+            className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
           >
-            ← Back to public site
+            Sign in with AIESEC instead
           </Link>
-        </div>
+        </p>
       </div>
     </main>
   );

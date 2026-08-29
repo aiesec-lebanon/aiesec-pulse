@@ -1,0 +1,191 @@
+name: CI
+
+# Deployment builds do not run tests, migration checks or accessibility scans, so
+# a green deploy says nothing about whether the code is correct. This does.
+#
+# The jobs run in parallel and each is independently blocking. A failure names
+# the gate it belongs to, so "CI is red" always answers "which promise did we
+# break?".
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  # Deterministic placeholders. Nothing here is a real secret — the point is that
+  # module-level env validation can run without one.
+  DATABASE_URL: postgresql://pulse:pulse@localhost:5432/pulse_test
+  DIRECT_URL: postgresql://pulse:pulse@localhost:5432/pulse_test
+  SHADOW_DATABASE_URL: postgresql://pulse:pulse@localhost:5432/pulse_shadow
+  SESSION_SECRET: ci-session-secret-that-is-at-least-32-chars
+  TOKEN_ENCRYPTION_KEY: ci-token-encryption-key-at-least-32-chars
+  AIESEC_OAUTH_AUTH_URL: https://auth.example.invalid
+  AIESEC_OAUTH_CLIENT_ID: ci-client-id
+  AIESEC_OAUTH_CLIENT_SECRET: ci-client-secret
+  AIESEC_OAUTH_REDIRECT_URI: http://localhost:3000/api/auth/callback
+  GIS_GRAPHQL_URL: https://gis.example.invalid/graphql
+  NEXT_PUBLIC_BASE_URL: http://localhost:3000
+
+jobs:
+  lint:
+    name: Lint & typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: ESLint
+        # Includes pulse/no-unguarded-server-action and jsx-a11y, which is where
+        # the guard and accessibility rules are actually enforced.
+        run: npm run lint
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Prettier
+        run: npx prettier --check .
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run test -- --coverage.enabled --coverage.reporter=text-summary
+
+  migrations:
+    name: Migration check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pulse
+          POSTGRES_PASSWORD: pulse
+          POSTGRES_DB: pulse_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Create shadow database
+        run: PGPASSWORD=pulse psql -h localhost -U pulse -d pulse_test -c 'CREATE DATABASE pulse_shadow'
+
+      - name: Apply every migration from scratch
+        run: npx prisma migrate deploy
+
+      - name: Assert the migration chain matches the schema
+        # A schema edited without a migration, or a migration that does not land
+        # where the schema says, fails here rather than in production.
+        run: |
+          npx prisma migrate diff \
+            --from-migrations prisma/migrations \
+            --to-schema prisma/schema.prisma \
+            --exit-code
+
+      - name: Seed
+        run: npx prisma generate && npm run seed
+
+  e2e:
+    name: E2E & accessibility
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pulse
+          POSTGRES_PASSWORD: pulse
+          POSTGRES_DB: pulse_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run seed
+      - run: npx playwright install --with-deps chromium
+      - name: Playwright
+        # Sign-in has no test-only path: playwright.config.ts stubs auth.aiesec.org
+        # and gis-api.aiesec.org and points the app at them, so the OAuth handshake,
+        # code exchange, GIS query, and grant reconciliation all run for real.
+        #
+        # Specs assert axe-core has no violations on the feed, post detail,
+        # composer, and moderation queue.
+        run: npm run test:e2e
+
+  security:
+    name: Dependency & secret scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Gitleaks diffs the full history; a shallow clone would miss a secret
+          # committed three PRs ago and only now being merged.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Dependency audit (production)
+        # Blocks on critical only: transitive dev-tree advisories are real but not
+        # exploitable in the deployed artefact, and a gate that fails daily gets
+        # learned around. Dependabot handles weekly patching for the rest.
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Secret scan
+        # gitleaks/gitleaks-action@v2 gates org repos behind a paid license
+        # (GITLEAKS_LICENSE). The gitleaks scanner itself is MIT-licensed and
+        # free — only that Action wrapper enforces the check — so we run the
+        # official image directly instead.
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            zricethezav/gitleaks:latest detect \
+            --source /repo --log-opts="--all" --redact -v
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build

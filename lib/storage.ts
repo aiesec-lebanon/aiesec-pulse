@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -18,7 +18,7 @@ function makeS3Client() {
 
   if (!endpoint || !accessKeyId || !secretAccessKey) {
     throw new Error(
-      "Storage is not configured (missing SUPABASE_URL, SUPABASE_S3_ACCESS_KEY_ID, or SUPABASE_S3_SECRET_ACCESS_KEY).",
+      "Storage is not configured (missing SUPABASE_URL, SUPABASE_S3_ACCESS_KEY_ID, or SUPABASE_S3_SECRET_ACCESS_KEY)."
     );
   }
 
@@ -48,7 +48,7 @@ function sanitizeFilename(raw: string): string {
 export async function getSignedUploadUrl(
   filename: string,
   contentType: string,
-  sizeBytes: number,
+  sizeBytes: number
 ): Promise<SignedUpload> {
   if (!ALLOWED_MIME.has(contentType)) {
     throw new Error("Only JPEG, PNG, and WEBP images are allowed.");

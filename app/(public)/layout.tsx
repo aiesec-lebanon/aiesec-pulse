@@ -1,21 +1,23 @@
+import { cookies } from "next/headers";
+
 import { AppShell } from "@/components/shell/AppShell";
-import type { ShellUser } from "@/components/shell/ShellInteractive";
-import { getOrSyncUser } from "@/lib/auth/current-user";
-import { UserRole } from "@/app/generated/prisma/enums";
+import { FEED_MODE_COOKIE, parseFeedMode } from "@/lib/feed-mode";
+import { isEnabled } from "@/lib/flags";
+import { getShellUser } from "@/lib/shell-user";
 
-export default async function PublicLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const dbUser = await getOrSyncUser();
-  const user: ShellUser | null = dbUser
-    ? {
-        full_name: dbUser.fullName,
-        committeeName: dbUser.committeeName ?? undefined,
-        isMcp: dbUser.role === UserRole.MCP,
-      }
-    : null;
+export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+  const [user, feedRankedAvailable, cookieStore] = await Promise.all([
+    getShellUser(),
+    isEnabled("feed.ranked"),
+    cookies(),
+  ]);
+  const feedMode = feedRankedAvailable
+    ? parseFeedMode(cookieStore.get(FEED_MODE_COOKIE)?.value)
+    : "latest";
 
-  return <AppShell user={user}>{children}</AppShell>;
+  return (
+    <AppShell user={user} feedMode={feedMode} feedRankedAvailable={feedRankedAvailable}>
+      {children}
+    </AppShell>
+  );
 }

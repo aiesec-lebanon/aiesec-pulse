@@ -1,29 +1,46 @@
+import type { CommentStatus, EntityKind } from "@/app/generated/prisma/enums";
+import { entityDisplayName } from "@/lib/org/display";
+
+// Removed comments become tombstones, not deletions — replies stay
+// anchored and the thread doesn't reshuffle under a reader.
 export type CommentDto = {
   id: string;
-  content: string | null;
+  body: string | null;
   tombstone: boolean;
+  /** Why hidden, if a moderator set one; null for self-deletion. */
+  hiddenReason: string | null;
   createdAt: string;
-  author: { fullName: string; committeeName: string | null } | null;
+  author: { fullName: string; entityName: string | null } | null;
 };
 
-export function toCommentDto(c: {
+type CommentRow = {
   id: string;
-  content: string;
-  deletedAt: Date | null;
+  body: string;
+  status: CommentStatus;
+  hiddenReason?: string | null;
   createdAt: Date;
-  user: { fullName: string; committeeName: string | null } | null;
-}): CommentDto {
-  const tombstone = c.deletedAt !== null;
+  user: {
+    fullName: string;
+    primaryEntity: { name: string; kind: EntityKind } | null;
+  } | null;
+};
+
+export function toCommentDto(comment: CommentRow): CommentDto {
+  const tombstone = comment.status !== "VISIBLE";
   return {
-    id: c.id,
-    content: tombstone ? null : c.content,
+    id: comment.id,
+    body: tombstone ? null : comment.body,
     tombstone,
-    createdAt: c.createdAt.toISOString(),
+    hiddenReason: comment.status === "HIDDEN" ? (comment.hiddenReason ?? null) : null,
+    createdAt: comment.createdAt.toISOString(),
     author: tombstone
       ? null
       : {
-          fullName: c.user!.fullName,
-          committeeName: c.user?.committeeName ?? null,
+          fullName: comment.user?.fullName ?? "Former member",
+          entityName: entityDisplayName(
+            comment.user?.primaryEntity?.name,
+            comment.user?.primaryEntity?.kind
+          ),
         },
   };
 }
