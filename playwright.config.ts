@@ -31,34 +31,20 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
         command: "npm run build && npm run start",
         url: `${baseURL}/api/health`,
         reuseExistingServer: !process.env.CI,
-        // Cold `next build` eats most of this budget without a warm .next
-        // cache; 180s wasn't enough to reach a first request.
         timeout: 300_000,
         env: {
-          // Points the two AIESEC endpoints at the stub; app/lib code never
-          // knows the difference — a bypass wired into app code would test
-          // the bypass, not the app.
           AIESEC_OAUTH_AUTH_URL: STUB_ORIGIN,
           GIS_GRAPHQL_URL: `${STUB_ORIGIN}/graphql`,
-          // Opens /api/test/publish-scheduled to run the cron logic
-          // synchronously; refused in production (see lib/test-hooks.ts).
           PULSE_E2E_TEST_HOOKS: "1",
-          // next start forces NODE_ENV=production, so declare the deployment
-          // explicitly — anything but "production" keeps the hook available.
           PULSE_DEPLOYMENT: "test",
-          // Inlined into the client bundle at build time; a stale value here
-          // sends the callback redirect at whatever else is on that port.
           NEXT_PUBLIC_BASE_URL: baseURL,
           AIESEC_OAUTH_REDIRECT_URI: `${baseURL}/api/auth/callback`,
           PORT: APP_PORT,
-          // One long-lived server serves every worker at once; the
-          // 10-connection serverless default (lib/db.ts) becomes a queue.
           DATABASE_POOL_MAX: "25",
-          // Platform administration is a credential login, so the suite needs
-          // one it owns rather than whatever a developer's .env carries.
           ADMIN_EMAIL: E2E_ADMIN.email,
           ADMIN_PASSWORD: E2E_ADMIN.password,
           ADMIN_SESSION_SECRET: E2E_ADMIN.sessionSecret,
+          CRON_SECRET: "e2e-cron-secret-that-is-at-least-32-chars",
         },
       },
     ];
@@ -66,8 +52,6 @@ const webServer: PlaywrightTestConfig["webServer"] = process.env.PLAYWRIGHT_BASE
 export default defineConfig({
   testDir: "./e2e",
 
-  // Real database writes need cleanup: setup clears a prior interrupted
-  // run's leftovers, teardown clears this run's (see e2e/cleanup.ts).
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
 
@@ -77,8 +61,6 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
 
-  // 4 workers against one remote database queue behind real network/pool
-  // contention; the 5s default is too tight, especially after a publish.
   expect: { timeout: 10_000 },
 
   use: {

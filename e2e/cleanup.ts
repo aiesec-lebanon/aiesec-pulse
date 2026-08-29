@@ -4,11 +4,9 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Redis } from "@upstash/redis";
 
 import { PrismaClient } from "@/app/generated/prisma/client";
 import { ActorType } from "@/app/generated/prisma/enums";
-import { cacheKeys } from "@/lib/cache-keys";
 
 import { E2E_ADMIN } from "./admin-credentials";
 import { E2E_OFFICE_IDS, E2E_PERSON_ID_PREFIX, INTERIOR_OFFICES } from "./gis-stub/fixtures";
@@ -50,7 +48,7 @@ function refuseOnProduction(): void {
   }
 }
 
-async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
+async function withDb<T>(fn: (_db: Db) => Promise<T>): Promise<T> {
   refuseOnProduction();
   const db = new PrismaClient({ adapter: new PrismaPg(connectionString()) });
   try {
@@ -60,32 +58,11 @@ async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   }
 }
 
-// Deleted rows still linger in Redis (feed cache 60s, flags 15s), so purge
-// must also clear those keys explicitly — never a wildcard flush, which
-// would take a developer's unrelated cache with it.
-
-function redis(): Redis | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  return url && token ? new Redis({ url, token }) : null;
-}
-
-async function forgetKeys(keys: string[]): Promise<void> {
-  const client = redis();
-  if (!client || keys.length === 0) return;
-
-  // The REST transport carries the key list in the URL, so a 700-account
-  // teardown has to arrive in batches rather than as one request.
-  for (let i = 0; i < keys.length; i += 100) {
-    try {
-      await client.del(...keys.slice(i, i + 100));
-    } catch (error) {
-      // A stale cache entry expires within the minute; a teardown that threw
-      // here would leave the database half-purged, which does not.
-      console.warn("[e2e cleanup] Redis delete failed, continuing:", error);
-    }
-  }
-}
+// The cache is process-local now (lib/cache.ts) — there is no store outside
+// the running `next start` process for a separate script to reach, so
+// there's nothing to bust here. Entries carry short TTLs (feed 60s, flags
+// 15s) and expire on their own; a stale hit for under a minute was already
+// an accepted trade-off, not a new one.
 
 export type PurgeSummary = {
   users: number;
@@ -125,9 +102,6 @@ async function purge(db: Db): Promise<PurgeSummary> {
   const postIds = (await db.post.findMany({ where: postFilter, select: { id: true } })).map(
     (post) => post.id
   );
-  const sessionIds = (
-    await db.session.findMany({ where: { userId: { in: userIds } }, select: { id: true } })
-  ).map((session) => session.id);
 
   // AuditEvent has no FK (actorId is a bare string by design, so deleting an
   // actor doesn't erase the record) — the one table nothing cascades into,
@@ -163,12 +137,6 @@ async function purge(db: Db): Promise<PurgeSummary> {
 
   const deletedUsers = await db.user.deleteMany({ where: { id: { in: userIds } } });
 
-  // Every entity's window, not just the suite's — a post targeted at Everyone
-  // lands in all of them. Read before the entity rows are deleted.
-  const feedKeys = (await db.entity.findMany({ select: { id: true } })).map((entity) =>
-    cacheKeys.feedRanked(entity.id)
-  );
-
   // An entity-scoped quota policy holds a Restrict relation onto the entity,
   // so an override left by the quota console would keep its MC alive here.
   await db.quotaPolicy.deleteMany({ where: { entityId: { in: entityIds } } });
@@ -186,14 +154,6 @@ async function purge(db: Db): Promise<PurgeSummary> {
       console.warn(`[e2e cleanup] Left entity ${entity.path} in place:`, error);
     }
   }
-
-  await forgetKeys([
-    ...userIds.flatMap((id) => [cacheKeys.roleGrants(id), cacheKeys.scopeSet(id)]),
-    ...sessionIds.map((id) => cacheKeys.session(id)),
-    ...feedKeys,
-    cacheKeys.feedRanked("none"),
-    cacheKeys.entityTree(),
-  ]);
 
   return {
     users: deletedUsers.count,
@@ -288,7 +248,6 @@ async function restoreFlags(db: Db): Promise<string[]> {
     restored.push(flag.key);
   }
 
-  await forgetKeys(restored.map((key) => cacheKeys.flag(key)));
   rmSync(BASELINE_PATH, { force: true });
   return restored;
 }

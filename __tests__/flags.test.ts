@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { __clearLocalCache } from "@/lib/cache";
 import { isEnabled } from "@/lib/flags";
-import { __clearLocalCache } from "@/lib/redis";
 
 vi.mock("@/lib/db", () => ({
   db: { featureFlag: { findUnique: vi.fn() } },

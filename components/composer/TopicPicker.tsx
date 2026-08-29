@@ -5,7 +5,7 @@ import type { TopicOption } from "@/lib/content/topics";
 type Props = {
   topics: TopicOption[];
   selectedIds: string[];
-  onChange: (ids: string[]) => void;
+  onChange: (_ids: string[]) => void;
   disabled?: boolean;
 };
 

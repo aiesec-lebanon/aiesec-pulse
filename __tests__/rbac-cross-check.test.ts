@@ -134,7 +134,7 @@ vi.mock("@/lib/db", () => ({ db: dbMock }));
 vi.mock("@/lib/logger", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
-vi.mock("@/lib/redis", () => ({ invalidateUserAuthorisation: vi.fn() }));
+vi.mock("@/lib/cache", () => ({ invalidateUserAuthorisation: vi.fn() }));
 vi.mock("@/lib/org/entities", () => ({
   ROOT_ENTITY_ID: "ent_root_ai",
   resolveOfficeEntity: vi.fn(async () => ({ id: "ent_1", path: "/ai/mena/lb" })),

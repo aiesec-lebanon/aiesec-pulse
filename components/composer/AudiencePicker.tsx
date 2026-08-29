@@ -22,7 +22,7 @@ export const DEFAULT_AUDIENCE_VALUE: AudienceValue = {
 type Props = {
   options: AudiencePickerOptions;
   value: AudienceValue;
-  onChange: (value: AudienceValue) => void;
+  onChange: (_value: AudienceValue) => void;
   error?: string;
   disabled?: boolean;
 };

@@ -2,11 +2,11 @@ import "server-only";
 
 import type { Prisma } from "@/app/generated/prisma/client";
 import { EntityKind, PostLevel, ScopeType } from "@/app/generated/prisma/enums";
+import { cached, cacheKeys } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { ancestorChain, subtreeEntityIds } from "@/lib/org/entities";
 import { can } from "@/lib/rbac/can";
 import { NARROWEST_PUBLISHING_TIER, PUBLISHING_TIERS, type RoleKey } from "@/lib/rbac/catalogue";
-import { cached, cacheKeys } from "@/lib/redis";
 
 // A relevance filter, not a confidentiality boundary — the content policy says
 // as much to members.

@@ -62,6 +62,7 @@ const officesPageSchema = z.object({
 export class GisUnavailableError extends Error {
   constructor(
     message: string,
+    // eslint-disable-next-line unused-imports/no-unused-vars -- parameter property, assigns this.cause
     readonly cause?: unknown
   ) {
     super(message);
@@ -72,6 +73,7 @@ export class GisUnavailableError extends Error {
 export class GisResponseError extends Error {
   constructor(
     message: string,
+    // eslint-disable-next-line unused-imports/no-unused-vars -- parameter property, assigns this.cause
     readonly cause?: unknown
   ) {
     super(message);
@@ -84,7 +86,7 @@ async function gisQuery<T>(
   query: string,
   variables: Record<string, unknown> | undefined,
   schema: z.ZodType<T>,
-  pick: (data: unknown) => unknown
+  pick: (_data: unknown) => unknown
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GIS_TIMEOUT_MS);

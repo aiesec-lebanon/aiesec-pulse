@@ -2,11 +2,11 @@ import "server-only";
 
 import { cache } from "react";
 
+import { cached, cacheKeys } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { isInSubtree } from "@/lib/org/path";
 import { type PermissionKey, ROLE_KEYS, type RoleKey } from "@/lib/rbac/catalogue";
 import { permissionMatrix } from "@/lib/rbac/matrix";
-import { cached, cacheKeys } from "@/lib/redis";
 
 // Each active grant expands to an entity subtree by Entity.path prefix match.
 // Permissions aren't in the session JWT (a token can't be de-authorised) —

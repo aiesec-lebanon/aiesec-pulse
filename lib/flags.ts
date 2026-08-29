@@ -1,8 +1,8 @@
 import "server-only";
 
+import { cached, cacheDelete, cacheKeys } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { cached, cacheDelete, cacheKeys } from "@/lib/redis";
 
 // Mirrors prisma/seed.ts, the source of truth for which keys exist.
 export const FLAG_KEYS = [

@@ -9,15 +9,12 @@ import {
   PostStatus,
   type TopicKind,
 } from "@/app/generated/prisma/enums";
+import { cached, cacheKeys } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { entityDisplayName } from "@/lib/org/display";
 import { type ScopeSet, scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
-import { cached, cacheKeys } from "@/lib/redis";
 import type { FeedPost } from "@/types/feed";
-
-// Scope filtering lives in the query, not in application code, so a missing
-// guard cannot leak rows through this path.
 
 const POSTS_PER_PAGE = 8; // 1 hero + 4 "also today" (rotating) + 3 "elsewhere"
 
@@ -647,15 +644,6 @@ type RankingRow = {
   requiresAck: boolean;
 };
 
-// Redis round-trips through JSON, so Dates come back as strings on a hit
-// but stay Date instances on a miss — converting explicitly at both ends
-// keeps the shape identical regardless of backing store.
-type CachedRankingRow = Omit<RankingRow, "publishedAt" | "createdAt" | "pinnedUntil"> & {
-  publishedAt: string | null;
-  createdAt: string;
-  pinnedUntil: string | null;
-};
-
 /**
  * The expensive, shared half of ranking, cached per scope set
  * (cacheKeys.feedRanked explains why that's sound despite affinity/seen
@@ -664,27 +652,14 @@ type CachedRankingRow = Omit<RankingRow, "publishedAt" | "createdAt" | "pinnedUn
 async function rankingCandidatesFor(scope: ScopeSet): Promise<RankingRow[]> {
   const key = cacheKeys.feedRanked(scope.primaryEntityId ?? "none");
 
-  const rows = await cached<CachedRankingRow[]>(key, 60, async () => {
-    const fresh = await db.post.findMany({
+  return cached<RankingRow[]>(key, 60, () =>
+    db.post.findMany({
       where: visiblePublishedWhere(scope),
       orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
       take: RANKING_CANDIDATE_WINDOW,
       select: rankingSelect,
-    });
-    return fresh.map((r) => ({
-      ...r,
-      publishedAt: r.publishedAt?.toISOString() ?? null,
-      createdAt: r.createdAt.toISOString(),
-      pinnedUntil: r.pinnedUntil?.toISOString() ?? null,
-    }));
-  });
-
-  return rows.map((r) => ({
-    ...r,
-    publishedAt: r.publishedAt ? new Date(r.publishedAt) : null,
-    createdAt: new Date(r.createdAt),
-    pinnedUntil: r.pinnedUntil ? new Date(r.pinnedUntil) : null,
-  }));
+    })
+  );
 }
 
 async function readPostIdsFor(userId: string, postIds: string[]): Promise<Set<string>> {

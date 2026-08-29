@@ -32,8 +32,8 @@ export function EntityTypeahead({
    *  the same thing, or the accessible name contradicts what is on screen. */
   id?: string;
   value: EntityOption | null;
-  onChange: (entity: EntityOption | null) => void;
-  search: (query: string) => Promise<EntityOption[]>;
+  onChange: (_entity: EntityOption | null) => void;
+  search: (_query: string) => Promise<EntityOption[]>;
   /** Accessible name for the input. */
   label: string;
   placeholder: string;

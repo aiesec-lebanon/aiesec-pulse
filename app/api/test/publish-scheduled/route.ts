@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { dueScheduledPostsQuery, publishDuePost } from "@/jobs/schedule";
-import { db } from "@/lib/db";
+import { runPublishScheduled } from "@/jobs/schedule";
 import { testHooksEnabled } from "@/lib/test-hooks";
 
 // Test-only endpoint, inert outside a deliberately configured test
@@ -15,11 +14,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "asOf must be a valid ISO instant" }, { status: 400 });
   }
 
-  const due = await db.post.findMany(dueScheduledPostsQuery(asOf));
-  let published = 0;
-  for (const post of due) {
-    if (await publishDuePost(post)) published++;
-  }
-
-  return NextResponse.json({ due: due.length, published });
+  const result = await runPublishScheduled(asOf);
+  return NextResponse.json(result);
 }

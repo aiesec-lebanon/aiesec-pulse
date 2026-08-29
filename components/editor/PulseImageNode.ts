@@ -6,9 +6,10 @@ import { mergeAttributes, Node } from "@tiptap/core";
 export type PulseImageAttrs = { mediaId: string; alt: string; src?: string | null };
 
 declare module "@tiptap/core" {
+  // eslint-disable-next-line unused-imports/no-unused-vars -- module augmentation must keep tiptap's interface name to merge
   interface Commands<ReturnType> {
     pulseImage: {
-      insertPulseImage: (attrs: PulseImageAttrs) => ReturnType;
+      insertPulseImage: (_attrs: PulseImageAttrs) => ReturnType;
     };
   }
 }

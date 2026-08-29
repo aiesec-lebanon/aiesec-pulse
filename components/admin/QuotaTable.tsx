@@ -130,8 +130,8 @@ function QuotaTableRow({
   row: QuotaRow;
   entityId: string | null;
   removable: boolean;
-  onSaved: (message: string) => void;
-  onFailed: (message: string) => void;
+  onSaved: (_message: string) => void;
+  onFailed: (_message: string) => void;
   onClearError: () => void;
 }) {
   const fieldId = useId();

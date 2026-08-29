@@ -3,11 +3,11 @@ import "server-only";
 import { jwtVerify, SignJWT } from "jose";
 import { cookies } from "next/headers";
 
+import { cacheDelete, cacheGet, cacheKeys, cacheSet } from "@/lib/cache";
 import { hashIp } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { cacheDelete, cacheGet, cacheKeys, cacheSet } from "@/lib/redis";
 
 export const SESSION_COOKIE = "pulse_session";
 

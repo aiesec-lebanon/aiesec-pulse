@@ -2,16 +2,12 @@ import "server-only";
 
 import type { Entity } from "@/app/generated/prisma/client";
 import { EntityKind } from "@/app/generated/prisma/enums";
+import { cacheDelete, cacheKeys } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { entityDisplayName } from "@/lib/org/display";
 import { depthOf, joinPath, pathSegment } from "@/lib/org/path";
-import { cacheDelete, cacheKeys } from "@/lib/redis";
 import type { GisOffice } from "@/server-utils/gis";
-
-// Pulse mirrors GIS, never masters it — upserts keyed on gisOfficeId, and
-// never hard-deletes (a missing office is more likely a paging artefact
-// than a real closure).
 
 export const ROOT_ENTITY_ID = "ent_root_ai";
 

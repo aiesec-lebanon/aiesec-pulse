@@ -29,6 +29,7 @@ export default defineConfig({
       ADMIN_EMAIL: "admin@example.invalid",
       ADMIN_PASSWORD: "test-admin-password",
       ADMIN_SESSION_SECRET: "test-admin-session-secret-at-least-32-chars",
+      CRON_SECRET: "test-cron-secret-that-is-at-least-32-chars",
     },
   },
 });
