@@ -2,6 +2,7 @@ import { RouteTransition } from "@/components/motion/RouteTransition";
 import type { FeedMode } from "@/lib/feed-mode";
 
 import { ShellInteractive, type ShellUser } from "./ShellInteractive";
+import { SiteFooter } from "./SiteFooter";
 
 export function AppShell({
   user,
@@ -27,6 +28,7 @@ export function AppShell({
       >
         <RouteTransition className="flex flex-1 flex-col">{children}</RouteTransition>
       </div>
+      <SiteFooter />
     </div>
   );
 }

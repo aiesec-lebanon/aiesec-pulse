@@ -91,53 +91,55 @@ export default function PrivacyNoticePage() {
       </ul>
 
       <h2>How long we keep it</h2>
-      <table>
-        <caption>Retention periods, enforced by a nightly scheduled job</caption>
-        <thead>
-          <tr>
-            <th scope="col">Data</th>
-            <th scope="col">Kept for</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Published posts and comments</td>
-            <td>Indefinitely — organisational record</td>
-          </tr>
-          <tr>
-            <td>Drafts you never published</td>
-            <td>12 months after you last touched them</td>
-          </tr>
-          <tr>
-            <td>Reading history</td>
-            <td>13 months, then aggregated and deleted</td>
-          </tr>
-          <tr>
-            <td>Notifications</td>
-            <td>6 months</td>
-          </tr>
-          <tr>
-            <td>Email delivery records</td>
-            <td>12 months</td>
-          </tr>
-          <tr>
-            <td>Sessions</td>
-            <td>30 days after expiry</td>
-          </tr>
-          <tr>
-            <td>AIESEC access tokens</td>
-            <td>Until you sign out, or 90 days of inactivity</td>
-          </tr>
-          <tr>
-            <td>Moderation and administration records</td>
-            <td>7 years</td>
-          </tr>
-          <tr>
-            <td>Reports and appeals</td>
-            <td>3 years after resolution</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="overflow-x-auto">
+        <table>
+          <caption>Retention periods, enforced by a nightly scheduled job</caption>
+          <thead>
+            <tr>
+              <th scope="col">Data</th>
+              <th scope="col">Kept for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Published posts and comments</td>
+              <td>Indefinitely — organisational record</td>
+            </tr>
+            <tr>
+              <td>Drafts you never published</td>
+              <td>12 months after you last touched them</td>
+            </tr>
+            <tr>
+              <td>Reading history</td>
+              <td>13 months, then aggregated and deleted</td>
+            </tr>
+            <tr>
+              <td>Notifications</td>
+              <td>6 months</td>
+            </tr>
+            <tr>
+              <td>Email delivery records</td>
+              <td>12 months</td>
+            </tr>
+            <tr>
+              <td>Sessions</td>
+              <td>30 days after expiry</td>
+            </tr>
+            <tr>
+              <td>AIESEC access tokens</td>
+              <td>Until you sign out, or 90 days of inactivity</td>
+            </tr>
+            <tr>
+              <td>Moderation and administration records</td>
+              <td>7 years</td>
+            </tr>
+            <tr>
+              <td>Reports and appeals</td>
+              <td>3 years after resolution</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <h2>Your rights</h2>
       <p>

@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test as base, type TestInfo } from "@playwright/test";
 
+import { COOKIE_NOTICE_STORAGE_KEY, COOKIE_POLICY_UPDATED } from "../lib/cookie-policy";
 import { E2E_ADMIN } from "./admin-credentials";
 import type { PersonaKey } from "./gis-stub/fixtures";
 
@@ -76,7 +77,25 @@ export const test = base.extend<{
   signInAs: SignInAs;
   signInAsAdmin: SignInAsAdmin;
   attemptSignIn: AttemptSignIn;
+  /** Pre-acknowledges the fixed cookie notice so it cannot intercept clicks. Opt out to test it. */
+  cookieNoticeAcknowledged: boolean;
 }>({
+  cookieNoticeAcknowledged: [true, { option: true }],
+
+  context: async ({ context, cookieNoticeAcknowledged }, use) => {
+    if (cookieNoticeAcknowledged) {
+      await context.addInitScript(
+        ([key, value]) => {
+          try {
+            localStorage.setItem(key, value);
+          } catch {}
+        },
+        [COOKIE_NOTICE_STORAGE_KEY, COOKIE_POLICY_UPDATED] as const
+      );
+    }
+    await use(context);
+  },
+
   extraHTTPHeaders: async ({}, use, testInfo) => {
     await use({ "x-forwarded-for": syntheticIp(testInfo) });
   },

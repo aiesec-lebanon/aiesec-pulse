@@ -505,6 +505,26 @@ body {
   animation: insight-enter calc(350ms * var(--motion-scale)) var(--ease-out-expo) both;
 }
 
+/* No fill-mode: a held final keyframe would override the closing state below. */
+@keyframes pulse-notice-enter {
+  from {
+    opacity: 0;
+    transform: translateY(calc(16px * var(--motion-travel)));
+  }
+}
+
+.pulse-cookie-notice {
+  animation: pulse-notice-enter calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+  transition:
+    opacity calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo),
+    transform calc(var(--dur-element) * var(--motion-scale)) var(--ease-out-expo);
+}
+
+.pulse-cookie-notice[data-closing] {
+  opacity: 0;
+  transform: translateY(calc(16px * var(--motion-travel)));
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    CINEMATIC SURFACES
    ══════════════════════════════════════════════════════════════════════════ */
@@ -932,7 +952,7 @@ textarea,
 }
 
 /* ── Legal & policy prose ──────────────────────────────────────────────────
-   Scoped to app/legal/**. Line length is bounded by the 720px container
+   Scoped to /legal/*. Line length is bounded by the layout's 760px measure
    rather than here, so the measure stays in a comfortable reading range. */
 .legal-prose h2 {
   margin-top: 32px;
