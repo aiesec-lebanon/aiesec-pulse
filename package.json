@@ -17,7 +17,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:diff": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code",
     "probe:pkce": "tsx scripts/probe-pkce.ts",
-    "job": "tsx scripts/run-job.ts",
+    "job": "tsx --conditions=react-server scripts/run-job.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -37,6 +37,7 @@
     "react-dom": "19.2.8",
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

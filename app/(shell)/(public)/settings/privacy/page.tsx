@@ -57,9 +57,9 @@ export default async function PrivacySettingsPage() {
             comments and reactions, kept as part of the organisational record.
           </li>
           <li>
-            <strong className="text-[color:var(--foreground)]">What you read</strong> — which posts
-            you opened and roughly how long for, used to report reach to publishers. This is
-            personal data, it is disclosed here, and it is included in your export and erasure.
+            <strong className="text-[color:var(--foreground)]">What you do</strong> — bookmarks,
+            follows, acknowledgements and the images you upload. Pulse does not record which posts
+            you read.
           </li>
           <li>
             <strong className="text-[color:var(--foreground)]">Your sessions</strong> —{" "}

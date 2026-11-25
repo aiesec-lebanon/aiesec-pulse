@@ -107,6 +107,7 @@ export function HeroRotator({
             {s.mediaUrl ? (
               <Image
                 src={s.mediaUrl}
+                unoptimized
                 alt={i === active ? (s.mediaAlt ?? "") : ""}
                 fill
                 // Only the first slide blocks paint — the rest lazy-load with 8s to spare.

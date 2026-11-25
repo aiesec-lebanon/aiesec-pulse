@@ -1,74 +1,18 @@
 import Link from "next/link";
 
 import { DisplayTitle } from "@/components/ui/DisplayTitle";
-import { COOKIE_NOTICE_STORAGE_KEY, COOKIE_POLICY_UPDATED } from "@/lib/cookie-policy";
+import {
+  BROWSER_STORAGE,
+  COOKIE_NAMES,
+  COOKIE_POLICY_UPDATED,
+  COOKIES,
+  type StorageItem,
+} from "@/lib/cookie-policy";
 
 export const metadata = {
   title: "Cookie policy · AIESEC Pulse",
   description: "Every cookie and browser-storage item AIESEC Pulse sets, and why.",
 };
-
-type StorageItem = { name: string; purpose: string; lifetime: string };
-
-// Must stay exhaustive and match the code. Changing it means bumping
-// COOKIE_POLICY_UPDATED, which re-shows the notice to everyone.
-const COOKIES: StorageItem[] = [
-  {
-    name: "pulse_session",
-    purpose:
-      "Keeps you signed in. Contains a signed reference to your session record — no personal data and no AIESEC credentials.",
-    lifetime: "30 days, extended while you use the platform",
-  },
-  {
-    name: "pulse_oauth_state",
-    purpose:
-      "Ties your sign-in attempt to your browser, so an attacker cannot complete a sign-in on your behalf.",
-    lifetime: "10 minutes",
-  },
-  {
-    name: "pulse_oauth_verifier",
-    purpose: "Additional sign-in protection, when the AIESEC authorisation server supports it.",
-    lifetime: "10 minutes",
-  },
-  {
-    name: "pulse_oauth_return_to",
-    purpose: "Remembers the page you were heading to before signing in.",
-    lifetime: "10 minutes",
-  },
-  {
-    name: "pulse_feed_mode",
-    purpose:
-      "Remembers whether you chose Latest or For You on the feed. Set only when you switch views.",
-    lifetime: "1 year",
-  },
-  {
-    name: "pulse_admin_session",
-    purpose:
-      "Keeps the platform administrator signed in to the administration console. Never set for members.",
-    lifetime: "12 hours",
-  },
-];
-
-const BROWSER_STORAGE: StorageItem[] = [
-  {
-    name: "theme",
-    purpose:
-      "Remembers whether you chose light or dark, so the page does not flash the wrong one while loading. Set only if you pick one; otherwise Pulse follows your device.",
-    lifetime: "Until you clear your browser storage",
-  },
-  {
-    name: "pulse-motion",
-    purpose:
-      "Remembers whether you chose full or reduced motion. Set only if you pick one; otherwise Pulse follows your device.",
-    lifetime: "Until you clear your browser storage",
-  },
-  {
-    name: COOKIE_NOTICE_STORAGE_KEY,
-    purpose:
-      "Remembers that you have seen the cookie notice, so it is not shown again until this policy changes.",
-    lifetime: "Until you clear your browser storage",
-  },
-];
 
 function StorageTable({ caption, items }: { caption: string; items: StorageItem[] }) {
   return (
@@ -80,6 +24,7 @@ function StorageTable({ caption, items }: { caption: string; items: StorageItem[
             <th scope="col">Name</th>
             <th scope="col">Purpose</th>
             <th scope="col">Lifetime</th>
+            <th scope="col">Category</th>
           </tr>
         </thead>
         <tbody>
@@ -90,6 +35,7 @@ function StorageTable({ caption, items }: { caption: string; items: StorageItem[
               </td>
               <td>{item.purpose}</td>
               <td>{item.lifetime}</td>
+              <td>Strictly necessary</td>
             </tr>
           ))}
         </tbody>
@@ -106,17 +52,18 @@ export default function CookiesPage() {
     <>
       <DisplayTitle as="h1" size="lg" title="Cookie policy" />
       <p className="lead">
-        Pulse sets no advertising cookies, no analytics cookies, and nothing that follows you to
-        other sites. Everything below either keeps the platform working or remembers a choice you
-        made here.
+        AIESEC in Lebanon uses only strictly necessary cookies and browser storage on AIESEC Pulse:
+        to keep you signed in, protect the platform and remember your settings. Pulse sets no
+        analytics, advertising or marketing cookies, and nothing that follows you to other sites.
       </p>
       <p className="pulse-label">Last updated: {COOKIE_POLICY_UPDATED}</p>
 
       <h2>Cookies</h2>
       <p>
         Small pieces of data your browser sends back to Pulse with each request. Every one is
-        first-party, same-site and marked <code>HttpOnly</code>, so scripts on the page cannot read
-        them.
+        first-party and same-site. All except <code>{COOKIE_NAMES.consent}</code> are marked{" "}
+        <code>HttpOnly</code>, so scripts on the page cannot read them; the cookie choice has to be
+        readable by the banner that shows it.
       </p>
       <StorageTable caption="Cookies set by AIESEC Pulse" items={COOKIES} />
 
@@ -129,28 +76,28 @@ export default function CookiesPage() {
 
       <h2>What we do not set</h2>
       <ul>
-        <li>No advertising or retargeting cookies. Pulse carries no advertising.</li>
-        <li>No analytics cookies, first- or third-party.</li>
+        <li>No performance or analytics cookies, first- or third-party.</li>
+        <li>No advertising, retargeting or other marketing cookies.</li>
         <li>No cookies from other companies, and no cross-site tracking.</li>
       </ul>
 
-      <h2>Why we do not ask for consent</h2>
+      <h2>Your choice</h2>
       <p>
-        Consent is required for storage that is not needed to provide the service you asked for.
-        Everything listed above is either needed for Pulse to work or stores a choice you made
-        yourself, so there is nothing to opt in to or out of. The notice you see on your first visit
-        is there to tell you this, not to ask.
-      </p>
-      <p>
-        If Pulse ever adds something that does need consent — optional analytics, for example — it
-        will be listed here first, and you will be asked before it is set.
+        On your first visit a banner offers <strong>Allow all</strong>, <strong>Reject all</strong>{" "}
+        and <strong>Learn more / choose preferences</strong>. Every AIESEC in Lebanon platform uses
+        the same banner. On Pulse the performance and marketing categories are not used, so your
+        choice does not switch anything on: everything listed above is strictly necessary and is set
+        whatever you choose. Your choice is kept for six months, or until this policy changes, and
+        then you are asked again. Change it at any time with the <strong>Cookies</strong> button at
+        the bottom of every page.
       </p>
 
       <h2>Controlling cookies</h2>
       <p>
-        You can clear or block cookies in your browser, but blocking <code>pulse_session</code> will
-        sign you out and prevent you signing back in. Clearing browser storage resets your theme and
-        motion choices and shows the cookie notice again. To end all your sessions deliberately, use{" "}
+        You can clear or block cookies in your browser, but blocking{" "}
+        <code>{COOKIE_NAMES.session}</code> will sign you out and prevent you signing back in.
+        Clearing browser storage resets your theme and motion choices. To end all your sessions
+        deliberately, use{" "}
         <Link href="/settings/privacy" className={LINK_CLASS}>
           Privacy &amp; your data
         </Link>
@@ -160,7 +107,7 @@ export default function CookiesPage() {
       <h2>Changes to this policy</h2>
       <p>
         When anything in the lists above changes, the date at the top of this page changes with it,
-        and the cookie notice is shown again so you hear about it.
+        and the cookie banner is shown again so you hear about it.
       </p>
 
       <p>
@@ -168,7 +115,7 @@ export default function CookiesPage() {
         <Link href="/legal/privacy" className={LINK_CLASS}>
           privacy notice
         </Link>{" "}
-        for what we do with data once you are signed in.
+        for what we do with your data once you are signed in.
       </p>
     </>
   );

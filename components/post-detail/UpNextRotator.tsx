@@ -151,6 +151,7 @@ export function UpNextRotator({ posts }: { posts: FeedPost[] }) {
             {post.mediaUrl ? (
               <Image
                 src={post.mediaUrl}
+                unoptimized
                 alt=""
                 fill
                 sizes="(min-width: 640px) 340px, 100vw"

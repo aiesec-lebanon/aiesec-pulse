@@ -1,4 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
+import type { PoolConfig } from "pg";
 
 import { PrismaClient } from "@/app/generated/prisma/client";
 
@@ -20,10 +21,52 @@ function poolMax(): number {
   return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_POOL_MAX;
 }
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+export function isLocalDatabase(connectionString: string): boolean {
+  try {
+    return LOCAL_HOSTS.has(new URL(connectionString).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * node-postgres sends nothing over TLS unless told to. Remote connections are
+ * always encrypted; the server certificate is verified once DATABASE_CA_CERT
+ * (Supabase dashboard → Database → SSL) is set. An explicit `sslmode` in the
+ * URL is the operator's choice and is left to pg.
+ */
+export function sslOption(connectionString: string): PoolConfig["ssl"] {
+  if (/[?&]sslmode=/i.test(connectionString)) return undefined;
+
+  const ca = process.env.DATABASE_CA_CERT?.trim();
+  // Env UIs often store a PEM on one line with literal "\n" separators.
+  if (ca) return { ca: ca.replace(/\\n/g, "\n"), rejectUnauthorized: true };
+
+  if (isLocalDatabase(connectionString)) return undefined;
+
+  if (process.env.NODE_ENV === "production") {
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        time: new Date().toISOString(),
+        message: "Database connection is encrypted but the server certificate is not verified",
+        remedy: "Set DATABASE_CA_CERT to the Supabase CA certificate.",
+      })
+    );
+  }
+  return { rejectUnauthorized: false };
+}
+
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not set");
-  const adapter = new PrismaPg({ connectionString, max: poolMax() });
+  const adapter = new PrismaPg({
+    connectionString,
+    max: poolMax(),
+    ssl: sslOption(connectionString),
+  });
   return new PrismaClient({ adapter });
 }
 

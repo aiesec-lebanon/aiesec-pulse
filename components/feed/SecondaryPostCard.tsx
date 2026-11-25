@@ -36,6 +36,7 @@ export function SecondaryPostCard({ post }: { post: FeedPost }) {
           {post.mediaUrl ? (
             <Image
               src={post.mediaUrl}
+              unoptimized
               alt=""
               fill
               className="object-cover opacity-95 transition-transform duration-[calc(var(--dur-scene)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover/card:scale-[calc(1+0.05*var(--motion-travel))]"

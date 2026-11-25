@@ -63,10 +63,23 @@ export function hashIp(ip: string | null | undefined): string | null {
   return createHmac("sha256", env.SESSION_SECRET).update(ip).digest("base64url").slice(0, 32);
 }
 
-// Deterministic so a repeat request resolves to the same row, irreversible so
-// the identity is gone.
-export function pseudonymise(value: string): string {
-  return `erased_${createHmac("sha256", env.SESSION_SECRET).update(value).digest("hex").slice(0, 32)}`;
+// Random rather than derived from the GIS id: a derived value could be
+// recomputed by anyone holding the key and a list of candidate ids.
+export function erasurePseudonym(): string {
+  return `erased_${randomBytes(16).toString("hex")}`;
+}
+
+export type RefPurpose = "log" | "refused-sign-in";
+
+// One key per purpose, derived from SESSION_SECRET, so a reference written in
+// one place cannot be matched against a reference written in another.
+function purposeKey(purpose: RefPurpose): Buffer {
+  return createHmac("sha256", env.SESSION_SECRET).update(`pulse-ref:${purpose}`).digest();
+}
+
+/** A keyed, non-reversible stand-in for an identifier (e.g. a GIS person id). */
+export function pseudonymousRef(purpose: RefPurpose, value: string): string {
+  return createHmac("sha256", purposeKey(purpose)).update(value).digest("base64url").slice(0, 22);
 }
 
 export function safeEqual(a: string, b: string): boolean {

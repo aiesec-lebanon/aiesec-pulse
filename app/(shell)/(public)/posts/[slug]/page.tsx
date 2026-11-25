@@ -17,6 +17,7 @@ import { UpNextRotator } from "@/components/post-detail/UpNextRotator";
 import { WhyThisAppeared } from "@/components/post-detail/WhyThisAppeared";
 import { PostAvatar } from "@/components/posts/_shared";
 import { EntityName } from "@/components/ui/EntityName";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { collectImageMediaIds, extractSections, sanitiseDocument } from "@/lib/content/document";
 import { db } from "@/lib/db";
 import { getPostRankingBreakdown, getRelatedPosts, mediaUrl } from "@/lib/feed";
@@ -45,13 +46,19 @@ const commentSelect = {
   user: { select: { fullName: true, primaryEntity: { select: { name: true, kind: true } } } },
 } as const;
 
+// Same audience filter as the page itself: a title must not reach a tab or a
+// link preview for someone the post was not addressed to.
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = await db.post.findUnique({
-    where: { slug },
-    select: { title: true, summary: true, status: true },
+  const user = await getCurrentUser();
+  if (!user) return { title: "AIESEC Pulse" };
+
+  const scope = await scopeSetFor(user);
+  const post = await db.post.findFirst({
+    where: { slug, status: PostStatus.PUBLISHED, ...visibilityFilter(scope) },
+    select: { title: true, summary: true },
   });
-  if (!post || post.status !== PostStatus.PUBLISHED) return { title: "Post not found" };
+  if (!post) return { title: "Post not found" };
   return { title: `${post.title} · AIESEC Pulse`, description: post.summary ?? undefined };
 }
 

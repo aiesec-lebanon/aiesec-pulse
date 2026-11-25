@@ -125,6 +125,7 @@ function BookmarkRow({
           {post.mediaUrl ? (
             <Image
               src={post.mediaUrl}
+              unoptimized
               alt=""
               fill
               sizes="64px"

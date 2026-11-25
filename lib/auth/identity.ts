@@ -3,6 +3,7 @@ import "server-only";
 import type { User } from "@/app/generated/prisma/client";
 import { GrantSource, ScopeType } from "@/app/generated/prisma/enums";
 import { invalidateUserAuthorisation } from "@/lib/cache";
+import { pseudonymousRef } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { resolveOfficeEntity, ROOT_ENTITY_ID } from "@/lib/org/entities";
@@ -105,7 +106,7 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
 
   if (derived.length === 0 && !existing) {
     logger.warn("Sign-in refused: no GIS position resolved to a Pulse role", {
-      aiesecPersonId: person.id,
+      personRef: pseudonymousRef("log", person.id),
       positionCount: positions.length,
       denied: denied.map((d) => ({
         roleName: d.roleName,
@@ -195,12 +196,14 @@ export async function syncIdentityFromGis(person: GisPerson): Promise<SyncResult
     if (outcome.created) grantsAdded++;
   }
 
-  // `endsAt`, never DELETE, so historical attribution survives.
+  // `endsAt`, never DELETE, so historical attribution survives. The untermed
+  // `member` grant is included: it must end when GIS stops returning the
+  // position, or a leaver keeps member access indefinitely.
   const stale = await db.roleGrant.findMany({
     where: {
       userId: user.id,
       source: GrantSource.GIS,
-      termLabel,
+      OR: [{ termLabel }, { termLabel: null }],
       revokedAt: null,
       endsAt: null,
       id: { notIn: keepIds.size > 0 ? [...keepIds] : ["__none__"] },

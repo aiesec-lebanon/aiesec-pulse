@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
+import { COOKIE_NAMES } from "@/lib/cookie-policy";
 import { pkceChallenge, randomToken, safeEqual } from "@/lib/crypto";
 import { env } from "@/lib/env";
 
@@ -9,9 +10,9 @@ import { env } from "@/lib/env";
 // (login-CSRF). PKCE is opt-in behind AIESEC_OAUTH_PKCE_S256 since codes
 // are single-use: a rejected challenge would break login with no retry.
 
-const STATE_COOKIE = "pulse_oauth_state";
-const VERIFIER_COOKIE = "pulse_oauth_verifier";
-const RETURN_TO_COOKIE = "pulse_oauth_return_to";
+const STATE_COOKIE = COOKIE_NAMES.oauthState;
+const VERIFIER_COOKIE = COOKIE_NAMES.oauthVerifier;
+const RETURN_TO_COOKIE = COOKIE_NAMES.oauthReturnTo;
 
 const HANDSHAKE_TTL_SECONDS = 10 * 60;
 

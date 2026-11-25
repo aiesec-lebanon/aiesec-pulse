@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { pseudonymousRef } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
@@ -205,7 +206,7 @@ export function isPersonAllowed(person: GisPerson): boolean {
 export function warnIfPositionless(person: GisPerson): void {
   if (person.current_positions.length === 0) {
     logger.warn("GIS returned a person with no current positions", {
-      aiesecPersonId: person.id,
+      personRef: pseudonymousRef("log", person.id),
       consequence: "Sign-in is refused: there is no position to derive a role from.",
     });
   }

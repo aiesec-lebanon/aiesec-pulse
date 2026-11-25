@@ -1,9 +1,27 @@
-import { recordAudit, systemActor } from "@/lib/audit";
+import { sweepMedia } from "@/jobs/media";
+import {
+  LEGACY_REFUSED_SIGN_IN_TARGET,
+  recordAudit,
+  REFUSED_SIGN_IN_TARGET,
+  systemActor,
+} from "@/lib/audit";
+import { SESSION_IDLE_DAYS } from "@/lib/auth/session";
+import { pseudonymousRef } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { buildExportBundle } from "@/lib/privacy/dsr";
+import { buildExportBundle, executeErasure } from "@/lib/privacy/dsr";
 
-// Published posts, comments and AuditEvent are never swept.
+// Published posts and visible comments stay as the organisational record. The
+// periods below are the ones the privacy notice (Annex C of the M2 policy) states.
+const AUDIT_RETENTION_DAYS = 730;
+const AUDIT_CONTEXT_DAYS = 90;
+const REFUSED_SIGN_IN_DAYS = 90;
+const DELETED_COMMENT_DAYS = 30;
+const PRIVACY_REQUEST_DAYS = 365 * 3;
+const INACTIVE_ACCOUNT_DAYS = 730;
+const AFTER_LAST_POSITION_DAYS = 365;
+// Each anonymisation is a full erasure; cap the work per nightly run.
+const ANONYMISE_PER_RUN = 100;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ago = (days: number) => new Date(Date.now() - days * DAY_MS);
@@ -35,7 +53,10 @@ export async function runRetentionSweep(dryRun = false) {
     ? await db.emailDelivery.count({ where: emails })
     : (await db.emailDelivery.deleteMany({ where: emails })).count;
 
-  const sessions = { expiresAt: { lt: ago(30) } };
+  // 30 days after a session ended, whether it hit its cap or went idle.
+  const sessions = {
+    OR: [{ expiresAt: { lt: ago(30) } }, { lastSeenAt: { lt: ago(SESSION_IDLE_DAYS + 30) } }],
+  };
   counts.sessions = dryRun
     ? await db.session.count({ where: sessions })
     : (await db.session.deleteMany({ where: sessions })).count;
@@ -59,6 +80,86 @@ export async function runRetentionSweep(dryRun = false) {
   counts.appeals = dryRun
     ? await db.appeal.count({ where: appeals })
     : (await db.appeal.deleteMany({ where: appeals })).count;
+
+  const oldAudit = { createdAt: { lt: ago(AUDIT_RETENTION_DAYS) } };
+  counts.auditEvents = dryRun
+    ? await db.auditEvent.count({ where: oldAudit })
+    : (await db.auditEvent.deleteMany({ where: oldAudit })).count;
+
+  const auditContext = {
+    createdAt: { lt: ago(AUDIT_CONTEXT_DAYS) },
+    OR: [{ ipHash: { not: null } }, { userAgent: { not: null } }],
+  };
+  counts.auditContextCleared = dryRun
+    ? await db.auditEvent.count({ where: auditContext })
+    : (
+        await db.auditEvent.updateMany({
+          where: auditContext,
+          data: { ipHash: null, userAgent: null },
+        })
+      ).count;
+
+  const refused = {
+    action: "auth.sign_in_refused",
+    targetType: { in: [REFUSED_SIGN_IN_TARGET, LEGACY_REFUSED_SIGN_IN_TARGET] },
+    createdAt: { lt: ago(REFUSED_SIGN_IN_DAYS) },
+  };
+  counts.refusedSignIns = dryRun
+    ? await db.auditEvent.count({ where: refused })
+    : (await db.auditEvent.deleteMany({ where: refused })).count;
+
+  // Older refusals stored the raw GIS id; re-key them to the keyed reference.
+  const legacyRefusals = await db.auditEvent.findMany({
+    where: { targetType: LEGACY_REFUSED_SIGN_IN_TARGET },
+    select: { id: true, targetId: true },
+    take: 1000,
+  });
+  if (!dryRun) {
+    for (const row of legacyRefusals) {
+      await db.auditEvent.update({
+        where: { id: row.id },
+        data: {
+          targetType: REFUSED_SIGN_IN_TARGET,
+          targetId: pseudonymousRef("refused-sign-in", row.targetId),
+        },
+      });
+    }
+  }
+  counts.refusedSignInsRekeyed = legacyRefusals.length;
+
+  // A deleted comment's text goes after 30 days; the row goes too unless replies
+  // still hang off it, in which case it stays as an empty placeholder.
+  const deletedComments = await db.comment.findMany({
+    where: { status: "DELETED", deletedAt: { lt: ago(DELETED_COMMENT_DAYS) } },
+    select: { id: true, body: true, _count: { select: { replies: true } } },
+    take: 1000,
+  });
+  const removable = deletedComments.filter((c) => c._count.replies === 0).map((c) => c.id);
+  const emptied = deletedComments
+    .filter((c) => c._count.replies > 0 && c.body !== "")
+    .map((c) => c.id);
+  if (!dryRun) {
+    await db.comment.deleteMany({ where: { id: { in: removable } } });
+    await db.comment.updateMany({ where: { id: { in: emptied } }, data: { body: "" } });
+  }
+  counts.deletedCommentsPurged = removable.length + emptied.length;
+
+  const closedRequests = { completedAt: { lt: ago(PRIVACY_REQUEST_DAYS) } };
+  counts.privacyRequests = dryRun
+    ? await db.dataSubjectRequest.count({ where: closedRequests })
+    : (await db.dataSubjectRequest.deleteMany({ where: closedRequests })).count;
+  if (!dryRun) {
+    await db.dataSubjectRequest.updateMany({
+      where: { completedAt: { not: null }, email: { not: null } },
+      data: { email: null },
+    });
+  }
+
+  counts.accountsAnonymised = await anonymiseInactiveAccounts(dryRun);
+
+  const media = await sweepMedia(dryRun);
+  counts.orphanMedia = media.orphanRows;
+  counts.storedImagesDeleted = media.objectsDeleted;
 
   // Deleting raw reads before metrics-rollup exists would destroy
   // measurement that has not been rolled up, so this only reports.
@@ -113,6 +214,47 @@ export async function runRetentionSweep(dryRun = false) {
 
   logger.info("retention-sweep complete", summary);
   return summary;
+}
+
+/**
+ * Accounts nobody has used for 24 months, or whose last AIESEC position ended
+ * more than a year ago, are anonymised exactly as an erasure request would
+ * (content stays, attributed to "Former member").
+ */
+async function anonymiseInactiveAccounts(dryRun: boolean): Promise<number> {
+  const inactiveSince = ago(INACTIVE_ACCOUNT_DAYS);
+  const leftBefore = ago(AFTER_LAST_POSITION_DAYS);
+
+  const candidates = await db.user.findMany({
+    where: {
+      status: { not: "ERASED" },
+      OR: [
+        { lastSeenAt: { lt: inactiveSince } },
+        { lastSeenAt: null, createdAt: { lt: inactiveSince } },
+        {
+          lastSeenAt: { lt: leftBefore },
+          grants: {
+            none: { revokedAt: null, OR: [{ endsAt: null }, { endsAt: { gt: leftBefore } }] },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+    take: ANONYMISE_PER_RUN,
+  });
+
+  if (dryRun) return candidates.length;
+
+  let anonymised = 0;
+  for (const user of candidates) {
+    try {
+      await executeErasure(user.id, "reattribute", systemActor("retention"));
+      anonymised++;
+    } catch (error) {
+      logger.error("Retention could not anonymise an account", { userId: user.id, error });
+    }
+  }
+  return anonymised;
 }
 
 /**

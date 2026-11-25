@@ -90,6 +90,7 @@ export function StoryHero({
               <Parallax depth={-70} scale={1.18} className="absolute inset-0">
                 <Image
                   src={cover}
+                  unoptimized
                   alt={coverAlt}
                   fill
                   priority
@@ -130,6 +131,7 @@ export function StoryHero({
             <Parallax depth={-70} scale={1.18} className="absolute inset-0">
               <Image
                 src={cover}
+                unoptimized
                 alt={coverAlt}
                 fill
                 priority

@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   decryptFromBytes,
   encryptToBytes,
+  erasurePseudonym,
   hashIp,
   pkceChallenge,
-  pseudonymise,
+  pseudonymousRef,
   randomToken,
   safeEqual,
 } from "@/lib/crypto";
@@ -76,14 +77,21 @@ describe("hashIp", () => {
   });
 });
 
-describe("pseudonymise", () => {
-  it("is stable for the same subject so a repeat request resolves alike", () => {
-    expect(pseudonymise("9001")).toBe(pseudonymise("9001"));
+describe("erasurePseudonym", () => {
+  it("is random, so it cannot be recomputed from the person's GIS id", () => {
+    expect(erasurePseudonym()).not.toBe(erasurePseudonym());
+    expect(erasurePseudonym()).toMatch(/^erased_[0-9a-f]{32}$/);
+  });
+});
+
+describe("pseudonymousRef", () => {
+  it("is stable per purpose and never contains the identifier", () => {
+    expect(pseudonymousRef("log", "9001")).toBe(pseudonymousRef("log", "9001"));
+    expect(pseudonymousRef("log", "9001")).not.toContain("9001");
   });
 
-  it("does not contain the original identifier", () => {
-    expect(pseudonymise("9001")).not.toContain("9001");
-    expect(pseudonymise("9001").startsWith("erased_")).toBe(true);
+  it("uses a separate key per purpose", () => {
+    expect(pseudonymousRef("log", "9001")).not.toBe(pseudonymousRef("refused-sign-in", "9001"));
   });
 });
 

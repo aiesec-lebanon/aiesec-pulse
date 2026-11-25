@@ -3,6 +3,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SpecStrip } from "@/components/ui/SpecStrip";
 import { db } from "@/lib/db";
+import { senderNameFromNotes } from "@/lib/privacy/contact";
 import { DSR_SLA_DAYS } from "@/lib/privacy/dsr";
 import { requireAdmin } from "@/lib/rbac/guards";
 
@@ -36,9 +37,16 @@ export default async function AdminPrivacyPage() {
       id: request.id,
       kind: request.kind,
       status: request.status,
-      subjectName: user?.fullName ?? request.email ?? "Unidentified subject",
+      subjectName:
+        user?.fullName ??
+        senderNameFromNotes(request.notes) ??
+        request.email ??
+        "Unidentified subject",
       subjectEmail: user?.email ?? request.email,
       subjectStatus: user?.status ?? null,
+      linked: Boolean(request.userId),
+      // The address the person asked us to reply to, over the one on their account.
+      replyEmail: request.email ?? user?.email ?? null,
       receivedAt: request.receivedAt.toISOString(),
       dueAt: request.dueAt.toISOString(),
       overdue: isOverdue(request.dueAt, request.completedAt),
@@ -55,7 +63,7 @@ export default async function AdminPrivacyPage() {
       <PageHeader
         breadcrumb={[{ label: "Admin" }, { label: "Privacy" }]}
         title="Data subject requests"
-        standfirst={`Statutory deadline is ${DSR_SLA_DAYS} days from receipt. Erasure is irreversible and is the only path in Pulse that destroys personal data — verify the requester's identity and record the content election before executing one.`}
+        standfirst={`Requests and messages from the privacy notice's contact form. Statutory deadline is ${DSR_SLA_DAYS} days from receipt. Erasure is irreversible and is the only path in Pulse that destroys personal data — verify the requester's identity and record the content election before executing one.`}
         bordered={false}
       />
 

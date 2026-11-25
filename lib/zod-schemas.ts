@@ -173,7 +173,7 @@ export const updateBioSchema = z.object({
 export type UpdateBioInput = z.infer<typeof updateBioSchema>;
 
 export const dataSubjectRequestSchema = z.object({
-  kind: z.enum(["ACCESS", "EXPORT", "RECTIFICATION", "ERASURE", "OBJECTION"]),
+  kind: z.enum(["ACCESS", "EXPORT", "RECTIFICATION", "ERASURE", "RESTRICTION", "OBJECTION"]),
   notes: z.string().trim().max(2_000).optional(),
 });
 export type DataSubjectRequestInput = z.infer<typeof dataSubjectRequestSchema>;

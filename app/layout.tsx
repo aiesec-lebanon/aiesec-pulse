@@ -5,7 +5,7 @@ import { IBM_Plex_Mono, Instrument_Serif, Lato } from "next/font/google";
 import { headers } from "next/headers";
 
 import { BootScript } from "@/components/boot-script";
-import { CookieNotice } from "@/components/legal/CookieNotice";
+import { CookieConsent } from "@/components/legal/CookieConsent";
 import { Providers } from "@/components/providers";
 
 const lato = Lato({
@@ -72,7 +72,7 @@ export default async function RootLayout({
           {children}
           {/* Outside AppShell: RouteTransition transforms the content column,
               which would make a fixed descendant move with each page change. */}
-          <CookieNotice />
+          <CookieConsent />
         </Providers>
       </body>
     </html>

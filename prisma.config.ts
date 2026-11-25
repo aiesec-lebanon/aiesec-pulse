@@ -11,6 +11,14 @@ const optional = (name: string): string | undefined => {
   return value && value.trim() !== "" ? value : undefined;
 };
 
+// Migrations to a remote database go over TLS. Appended as text rather than
+// rebuilt through URL, which could re-encode an already-encoded password.
+const LOCAL_DB = /@(localhost|127\.0\.0\.1|\[::1\])(:|\/)/i;
+const withTls = (url: string | undefined): string | undefined => {
+  if (!url || LOCAL_DB.test(url) || /[?&]sslmode=/i.test(url)) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}sslmode=require`;
+};
+
 // CLI needs the non-pooled connection; the runtime client uses the pooler.
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -18,7 +26,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: optional("DIRECT_URL") ?? optional("DATABASE_URL"),
+    url: withTls(optional("DIRECT_URL") ?? optional("DATABASE_URL")),
     // Replays the migration chain into a throwaway database for the CI drift
     // gate. Absent locally, and must stay absent rather than blank.
     shadowDatabaseUrl: optional("SHADOW_DATABASE_URL"),

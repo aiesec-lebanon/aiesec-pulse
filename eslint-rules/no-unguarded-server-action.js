@@ -25,8 +25,15 @@ const ALLOWLIST = new Map([
   [
     "admin-auth.ts",
     "The admin sign-in and sign-out actions: there is no session to guard on " +
-      "the way in, and signing out without one is a no-op. This file must " +
-      "contain nothing but those two actions.",
+      "the way in, and signing out (here or everywhere) without one is a no-op. " +
+      "This file must contain nothing but those three actions.",
+  ],
+  [
+    "privacy-contact.ts",
+    "The privacy contact form on the public privacy notice: people who cannot " +
+      "sign in (former members, people named in a post) must still reach the " +
+      "privacy team. Throttled per address and overall from the audit log. " +
+      "This file must contain nothing but that one action.",
   ],
 ]);
 

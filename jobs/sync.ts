@@ -1,5 +1,6 @@
 import { recordAudit, systemActor } from "@/lib/audit";
 import { syncIdentityFromGis } from "@/lib/auth/identity";
+import { revokeAllSessions } from "@/lib/auth/session";
 import { getUsableAccessToken } from "@/lib/auth/token-store";
 import { cacheDelete, cacheKeys, invalidateUserAuthorisation } from "@/lib/cache";
 import { db } from "@/lib/db";
@@ -189,7 +190,10 @@ export async function runSyncRoles(
           continue;
         }
         const person = await fetchCurrentPerson(token);
-        await syncIdentityFromGis(person);
+        const result = await syncIdentityFromGis(person);
+        // GIS no longer places them anywhere: their grants were just ended,
+        // and an open session must not outlive that.
+        if (result.recognisedPositions === 0) await revokeAllSessions(user.id);
         ok++;
       } catch (error) {
         bad++;
@@ -200,10 +204,50 @@ export async function runSyncRoles(
     failed += bad;
   }
 
+  const suspended = await suspendUnverifiableAccess();
+
   await finishRun(run, failed > 0 ? "PARTIAL" : "SUCCEEDED", { processed, failed });
 
-  logger.info("sync-roles complete", { processed, failed, activeSinceDays });
+  logger.info("sync-roles complete", { processed, failed, activeSinceDays, suspended });
   return { processed, failed };
+}
+
+// Fail closed on leavers: a member whose positions have not been re-read from
+// GIS for this long, and who has no usable token to re-read them with, loses
+// access until they sign in again (which re-reads GIS). A GIS outage keeps the
+// token, so it never triggers this.
+const REVALIDATION_GRACE_DAYS = 3;
+
+async function suspendUnverifiableAccess(): Promise<number> {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - REVALIDATION_GRACE_DAYS * 24 * 60 * 60 * 1000);
+
+  const users = await db.user.findMany({
+    where: {
+      status: "ACTIVE",
+      oauthToken: { is: null },
+      OR: [{ lastSyncedAt: null }, { lastSyncedAt: { lt: cutoff } }],
+      sessions: { some: { revokedAt: null, expiresAt: { gt: now } } },
+    },
+    select: { id: true },
+    take: 500,
+  });
+
+  for (const user of users) {
+    await revokeAllSessions(user.id);
+    // Re-opened by the next sign-in if GIS still returns the position.
+    await db.roleGrant.updateMany({
+      where: { userId: user.id, source: "GIS", revokedAt: null, endsAt: null },
+      data: { endsAt: now },
+    });
+    await invalidateUserAuthorisation(user.id);
+    await recordAudit(systemActor("sync-roles"), "auth.access_suspended_unverified", {
+      type: "user",
+      id: user.id,
+    });
+  }
+
+  return users.length;
 }
 
 export type TermTransitionInput = { dryRun: boolean; termLabel?: string };
@@ -212,7 +256,14 @@ export type TermTransitionResult = {
   termLabel: string;
   expiringCount: number;
   byRole: Record<string, number>;
-  sample: Array<{ member: string; role: string; scope: string; fromTerm: string | null }>;
+  /** `member` is for the operator's console only; logs and audit get `userId`. */
+  sample: Array<{
+    userId: string;
+    member: string;
+    role: string;
+    scope: string;
+    fromTerm: string | null;
+  }>;
   applied?: number;
 };
 
@@ -253,10 +304,23 @@ export async function runTermTransition(input: TermTransitionInput): Promise<Ter
       return acc;
     }, {}),
     sample: expiring.slice(0, 25).map((g) => ({
+      userId: g.user.id,
       member: g.user.fullName,
       role: g.role.key,
       scope: g.scope?.name ?? "Global",
       fromTerm: g.termLabel,
+    })),
+  };
+
+  // Names stay in the returned diff (printed to the operator); everything
+  // persisted or logged carries user ids only.
+  const recorded = {
+    ...diff,
+    sample: diff.sample.map(({ userId, role, scope, fromTerm }) => ({
+      userId,
+      role,
+      scope,
+      fromTerm,
     })),
   };
 
@@ -265,9 +329,9 @@ export async function runTermTransition(input: TermTransitionInput): Promise<Ter
       run,
       "SUCCEEDED",
       { processed: 0, failed: 0 },
-      JSON.stringify(diff).slice(0, 1000)
+      JSON.stringify(recorded).slice(0, 1000)
     );
-    logger.info("term-transition dry run", diff);
+    logger.info("term-transition dry run", recorded);
     return diff;
   }
 
@@ -283,7 +347,7 @@ export async function runTermTransition(input: TermTransitionInput): Promise<Ter
     systemActor("term-transition"),
     "term.transition_applied",
     { type: "term", id: termLabel },
-    diff
+    recorded
   );
 
   await finishRun(run, "SUCCEEDED", { processed: applied.count, failed: 0 });
@@ -292,6 +356,6 @@ export async function runTermTransition(input: TermTransitionInput): Promise<Ter
   // rather than being invented here — GIS is the authority.
   await runSyncRoles(90);
 
-  logger.warn("term-transition applied", { ...diff, applied: applied.count });
+  logger.warn("term-transition applied", { ...recorded, applied: applied.count });
   return { ...diff, applied: applied.count };
 }

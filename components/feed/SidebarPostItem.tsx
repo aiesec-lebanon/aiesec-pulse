@@ -26,6 +26,7 @@ export function SidebarPostItem({ post, index }: { post: FeedPost; index?: numbe
         {post.mediaUrl ? (
           <Image
             src={post.mediaUrl}
+            unoptimized
             alt=""
             fill
             className="object-cover transition-transform duration-[calc(var(--dur-scene)*var(--motion-scale))] ease-[var(--ease-out-expo)] group-hover:scale-[calc(1+0.08*var(--motion-travel))]"

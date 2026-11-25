@@ -1,73 +1,98 @@
-import { afterEach, describe, expect, it } from "vitest";
+import sharp from "sharp";
+import { describe, expect, it } from "vitest";
 
-import { mediaUrl, publicStorageBase } from "@/lib/feed";
+import { mediaUrl } from "@/lib/feed";
+import { mediaKey } from "@/lib/media";
+import { detectImageFormat, isServableKey, stripImageMetadata } from "@/lib/storage";
 
-/**
- * SUPABASE_URL is the S3 upload endpoint, not the public object origin —
- * concatenating them 404s every cover image. Worth pinning in a unit test.
- */
-const ORIGINAL = { url: process.env.SUPABASE_URL, publicUrl: process.env.SUPABASE_PUBLIC_URL };
-
-afterEach(() => {
-  process.env.SUPABASE_URL = ORIGINAL.url;
-  process.env.SUPABASE_PUBLIC_URL = ORIGINAL.publicUrl;
-});
-
-function configure(supabaseUrl?: string, publicUrl?: string) {
-  if (supabaseUrl === undefined) delete process.env.SUPABASE_URL;
-  else process.env.SUPABASE_URL = supabaseUrl;
-  if (publicUrl === undefined) delete process.env.SUPABASE_PUBLIC_URL;
-  else process.env.SUPABASE_PUBLIC_URL = publicUrl;
-}
-
-describe("publicStorageBase", () => {
-  it("derives the public origin from the S3 storage endpoint", () => {
-    configure("https://abcdef.storage.supabase.co/storage/v1/s3");
-    expect(publicStorageBase()).toBe("https://abcdef.supabase.co/storage/v1/object/public");
-  });
-
-  it("accepts a plain project URL", () => {
-    configure("https://abcdef.supabase.co");
-    expect(publicStorageBase()).toBe("https://abcdef.supabase.co/storage/v1/object/public");
-  });
-
-  it("tolerates a trailing slash", () => {
-    configure("https://abcdef.storage.supabase.co/storage/v1/s3/");
-    expect(publicStorageBase()).toBe("https://abcdef.supabase.co/storage/v1/object/public");
-  });
-
-  it("lets an explicit override win, for a custom domain or self-hosting", () => {
-    configure("https://abcdef.storage.supabase.co/storage/v1/s3", "https://media.aiesec.org");
-    expect(publicStorageBase()).toBe("https://media.aiesec.org/storage/v1/object/public");
-  });
-
-  it("returns null when storage is unconfigured, rather than a broken URL", () => {
-    configure(undefined);
-    expect(publicStorageBase()).toBeNull();
-  });
-});
-
+// The bucket is private: every image must go through the members-only route,
+// never straight to storage, or it stops loading once the bucket is closed.
 describe("mediaUrl", () => {
-  it("builds a public object URL from a bucket and key", () => {
-    configure("https://abcdef.storage.supabase.co/storage/v1/s3");
+  it("points at the members-only media route", () => {
     expect(mediaUrl({ bucket: "post-media", path: "abc/photo.png" })).toBe(
-      "https://abcdef.supabase.co/storage/v1/object/public/post-media/abc/photo.png"
+      "/api/media/post-media/abc/photo.png"
     );
   });
 
-  it("never doubles the storage path segment", () => {
-    configure("https://abcdef.storage.supabase.co/storage/v1/s3");
-    const url = mediaUrl({ bucket: "post-media", path: "a.png" })!;
-    expect(url.match(/storage\/v1/g)).toHaveLength(1);
+  it("rewrites a legacy public storage URL to the route", () => {
+    const legacy =
+      "https://abcdef.supabase.co/storage/v1/object/public/post-media/1b2c-My%20Photo.jpg";
+    expect(mediaUrl({ bucket: "post-media", path: legacy })).toBe(
+      "/api/media/post-media/1b2c-My%20Photo.jpg"
+    );
   });
 
-  it("passes through a row that still holds a full URL", () => {
-    configure("https://abcdef.storage.supabase.co/storage/v1/s3");
+  it("encodes each key segment", () => {
+    expect(mediaUrl({ bucket: "post-media", path: "a b/c#d.png" })).toBe(
+      "/api/media/post-media/a%20b/c%23d.png"
+    );
+  });
+
+  it("passes through a URL that points somewhere else entirely", () => {
     const absolute = "https://cdn.example.org/legacy.jpg";
     expect(mediaUrl({ bucket: "post-media", path: absolute })).toBe(absolute);
   });
 
   it("returns null for a post with no cover", () => {
     expect(mediaUrl(null)).toBeNull();
+  });
+});
+
+describe("mediaKey", () => {
+  it("reads the key out of a media-route URL", () => {
+    expect(mediaKey("post-media", "https://pulse.example/api/media/post-media/x.jpg")).toBe(
+      "x.jpg"
+    );
+  });
+});
+
+describe("isServableKey", () => {
+  it("serves ordinary and legacy keys", () => {
+    expect(isServableKey("0f8c.jpg")).toBe(true);
+    expect(isServableKey("0f8c-Team photo (1) & co.jpg")).toBe(true);
+  });
+
+  it("refuses traversal, absolute paths and unfinished uploads", () => {
+    expect(isServableKey("../secret")).toBe(false);
+    expect(isServableKey("a/../../b")).toBe(false);
+    expect(isServableKey("/etc/passwd")).toBe(false);
+    expect(isServableKey("incoming/0f8c")).toBe(false);
+    expect(isServableKey("")).toBe(false);
+  });
+});
+
+describe("detectImageFormat", () => {
+  it("trusts the bytes, not the declared type", async () => {
+    const png = await sharp({
+      create: { width: 2, height: 2, channels: 3, background: "#0a7cd4" },
+    })
+      .png()
+      .toBuffer();
+    expect(detectImageFormat(png)).toBe("png");
+    expect(detectImageFormat(new TextEncoder().encode("<svg></svg>"))).toBeNull();
+  });
+});
+
+describe("stripImageMetadata", () => {
+  it("removes EXIF (including GPS) and applies the orientation to the pixels", async () => {
+    // 4x2 image tagged "rotate 90°" with a camera EXIF block.
+    const tagged = await sharp({
+      create: { width: 4, height: 2, channels: 3, background: "#ffffff" },
+    })
+      .jpeg()
+      .withMetadata({
+        orientation: 6,
+        exif: { IFD0: { Artist: "Jane Doe", Copyright: "GPS 33.9N" } },
+      })
+      .toBuffer();
+    expect((await sharp(tagged).metadata()).exif).toBeDefined();
+
+    const { data, width, height } = await stripImageMetadata(tagged, "jpeg");
+    const meta = await sharp(data).metadata();
+
+    expect(meta.exif).toBeUndefined();
+    expect(meta.orientation).toBeUndefined();
+    expect(data.includes(Buffer.from("Jane Doe"))).toBe(false);
+    expect([width, height]).toEqual([2, 4]);
   });
 });

@@ -25,6 +25,7 @@ import { InsertImageDialog } from "@/components/editor/InsertImageDialog";
 import { InsertLinkDialog } from "@/components/editor/InsertLinkDialog";
 import { PulseImageNode } from "@/components/editor/PulseImageNode";
 import { isSafeHref, type PulseDocument, sanitiseDocument } from "@/lib/content/document";
+import { uploadImage } from "@/lib/upload-client";
 
 // Extensions here must match lib/content/document.ts's allowlist — a
 // node/mark left enabled but off the toolbar could still slip in via a
@@ -195,26 +196,7 @@ function Toolbar({ editor, disabled }: { editor: Editor; disabled: boolean }) {
 
     setIsUploading(true);
     try {
-      const signRes = await fetch("/api/storage/sign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
-      });
-      if (!signRes.ok) {
-        const err = (await signRes.json()) as { error?: string };
-        throw new Error(err.error ?? "Could not start upload.");
-      }
-      const { uploadUrl, publicUrl } = (await signRes.json()) as {
-        uploadUrl: string;
-        publicUrl: string;
-      };
-
-      const putRes = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!putRes.ok) throw new Error("Upload to storage failed. Please try again.");
+      const publicUrl = await uploadImage(file);
 
       // mediaId is a placeholder (the storage URL) until submit, when
       // materializeInlineImages turns it into a real Media id;

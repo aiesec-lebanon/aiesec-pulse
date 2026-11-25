@@ -4,15 +4,20 @@ import { jwtVerify, SignJWT } from "jose";
 import { cookies } from "next/headers";
 
 import { cacheDelete, cacheGet, cacheKeys, cacheSet } from "@/lib/cache";
+import { COOKIE_NAMES } from "@/lib/cookie-policy";
 import { hashIp } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
-export const SESSION_COOKIE = "pulse_session";
+export const SESSION_COOKIE = COOKIE_NAMES.session;
 
+// Absolute cap, plus an idle limit: a session nobody has used for a week ends,
+// so a leaver's forgotten device stops working without waiting a month.
 const SESSION_TTL_DAYS = 30;
 const SESSION_TTL_SECONDS = SESSION_TTL_DAYS * 24 * 60 * 60;
+export const SESSION_IDLE_DAYS = 7;
+const SESSION_IDLE_MS = SESSION_IDLE_DAYS * 24 * 60 * 60 * 1000;
 
 const TOUCH_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -73,7 +78,12 @@ async function verifySessionToken(token: string): Promise<SessionClaims | null> 
   }
 }
 
-type SessionState = { userId: string; expiresAtMs: number; revoked: boolean };
+type SessionState = {
+  userId: string;
+  expiresAtMs: number;
+  lastSeenAtMs: number;
+  revoked: boolean;
+};
 
 async function sessionState(jti: string): Promise<SessionState | null> {
   const key = cacheKeys.session(jti);
@@ -82,13 +92,14 @@ async function sessionState(jti: string): Promise<SessionState | null> {
 
   const row = await db.session.findUnique({
     where: { id: jti },
-    select: { userId: true, expiresAt: true, revokedAt: true },
+    select: { userId: true, expiresAt: true, lastSeenAt: true, revokedAt: true },
   });
   if (!row) return null;
 
   const state: SessionState = {
     userId: row.userId,
     expiresAtMs: row.expiresAt.getTime(),
+    lastSeenAtMs: row.lastSeenAt.getTime(),
     revoked: row.revokedAt !== null,
   };
   await cacheSet(key, state, REVOCATION_TTL_SECONDS);
@@ -108,6 +119,7 @@ export async function getActiveSession(): Promise<ActiveSession | null> {
   const state = await sessionState(claims.jti);
   if (!state || state.revoked) return null;
   if (Date.now() >= state.expiresAtMs) return null;
+  if (Date.now() - state.lastSeenAtMs > SESSION_IDLE_MS) return null;
   if (state.userId !== claims.sub) {
     logger.error("Session token subject does not match the stored session", {
       sessionId: claims.jti,

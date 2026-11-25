@@ -11,6 +11,7 @@ import {
 } from "@/app/generated/prisma/enums";
 import { cached, cacheKeys } from "@/lib/cache";
 import { db } from "@/lib/db";
+import { mediaKey, mediaRouteUrl } from "@/lib/media";
 import { entityDisplayName } from "@/lib/org/display";
 import { type ScopeSet, scopeSetFor, visibilityFilter } from "@/lib/org/scope";
 import { requireSession } from "@/lib/rbac/guards";
@@ -58,31 +59,14 @@ type FeedRow = {
   topics: Array<{ topic: { slug: string; name: string; kind: TopicKind } }>;
 };
 
-// SUPABASE_URL is the S3 endpoint for uploads; public objects live on a
-// different host/path, so concatenating onto it 404s every image.
-export function publicStorageBase(): string | null {
-  const explicit = process.env.SUPABASE_PUBLIC_URL?.replace(/\/+$/, "");
-  if (explicit) return `${explicit}/storage/v1/object/public`;
-
-  const configured = process.env.SUPABASE_URL?.replace(/\/+$/, "");
-  if (!configured) return null;
-
-  const projectOrigin = configured
-    .replace(/\/storage\/v1\/s3$/, "")
-    .replace(/\.storage\.supabase\.co$/, ".supabase.co");
-
-  return `${projectOrigin}/storage/v1/object/public`;
-}
-
-// A row whose key could not be parsed during the backfill still holds a
-// full URL, and is returned untouched.
+// Always the members-only media route: the bucket is private, so a direct
+// storage URL would not load. A row that holds a URL to somewhere else
+// entirely is returned untouched.
 export function mediaUrl(cover: { bucket: string; path: string } | null): string | null {
   if (!cover) return null;
-  if (/^https?:\/\//.test(cover.path)) return cover.path;
-
-  const base = publicStorageBase();
-  if (!base) return null;
-  return `${base}/${cover.bucket}/${cover.path}`;
+  const key = mediaKey(cover.bucket, cover.path);
+  if (key === null) return cover.path;
+  return mediaRouteUrl(cover.bucket, key);
 }
 
 function toFeedPost(row: FeedRow, entityFollowStates: Map<string, FollowState>): FeedPost {

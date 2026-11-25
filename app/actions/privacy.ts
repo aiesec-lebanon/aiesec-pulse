@@ -86,15 +86,68 @@ export async function advanceRequest(
     { type: "data_subject_request", id: requestId },
     { kind: request.kind, notes },
     async () => {
+      const closing = status === "COMPLETED" || status === "REFUSED";
       await db.dataSubjectRequest.update({
         where: { id: requestId },
         data: {
           status,
           notes,
           handledById: null,
-          completedAt: status === "COMPLETED" || status === "REFUSED" ? new Date() : null,
+          completedAt: closing ? new Date() : null,
+          // The contact address is only needed while the request is open.
+          ...(closing ? { email: null } : {}),
         },
       });
+      revalidatePath("/admin/privacy");
+      return { ok: true as const };
+    }
+  );
+}
+
+// A message from the public contact form arrives unlinked; once the sender's
+// identity is checked, linking it lets erasure and export act on the account.
+export async function linkRequestToAccount(
+  requestId: string,
+  identifier: string
+): Promise<PrivacyResult> {
+  const authorised = await checkAdmin();
+  if (!authorised.ok) return { ok: false, error: authorised.error };
+
+  const lookup = identifier.trim().slice(0, 320);
+  if (!lookup) return { ok: false, error: "Enter the member's email or EXPA ID." };
+
+  const request = await db.dataSubjectRequest.findUnique({
+    where: { id: requestId },
+    select: { userId: true, status: true },
+  });
+  if (!request) return { ok: false, error: "Request not found." };
+  if (request.userId) return { ok: false, error: "This request is already linked to an account." };
+  if (request.status === "COMPLETED" || request.status === "REFUSED") {
+    return { ok: false, error: "This request is closed." };
+  }
+
+  const matches = await db.user.findMany({
+    where: lookup.includes("@")
+      ? { email: { equals: lookup, mode: "insensitive" } }
+      : { aiesecPersonId: lookup },
+    select: { id: true },
+    take: 2,
+  });
+  if (matches.length === 0) {
+    return { ok: false, error: "No Pulse account matches that email or EXPA ID." };
+  }
+  if (matches.length > 1) {
+    return { ok: false, error: "More than one account uses that email. Use the EXPA ID instead." };
+  }
+  const userId = matches[0].id;
+
+  return withAudit(
+    adminActor(authorised.admin),
+    "dsr.linked",
+    { type: "data_subject_request", id: requestId },
+    { userId },
+    async () => {
+      await db.dataSubjectRequest.update({ where: { id: requestId }, data: { userId } });
       revalidatePath("/admin/privacy");
       return { ok: true as const };
     }
@@ -131,6 +184,7 @@ export async function executeErasureRequest(
       status: "COMPLETED",
       completedAt: new Date(),
       handledById: null,
+      email: null,
       notes: `Erasure executed with content election: ${choice}.`,
     },
   });

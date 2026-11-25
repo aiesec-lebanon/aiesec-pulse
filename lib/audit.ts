@@ -11,6 +11,11 @@ import { logger, newCorrelationId } from "@/lib/logger";
 // Action runs first; the audit write happens only after it succeeds, so a
 // failed action never gets an audit row. A failed write is only logged.
 
+/** Target type of a refused first sign-in; the id is a keyed reference, not a GIS id. */
+export const REFUSED_SIGN_IN_TARGET = "gis_person_ref";
+/** Legacy target type that held the raw GIS id; rewritten by the retention sweep. */
+export const LEGACY_REFUSED_SIGN_IN_TARGET = "gis_person";
+
 export type AuditActor = {
   type: ActorType;
   id?: string | null;

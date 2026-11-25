@@ -1,9 +1,11 @@
 // Lives outside app/actions/feed-preferences.ts: a "use server" module may
 // only export async functions, so a runtime constant can't live there.
 
+import { COOKIE_NAMES } from "@/lib/cookie-policy";
+
 export type FeedMode = "latest" | "for-you";
 
-export const FEED_MODE_COOKIE = "pulse_feed_mode";
+export const FEED_MODE_COOKIE = COOKIE_NAMES.feedMode;
 
 // "For You" is the default once ranking is available: the feed is
 // personalised by default, with Latest as the explicit escape hatch.

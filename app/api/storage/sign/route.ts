@@ -5,7 +5,7 @@ import { logger } from "@/lib/logger";
 import { checkRateLimit, retryMessage } from "@/lib/rate-limit";
 import { checkPermission } from "@/lib/rbac/guards";
 import { isSameOrigin } from "@/lib/request";
-import { getSignedUploadUrl } from "@/lib/storage";
+import { getSignedUploadUrl, UploadError } from "@/lib/storage";
 
 // Hands out bucket write access, hence the permission check, per-user rate
 // limit, and origin check that Route Handlers do not get for free.
@@ -40,20 +40,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { filename, contentType, size } = body as Record<string, unknown>;
-  if (typeof filename !== "string" || typeof contentType !== "string" || typeof size !== "number") {
-    return NextResponse.json(
-      { error: "filename, contentType, and size are required" },
-      { status: 400 }
-    );
+  // The filename is no longer accepted: objects are named by a random id.
+  const { contentType, size } = body as Record<string, unknown>;
+  if (typeof contentType !== "string" || typeof size !== "number") {
+    return NextResponse.json({ error: "contentType and size are required" }, { status: 400 });
   }
 
   try {
-    const result = await getSignedUploadUrl(filename, contentType, size);
+    const result = await getSignedUploadUrl(contentType, size);
     return NextResponse.json(result);
   } catch (error) {
     logger.warn("Signed upload refused", { userId: authorised.user.id, contentType, size, error });
-    const message = error instanceof Error ? error.message : "Upload failed";
+    const message = error instanceof UploadError ? error.message : "Upload failed";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

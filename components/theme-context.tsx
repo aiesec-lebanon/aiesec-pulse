@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 
+import { STORAGE_KEYS } from "@/lib/cookie-policy";
+
 type Theme = "light" | "dark" | "system";
 type Resolved = "light" | "dark";
 
@@ -20,7 +22,7 @@ const Ctx = createContext<ThemeCtx>({
 export const useTheme = () => useContext(Ctx);
 
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
-const STORAGE_KEY = "theme";
+const STORAGE_KEY = STORAGE_KEYS.theme;
 const LOCAL_CHANGE_EVENT = "pulse:theme-change";
 
 function readStored(): Theme {

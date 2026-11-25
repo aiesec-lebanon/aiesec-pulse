@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { adminLogout } from "@/app/actions/admin-auth";
+import { adminLogout, adminSignOutEverywhere } from "@/app/actions/admin-auth";
 
 const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/admin/activity", label: "Publishing activity" },
@@ -126,6 +126,7 @@ export function AdminShell({ adminEmail, children }: AdminShellProps) {
             {userName}
           </p>
           <AdminNavList items={items} onNavigate={() => setSidebarOpen(false)} />
+          <SignOutEverywhere />
         </nav>
 
         <nav
@@ -133,11 +134,29 @@ export function AdminShell({ adminEmail, children }: AdminShellProps) {
           className="hidden w-60 flex-shrink-0 flex-col border-r border-[var(--hairline)] bg-[var(--card)] py-4 md:flex"
         >
           <AdminNavList items={items} />
+          <SignOutEverywhere />
         </nav>
 
         <div className="min-w-0 flex-1 overflow-auto">{children}</div>
       </div>
     </div>
+  );
+}
+
+// For handovers and suspected leaks: ends every admin session, on every device.
+function SignOutEverywhere() {
+  return (
+    <form
+      action={adminSignOutEverywhere}
+      className="mt-auto border-t border-[var(--hairline)] px-4 pt-4"
+    >
+      <button
+        type="submit"
+        className="pulse-underline min-h-[44px] rounded-[var(--radius-sm)] text-left text-[14px] font-medium text-[color:var(--muted-foreground)] transition-colors hover:text-[color:var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+      >
+        Sign out all admin sessions
+      </button>
+    </form>
   );
 }
 

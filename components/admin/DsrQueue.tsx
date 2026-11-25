@@ -3,8 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { advanceRequest, executeErasureRequest } from "@/app/actions/privacy";
+import { advanceRequest, executeErasureRequest, linkRequestToAccount } from "@/app/actions/privacy";
 import { Pill } from "@/components/ui/Pill";
+import { replyMailto } from "@/lib/privacy/contact";
 import type { ErasureChoice } from "@/lib/privacy/dsr";
 
 export type DsrRow = {
@@ -14,6 +15,8 @@ export type DsrRow = {
   subjectName: string;
   subjectEmail: string | null;
   subjectStatus: string | null;
+  linked: boolean;
+  replyEmail: string | null;
   receivedAt: string;
   dueAt: string;
   overdue: boolean;
@@ -43,6 +46,62 @@ function formatDate(iso: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+const FIELD =
+  "min-h-[36px] w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[15px] text-[color:var(--foreground)] focus:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]";
+
+function LinkAccountForm({ row }: { row: DsrRow }) {
+  const router = useRouter();
+  const [identifier, setIdentifier] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const inputId = `link-${row.id}`;
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      const result = await linkRequestToAccount(row.id, identifier);
+      if (result.ok) router.refresh();
+      else setError(result.error);
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-3 flex flex-col gap-1.5">
+      <label htmlFor={inputId} className="text-[13px] font-medium text-[color:var(--foreground)]">
+        Once you have confirmed who sent this, link it to their account (Pulse email or EXPA ID)
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <input
+          id={inputId}
+          type="text"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          autoComplete="off"
+          className={`${FIELD} max-w-[320px] flex-1`}
+          aria-describedby={error ? `${inputId}-error` : undefined}
+        />
+        <button
+          type="submit"
+          disabled={pending}
+          className="aiesec-btn-secondary min-h-[36px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] disabled:opacity-50"
+        >
+          {pending ? "Linking…" : "Link account"}
+        </button>
+      </div>
+      {error && (
+        <p
+          id={`${inputId}-error`}
+          role="alert"
+          className="text-[13px] text-[color:var(--destructive-text)]"
+        >
+          {error}
+        </p>
+      )}
+    </form>
+  );
 }
 
 // Erasure is irreversible and the content election is the subject’s, so the
@@ -166,6 +225,11 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
                     {row.subjectEmail}
                   </p>
                 )}
+                {!row.linked && (
+                  <p className="text-[13px] text-[color:var(--muted-foreground)]">
+                    Not linked to an account
+                  </p>
+                )}
               </div>
 
               <div className="shrink-0 text-right text-[13px]">
@@ -188,9 +252,13 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
             </div>
 
             {row.notes && (
-              <p className="mt-2 text-[13px] leading-[1.5] text-[color:var(--muted-foreground)]">
+              <p className="mt-2 whitespace-pre-wrap break-words text-[13px] leading-[1.5] text-[color:var(--muted-foreground)]">
                 {row.notes}
               </p>
+            )}
+
+            {row.status !== "COMPLETED" && row.status !== "REFUSED" && !row.linked && (
+              <LinkAccountForm row={row} />
             )}
 
             {row.status !== "COMPLETED" && row.status !== "REFUSED" && (
@@ -235,6 +303,14 @@ export function DsrQueue({ rows }: { rows: DsrRow[] }) {
                 >
                   Refuse
                 </button>
+                {row.replyEmail && (
+                  <a
+                    href={replyMailto(row.replyEmail, row.notes)}
+                    className="aiesec-btn-secondary inline-flex min-h-[36px] items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  >
+                    Reply by email
+                  </a>
+                )}
               </div>
             )}
           </article>

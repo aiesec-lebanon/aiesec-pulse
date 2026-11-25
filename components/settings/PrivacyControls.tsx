@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -17,6 +18,7 @@ type OpenRequest = {
 const REQUEST_KINDS = [
   { value: "RECTIFICATION", label: "Correct something that's wrong" },
   { value: "ERASURE", label: "Erase my data" },
+  { value: "RESTRICTION", label: "Pause the use of my data while something is checked" },
   { value: "OBJECTION", label: "Object to how my data is used" },
   { value: "ACCESS", label: "Ask what you hold about me" },
 ] as const;
@@ -83,8 +85,9 @@ export function PrivacyControls({
           Download your data
         </h2>
         <p className="text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
-          A machine-readable copy of your profile, posts, comments, reactions, bookmarks, reading
-          history, notifications and sessions.
+          A machine-readable copy of your profile, roles, posts and their earlier versions,
+          comments, reactions, bookmarks, follows, images, notifications, sessions and privacy
+          requests.
         </p>
         <button
           type="button"
@@ -104,7 +107,15 @@ export function PrivacyControls({
           Make a request
         </h2>
         <p className="text-[15px] leading-[1.6] text-[color:var(--muted-foreground)]">
-          Requests are handled by AIESEC International as data controller, within {slaDays} days.
+          Requests go to the AIESEC in Lebanon Data Protection Officer and are answered within{" "}
+          {slaDays} days. For a question or a complaint, use the{" "}
+          <Link
+            href="/legal/privacy#contact"
+            className="pulse-link rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          >
+            contact form
+          </Link>{" "}
+          in the privacy notice.
         </p>
 
         {openRequests.length > 0 && (
@@ -178,8 +189,9 @@ export function PrivacyControls({
           {kind === "ERASURE" && (
             <p className="rounded-[var(--radius-md)] border border-[var(--destructive)]/30 bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))] px-4 py-3 text-[14px] leading-[1.5] text-[color:var(--destructive-text)]">
               Erasure is permanent. You&apos;ll be asked whether your posts and comments should stay
-              published under &ldquo;Former member&rdquo; or be removed. Records of moderation
-              decisions are kept for seven years with your identity removed.
+              published under &ldquo;Former member&rdquo; or be removed. Records we must keep, such
+              as the audit log, stay for their retention period with your name replaced by a random
+              pseudonym.
             </p>
           )}
 

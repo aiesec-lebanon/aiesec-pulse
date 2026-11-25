@@ -123,6 +123,7 @@ function renderBlock(
           <span className="block overflow-hidden rounded-[var(--radius-lg)]">
             <Image
               src={url}
+              unoptimized
               alt={node.attrs.alt}
               width={720}
               height={405}

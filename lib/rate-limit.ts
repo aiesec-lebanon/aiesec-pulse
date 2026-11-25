@@ -8,7 +8,8 @@ export type LimitName =
   | "comment"
   | "report"
   | "upload"
-  | "readBeacon";
+  | "readBeacon"
+  | "privacyContact";
 
 const LIMITS: Record<LimitName, { max: number; windowSeconds: number; by: "ip" | "user" }> = {
   auth: { max: 10, windowSeconds: 15 * 60, by: "ip" },
@@ -24,6 +25,7 @@ const LIMITS: Record<LimitName, { max: number; windowSeconds: number; by: "ip" |
   report: { max: 20, windowSeconds: 60 * 60, by: "user" },
   upload: { max: 20, windowSeconds: 60 * 60, by: "user" },
   readBeacon: { max: 60, windowSeconds: 60, by: "user" },
+  privacyContact: { max: 5, windowSeconds: 60 * 60, by: "ip" },
 };
 
 export type RateLimitResult = {

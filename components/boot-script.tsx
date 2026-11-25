@@ -1,3 +1,5 @@
+import { STORAGE_KEYS } from "@/lib/cookie-policy";
+
 /**
  * Sets theme + motion on <html> pre-paint to avoid a flash. Emitted by the
  * root layout directly, not useServerInsertedHTML, which re-emits on every
@@ -8,7 +10,7 @@
  * there's no standalone Motion toggle, but an explicit opt-in still beats
  * the OS, so "full" is written rather than just cleared.
  */
-const BOOT = `try{var d=document.documentElement,t=localStorage.getItem("theme");if(t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme:dark)").matches)){d.classList.add("dark")}var m=localStorage.getItem("pulse-motion");d.setAttribute("data-motion",(m==="reduced"||(m!=="full"&&window.matchMedia("(prefers-reduced-motion:reduce)").matches))?"reduced":"full")}catch(e){document.documentElement.setAttribute("data-motion","full")}`;
+const BOOT = `try{var d=document.documentElement,t=localStorage.getItem(${JSON.stringify(STORAGE_KEYS.theme)});if(t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme:dark)").matches)){d.classList.add("dark")}var m=localStorage.getItem(${JSON.stringify(STORAGE_KEYS.motion)});d.setAttribute("data-motion",(m==="reduced"||(m!=="full"&&window.matchMedia("(prefers-reduced-motion:reduce)").matches))?"reduced":"full")}catch(e){document.documentElement.setAttribute("data-motion","full")}`;
 
 export function BootScript({ nonce }: { nonce?: string }) {
   return (

@@ -100,6 +100,7 @@ export function CoverLightbox({
             >
               <Image
                 src={src}
+                unoptimized
                 alt={alt}
                 width={1600}
                 height={1067}

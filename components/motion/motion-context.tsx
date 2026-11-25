@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 
+import { STORAGE_KEYS } from "@/lib/cookie-policy";
+
 /**
  * "full" is default until the OS prefers-reduced-motion signal or an
  * explicit choice overrides it — no standalone Motion button exists, so
@@ -23,7 +25,7 @@ const Ctx = createContext<MotionCtx>({ motion: "full", setMotion: () => {}, from
 
 export const useMotion = () => useContext(Ctx);
 
-export const MOTION_STORAGE_KEY = "pulse-motion";
+export const MOTION_STORAGE_KEY = STORAGE_KEYS.motion;
 export const MOTION_ATTRIBUTE = "data-motion";
 const LOCAL_CHANGE_EVENT = "pulse:motion-change";
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";

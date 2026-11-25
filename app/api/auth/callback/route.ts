@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { recordAudit, systemActor, userActor } from "@/lib/audit";
+import { recordAudit, REFUSED_SIGN_IN_TARGET, systemActor, userActor } from "@/lib/audit";
 import { syncIdentityFromGis } from "@/lib/auth/identity";
 import { completeHandshake } from "@/lib/auth/oauth";
 import {
@@ -10,6 +10,7 @@ import {
   sessionCookieAttributes,
 } from "@/lib/auth/session";
 import { exchangeCode, storeTokens } from "@/lib/auth/token-store";
+import { pseudonymousRef } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { clientIp, userAgent } from "@/lib/request";
@@ -71,7 +72,9 @@ export async function GET(request: NextRequest) {
     const person = await fetchCurrentPerson(tokens.accessToken);
 
     if (!isPersonAllowed(person)) {
-      logger.info("Sign-in refused by the access policy", { aiesecPersonId: person.id });
+      logger.info("Sign-in refused by the access policy", {
+        personRef: pseudonymousRef("log", person.id),
+      });
       return failure(baseUrl, "not_permitted");
     }
 
@@ -85,9 +88,11 @@ export async function GET(request: NextRequest) {
       await recordAudit(
         systemActor("auth"),
         "auth.sign_in_refused",
-        // No Pulse account exists for a first-time refusal, so the GIS person
-        // is the only identifier the record can carry.
-        user ? { type: "user", id: user.id } : { type: "gis_person", id: person.id },
+        // No Pulse account exists for a first-time refusal: the record carries a
+        // keyed reference, never the raw GIS id, and is swept after 90 days.
+        user
+          ? { type: "user", id: user.id }
+          : { type: REFUSED_SIGN_IN_TARGET, id: pseudonymousRef("refused-sign-in", person.id) },
         {
           reason: "No GIS position resolved to a Pulse role",
           deniedReasons: denied.map((d) => d.reason),

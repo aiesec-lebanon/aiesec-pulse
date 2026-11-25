@@ -1,5 +1,15 @@
-import { jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { type NextRequest, NextResponse } from "next/server";
+
+import {
+  ADMIN_MAX_SECONDS,
+  ADMIN_REFRESH_AFTER_SECONDS,
+  ADMIN_SESSION_AUDIENCE,
+  ADMIN_SESSION_COOKIE,
+  ADMIN_SESSION_ISSUER,
+  adminTokenExpiry,
+} from "@/lib/auth/admin-policy";
+import { COOKIE_NAMES } from "@/lib/cookie-policy";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -11,8 +21,7 @@ const PUBLIC_PREFIXES = [
   "/api/cron",
 ];
 
-const SESSION_COOKIE = "pulse_session";
-const ADMIN_SESSION_COOKIE = "pulse_admin_session";
+const SESSION_COOKIE = COOKIE_NAMES.session;
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -29,6 +38,51 @@ async function verifies(token: string, rawSecret: string | undefined, audience: 
     return true;
   } catch {
     return false;
+  }
+}
+
+type AdminTokenCheck =
+  | { valid: false }
+  | { valid: true; refreshed: { token: string; maxAge: number } | null };
+
+// Signature, idle expiry and the hard cap only; revocation and the credential
+// binding are checked by the page guards, which can reach the database.
+async function checkAdminToken(
+  token: string,
+  rawSecret: string | undefined
+): Promise<AdminTokenCheck> {
+  if (!rawSecret || rawSecret.length < 32) return { valid: false };
+  const key = new TextEncoder().encode(rawSecret);
+  try {
+    const { payload } = await jwtVerify(token, key, {
+      issuer: ADMIN_SESSION_ISSUER,
+      audience: ADMIN_SESSION_AUDIENCE,
+      algorithms: ["HS256"],
+    });
+    const now = Math.floor(Date.now() / 1000);
+    const signedInAt = payload.sat;
+    if (typeof signedInAt !== "number" || now >= signedInAt + ADMIN_MAX_SECONDS) {
+      return { valid: false };
+    }
+    if (typeof payload.iat === "number" && now - payload.iat < ADMIN_REFRESH_AFTER_SECONDS) {
+      return { valid: true, refreshed: null };
+    }
+    // Sliding idle window: activity pushes expiry out, never past the hard cap.
+    const refreshed = await new SignJWT({ sat: signedInAt, cfp: payload.cfp })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setSubject(String(payload.sub))
+      .setJti(String(payload.jti))
+      .setIssuedAt(now)
+      .setIssuer(ADMIN_SESSION_ISSUER)
+      .setAudience(ADMIN_SESSION_AUDIENCE)
+      .setExpirationTime(adminTokenExpiry(signedInAt, now))
+      .sign(key);
+    return {
+      valid: true,
+      refreshed: { token: refreshed, maxAge: signedInAt + ADMIN_MAX_SECONDS - now },
+    };
+  } catch {
+    return { valid: false };
   }
 }
 
@@ -92,11 +146,21 @@ export async function proxy(request: NextRequest) {
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   if (isAdminArea) {
     const adminToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
-    if (
-      adminToken &&
-      (await verifies(adminToken, process.env.ADMIN_SESSION_SECRET, "aiesec-pulse-admin"))
-    ) {
-      return proceed();
+    if (adminToken) {
+      const check = await checkAdminToken(adminToken, process.env.ADMIN_SESSION_SECRET);
+      if (check.valid) {
+        const response = proceed();
+        if (check.refreshed) {
+          response.cookies.set(ADMIN_SESSION_COOKIE, check.refreshed.token, {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: isProd,
+            path: "/",
+            maxAge: check.refreshed.maxAge,
+          });
+        }
+        return response;
+      }
     }
   }
 

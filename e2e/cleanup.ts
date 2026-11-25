@@ -92,6 +92,21 @@ async function purge(db: Db): Promise<PurgeSummary> {
   });
   const entityIds = entities.map((entity) => entity.id);
 
+  // No FK either: the suite's requests are linked to its accounts or carry the
+  // reserved reply domain the privacy spec writes with.
+  const requestIds = (
+    await db.dataSubjectRequest.findMany({
+      where: { OR: [{ userId: { in: userIds } }, { email: { endsWith: "@e2e.invalid" } }] },
+      select: { id: true },
+    })
+  ).map((request) => request.id);
+  if (requestIds.length > 0) {
+    await db.auditEvent.deleteMany({
+      where: { targetType: "data_subject_request", targetId: { in: requestIds } },
+    });
+    await db.dataSubjectRequest.deleteMany({ where: { id: { in: requestIds } } });
+  }
+
   if (userIds.length === 0 && entityIds.length === 0) {
     return { users: 0, posts: 0, entities: 0, auditEvents: 0 };
   }
